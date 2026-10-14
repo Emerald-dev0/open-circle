@@ -1,0 +1,239 @@
+import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../shared/brand.js";
+import { compareStanding, DEFAULT_WEIGHTS, scoreOf } from "../shared/ranking.js";
+import type { Board, GithubStats, Preview, PublicMember, RegisterResult } from "../shared/types.js";
+import { parseGithubInput, parseNickname, parseNigerianNumber } from "../shared/validation.js";
+import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
+import { HttpError } from "./http.js";
+import type { AppConfig, MemberRecord, Store } from "./store.js";
+
+const REFRESH_EVERY_MS = 60_000;
+// Held for this long after a failed refresh, so a rate-limited GitHub isn't retried on every poll.
+const REFRESH_LOCK_S = 50;
+// With more members than this, each tick refreshes the stalest ones and the rest wait their turn.
+const REFRESH_LIMIT = 48;
+// Arrows show places gained or lost over (roughly) the last day.
+const MOVEMENT_WINDOW_MS = 24 * 3_600_000;
+const NEW_WINDOW_MS = 24 * 3_600_000;
+
+export async function loadConfig(store: Store): Promise<AppConfig> {
+  const saved = await store.getConfig();
+  return {
+    invite: { url: DEFAULT_INVITE_URL, open: true, note: DEFAULT_INVITE_NOTE, ...saved?.invite },
+    weights: { ...DEFAULT_WEIGHTS, ...saved?.weights },
+  };
+}
+
+function statsFields(stats: GithubStats): Partial<MemberRecord> {
+  return {
+    displayLogin: stats.login,
+    name: stats.name,
+    avatarUrl: stats.avatarUrl,
+    stars: stats.stars,
+    followers: stats.followers,
+    repos: stats.repos,
+    activity: stats.activity,
+  };
+}
+
+/** Ranks every visible member, records rank movement, and writes the public snapshot. */
+export async function rebuildBoard(
+  store: Store,
+  opts: { refreshedAt?: number; statsDelayed?: boolean } = {},
+): Promise<Board> {
+  const [records, config, previous] = await Promise.all([store.listMembers(), loadConfig(store), store.getBoard()]);
+  const now = Date.now();
+
+  const ranked = records
+    .filter((m) => !m.hidden)
+    .map((m) => ({ m, score: scoreOf(m, config.weights) }))
+    .sort((a, b) => compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }));
+
+  const writes: Promise<void>[] = [];
+  const members: PublicMember[] = ranked.map(({ m, score }, i) => {
+    const rank = i + 1;
+    // prevRank is the rank a movement window started from, so three drops in
+    // an hour read as ↓3, not ↓1. Landing on the board for the first time isn't a move.
+    let { prevRank, rankChangedAt } = m;
+    if (m.rank !== rank) {
+      const windowOpen = prevRank > 0 && now - rankChangedAt < MOVEMENT_WINDOW_MS;
+      if (m.rank > 0 && !windowOpen) {
+        prevRank = m.rank;
+        rankChangedAt = now;
+      }
+      writes.push(store.patchMember(m.login, { rank, prevRank, rankChangedAt }));
+    }
+    const recent = prevRank > 0 && now - rankChangedAt < MOVEMENT_WINDOW_MS;
+    return {
+      login: m.displayLogin,
+      nickname: m.nickname,
+      avatarUrl: m.avatarUrl,
+      score,
+      stars: m.stars,
+      followers: m.followers,
+      repos: m.repos,
+      activity: m.activity,
+      rank,
+      delta: recent ? prevRank - rank : 0,
+      isNew: now - m.createdAt < NEW_WINDOW_MS,
+    };
+  });
+
+  for (const m of records) {
+    if (m.hidden && m.rank !== 0) writes.push(store.patchMember(m.login, { rank: 0, prevRank: 0, rankChangedAt: 0 }));
+  }
+  await Promise.all(writes);
+
+  const board: Board = {
+    members,
+    updatedAt: now,
+    refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
+    statsDelayed: opts.statsDelayed ?? previous?.statsDelayed ?? false,
+    invite: config.invite,
+    weights: config.weights,
+  };
+  await store.setBoard(board);
+  return board;
+}
+
+async function refreshStats(store: Store): Promise<Board> {
+  const now = Date.now();
+  const due = (await store.listMembers())
+    .filter((m) => now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
+    .sort((a, b) => a.statsUpdatedAt - b.statsUpdatedAt)
+    .slice(0, REFRESH_LIMIT);
+
+  // Only "delayed" when nothing came back. A slow batch just leaves its
+  // members stalest, so they go first on the next tick.
+  let delayed = false;
+  if (due.length > 0) {
+    const outcome = await lookupMany(due.map((m) => m.login));
+    if (outcome.error) {
+      console.warn(`GitHub refresh: ${outcome.error.code}: ${outcome.error.message}`);
+      delayed = outcome.results.size === 0;
+    }
+    await Promise.all(
+      due.map((m) => {
+        const r = outcome.results.get(m.login);
+        if (r?.kind === "user") return store.patchMember(m.login, { ...statsFields(r.stats), statsUpdatedAt: now });
+        // Renamed or deleted on GitHub: keep the last known numbers; admin can remove them.
+        if (r?.kind === "missing" || r?.kind === "organization") return store.patchMember(m.login, { statsUpdatedAt: now });
+        return Promise.resolve();
+      }),
+    );
+  }
+  return rebuildBoard(store, { refreshedAt: delayed ? undefined : now, statsDelayed: delayed });
+}
+
+async function refreshInBackground(store: Store): Promise<void> {
+  try {
+    const fresh = await refreshStats(store);
+    if (!fresh.statsDelayed) await store.unlock("refresh");
+  } catch (err) {
+    console.error("Board refresh failed", err);
+  }
+}
+
+/**
+ * The public board, always answered from the stored snapshot so the page
+ * never waits on GitHub. When stats are a minute stale, the first reader to
+ * notice kicks off a refresh; `background` keeps that work alive after the
+ * response is sent (Vercel's waitUntil), and the next poll picks it up.
+ */
+export async function readBoard(
+  store: Store,
+  background: (work: Promise<unknown>) => void = () => {},
+): Promise<Board> {
+  const board = (await store.getBoard()) ?? (await rebuildBoard(store));
+  if (Date.now() - board.refreshedAt >= REFRESH_EVERY_MS && (await store.tryLock("refresh", REFRESH_LOCK_S))) {
+    background(refreshInBackground(store));
+  }
+  return board;
+}
+
+function requireUser(lookup: Lookup, login: string): GithubStats {
+  if (lookup.kind === "user") return lookup.stats;
+  if (lookup.kind === "organization") {
+    throw new HttpError(422, "organization", `${login} is an organisation. Use your personal GitHub profile.`, "github");
+  }
+  if (lookup.kind === "missing") {
+    throw new HttpError(404, "not_found", `There's no GitHub user called ${login}. Check the spelling.`, "github");
+  }
+  throw new HttpError(503, "github_unavailable", "GitHub isn't answering right now. Try again in a minute.");
+}
+
+async function fetchUser(login: string): Promise<GithubStats> {
+  try {
+    return requireUser(await lookupOne(login), login);
+  } catch (err) {
+    if (err instanceof GithubError) {
+      console.warn(`GitHub lookup: ${err.code}: ${err.message}`);
+      throw new HttpError(503, "github_unavailable", "GitHub isn't answering right now. Try again in a minute.");
+    }
+    throw err;
+  }
+}
+
+export async function previewProfile(store: Store, input: string): Promise<Preview> {
+  const parsed = parseGithubInput(input);
+  if (!parsed.ok) throw new HttpError(400, "invalid_github", parsed.error, "github");
+  const [profile, config] = await Promise.all([fetchUser(parsed.value), loadConfig(store)]);
+  return { profile, score: scoreOf(profile, config.weights) };
+}
+
+function field(body: unknown, key: string): string {
+  const value = (body as Record<string, unknown> | null)?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+export async function register(store: Store, body: unknown): Promise<RegisterResult> {
+  const nickname = parseNickname(field(body, "nickname"));
+  if (!nickname.ok) throw new HttpError(400, "invalid_nickname", nickname.error, "nickname");
+  const github = parseGithubInput(field(body, "github"));
+  if (!github.ok) throw new HttpError(400, "invalid_github", github.error, "github");
+  const whatsapp = parseNigerianNumber(field(body, "whatsapp"));
+  if (!whatsapp.ok) throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
+
+  const existing = await store.getMember(github.value.toLowerCase());
+  if (existing) {
+    if (existing.hidden) {
+      throw new HttpError(409, "removed", "This account was taken off the board by an admin. Message the organiser.", "github");
+    }
+    // A double-submit from the same person is a success, not a conflict.
+    if (existing.whatsapp === whatsapp.value) return { login: existing.displayLogin, board: await rebuildBoard(store) };
+    throw new HttpError(409, "github_taken", "That GitHub account is already on the board.", "github");
+  }
+
+  const stats = await fetchUser(github.value);
+  const now = Date.now();
+  const record: MemberRecord = {
+    login: stats.login.toLowerCase(),
+    displayLogin: stats.login,
+    nickname: nickname.value,
+    whatsapp: whatsapp.value,
+    avatarUrl: stats.avatarUrl,
+    name: stats.name,
+    stars: stats.stars,
+    followers: stats.followers,
+    repos: stats.repos,
+    activity: stats.activity,
+    hidden: false,
+    createdAt: now,
+    statsUpdatedAt: now,
+    rank: 0,
+    prevRank: 0,
+    rankChangedAt: 0,
+  };
+
+  const created = await store.createMember(record);
+  if (!created.ok) {
+    const messages = {
+      github: ["github_taken", "That GitHub account is already on the board.", "github"],
+      whatsapp: ["whatsapp_taken", "That WhatsApp number is already registered to another member.", "whatsapp"],
+      nickname: ["nickname_taken", "Someone already has that nickname. Pick another.", "nickname"],
+    } as const;
+    const [code, message, fieldName] = messages[created.conflict];
+    throw new HttpError(409, code, message, fieldName);
+  }
+
+  return { login: record.displayLogin, board: await rebuildBoard(store) };
+}

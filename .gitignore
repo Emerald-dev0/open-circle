@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# local dev store (in-memory store persisted between restarts)
+.data
+
+.vercel
+.DS_Store
+*.log
