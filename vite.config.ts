@@ -5,17 +5,21 @@ import pkg from "./package.json";
 import { devApi } from "./server/vite-dev-api";
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, isSsrBuild }) => {
   // The dev API reads GITHUB_TOKEN, ADMIN_SECRET etc. from process.env, like Vercel does.
   const env = loadEnv(mode, process.cwd(), "");
   for (const [key, value] of Object.entries(env)) process.env[key] ??= value;
 
   return {
     plugins: [react(), devApi()],
+    // The server bundle serves dist/, so it needs no copy of public/.
+    publicDir: isSsrBuild ? false : "public",
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
-    build: {
+    // Chunk splitting is for the browser bundle only; the Node server build
+    // (pnpm build:server) keeps its dependencies external.
+    build: isSsrBuild ? {} : {
       rollupOptions: {
         output: {
           manualChunks: {

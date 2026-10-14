@@ -10,7 +10,7 @@ import { Movement } from "./movement";
 
 // Phone: rank · member · score. From md up, every column in PRD §11.3 order.
 const GRID =
-  "grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-x-3 md:gap-x-4 md:grid-cols-[2rem_minmax(0,1.4fr)_minmax(0,1fr)_4.75rem_3.75rem_4.75rem_3.25rem_3.25rem]";
+  "grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 md:gap-x-4 md:grid-cols-[2rem_minmax(0,1.4fr)_minmax(0,1fr)_4.75rem_3.75rem_4.75rem_3.25rem_3.25rem]";
 
 function Row({
   member,
@@ -34,7 +34,7 @@ function Row({
       transition={{ layout: { type: "spring", stiffness: 420, damping: 38 }, opacity: { duration: 0.25 } }}
       className={cn(
         GRID,
-        "scroll-mt-24 rounded-full px-4 py-2.5 md:px-5",
+        "scroll-mt-24 rounded-full px-3 py-2 md:px-5 md:py-2.5",
         isMe ? "bg-white/[0.09]" : index % 2 === 1 && "surface-quiet",
         flash && "animate-row-flash",
       )}
@@ -51,7 +51,7 @@ function Row({
           rel="noopener noreferrer"
           className="group flex min-w-0 items-center gap-2.5 rounded-lg"
         >
-          <Avatar className="size-8 shrink-0">
+          <Avatar className="size-7 shrink-0 sm:size-8">
             <AvatarImage src={member.avatarUrl || diceBearAvatarUrl(id)} alt="" loading="lazy" />
             <AvatarFallback className="bg-alva-card text-[10px] font-medium">
               {member.nickname.slice(0, 2).toUpperCase()}

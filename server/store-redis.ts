@@ -47,6 +47,21 @@ if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
 if count <= tonumber(ARGV[1]) then return 1 end
 return 0`;
 
+/**
+ * With automaticDeserialization off, Upstash returns HGETALL as a flat
+ * [field, value, field, value, …] array rather than an object. Accept both.
+ */
+function toHash(raw: unknown): Record<string, string> | null {
+  if (!raw) return null;
+  if (Array.isArray(raw)) {
+    if (raw.length === 0) return null;
+    const out: Record<string, string> = {};
+    for (let i = 0; i + 1 < raw.length; i += 2) out[String(raw[i])] = String(raw[i + 1]);
+    return out;
+  }
+  return raw as Record<string, string>;
+}
+
 export class RedisStore implements Store {
   private redis: Redis;
 
@@ -59,12 +74,12 @@ export class RedisStore implements Store {
     if (logins.length === 0) return [];
     const pipe = this.redis.pipeline();
     for (const login of logins) pipe.hgetall(keys.member(login));
-    const hashes = (await pipe.exec()) as (Record<string, string> | null)[];
+    const hashes = (await pipe.exec()).map(toHash);
     return hashes.filter((h): h is Record<string, string> => Boolean(h?.login)).map(decodeMember);
   }
 
   async getMember(login: string): Promise<MemberRecord | null> {
-    const hash = (await this.redis.hgetall(keys.member(login))) as Record<string, string> | null;
+    const hash = toHash(await this.redis.hgetall(keys.member(login)));
     return hash?.login ? decodeMember(hash) : null;
   }
 

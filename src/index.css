@@ -163,7 +163,7 @@ fades), recoloured from brand blue to white.
   .field:focus-visible {
     background: hsl(220 60% 85% / 0.1);
     outline: 2px solid hsl(var(--foreground) / 0.4);
-    outline-offset: 2px;
+    outline-offset: 0;
   }
   .field[aria-invalid="true"] {
     background: hsl(var(--down) / 0.1);

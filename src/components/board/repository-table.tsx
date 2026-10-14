@@ -7,7 +7,7 @@ import { formatCount, formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const GRID =
-  "grid grid-cols-[2rem_minmax(0,1fr)_4rem] items-center gap-3 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_4rem_6rem]";
+  "grid grid-cols-[1.5rem_minmax(0,1fr)_3.5rem] items-center gap-2.5 sm:gap-3 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_4rem_6rem]";
 
 export function RepositoryTable({
   repositories,
@@ -31,7 +31,7 @@ export function RepositoryTable({
             role="row"
             className={cn(
               GRID,
-              "px-4 pb-3 text-[11px] font-medium text-t3 sm:px-5",
+              "px-3 pb-2 text-[11px] font-medium text-t3 sm:px-5 sm:pb-3",
             )}
           >
             <span role="columnheader">#</span>
@@ -58,7 +58,7 @@ export function RepositoryTable({
               }}
               className={cn(
                 GRID,
-                "rounded-[28px] px-4 py-3 sm:px-5",
+                "rounded-[24px] px-3 py-2 sm:rounded-[28px] sm:px-5 sm:py-3",
                 index % 2 === 1 && "surface-quiet",
               )}
             >
@@ -70,9 +70,9 @@ export function RepositoryTable({
                   href={repo.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex min-w-0 items-center gap-3 rounded-lg"
+                  className="group flex min-w-0 items-center gap-2.5 rounded-lg sm:gap-3"
                 >
-                  <Avatar className="size-8 shrink-0">
+                  <Avatar className="size-7 shrink-0 sm:size-8">
                     <AvatarImage
                       src={repo.ownerAvatarUrl}
                       alt=""

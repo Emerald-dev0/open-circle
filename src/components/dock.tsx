@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { MetalText } from "metal-fx";
 import { motion, useSpring, useTransform } from "motion/react";
-import { ChatRoundDotsIcon, CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
+import { CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
+import { WhatsAppIcon } from "@/components/brand-icons";
 import { toast } from "sonner";
 import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
 import type { InviteConfig } from "@shared/types";
@@ -109,7 +110,7 @@ export function Dock({
             href={inv.open ? inv.url : undefined}
             onClick={inv.open ? undefined : () => toast(inv.note || DEFAULT_INVITE_NOTE)}
           >
-            <ChatRoundDotsIcon size="100%" aria-hidden />
+            <WhatsAppIcon className="size-full" />
           </DockIcon>
         </LiquidGlass>
       </div>

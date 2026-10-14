@@ -1,9 +1,10 @@
 import * as React from "react";
+import { MetalText } from "metal-fx";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useMatch, useNavigate } from "react-router-dom";
-import { RefreshIcon } from "@solar-icons/react/bold-duotone";
-import type { PublicMember } from "@shared/types";
+import { BranchingPathsUpIcon, FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
+import type { PublicMember, PublicRepository } from "@shared/types";
 import { HowItWorks } from "@/components/board/how-it-works";
 import {
   LeaderboardPodium,
@@ -12,7 +13,6 @@ import {
 import { RankMe } from "@/components/board/rank-me";
 import { RankTable } from "@/components/board/rank-table";
 import { RepositoryTable } from "@/components/board/repository-table";
-import { JoinGroupButton } from "@/components/board/join-group-button";
 import { SiteFooter } from "@/components/site-footer";
 import { Dock } from "@/components/dock";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +36,30 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     avatarUrl: m.avatarUrl || undefined,
     seed: id,
   };
+}
+
+function repoEntry(r: PublicRepository): LeaderboardEntry {
+  return {
+    id: r.id,
+    name: r.name,
+    points: r.stars,
+    handle: r.ownerLogin,
+    stars: r.stars,
+    href: r.url,
+    avatarUrl: r.ownerAvatarUrl || undefined,
+    seed: r.ownerLogin.toLowerCase(),
+    secondary: { icon: <BranchingPathsUpIcon size={11} aria-hidden />, value: r.forks, label: "forks" },
+  };
+}
+
+function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex flex-col items-center px-5 py-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-white/[0.06] text-t3">{icon}</span>
+      <p className="mt-3 text-sm font-medium text-t2">{title}</p>
+      <p className="mt-1 max-w-xs text-xs text-t4">{body}</p>
+    </div>
+  );
 }
 
 function TableSkeleton() {
@@ -98,6 +122,7 @@ const Index = () => {
   const members = useMemo(() => board?.members ?? [], [board]);
   const podium = useMemo(() => members.slice(0, 3).map(toEntry), [members]);
   const rest = useMemo(() => members.slice(3), [members]);
+  const repoPodium = useMemo(() => (board?.repositories ?? []).slice(0, 3).map(repoEntry), [board]);
   const repositories = board?.repositories ?? [];
 
   // Visiting /how-it-works opens the explainer over the board.
@@ -150,19 +175,24 @@ const Index = () => {
       <div className="relative z-10">
         <main className="mx-auto max-w-3xl px-4 pb-6">
           <section
-            className="flex flex-col items-center pt-20 text-center sm:pt-28"
+            className="flex flex-col items-center pt-10 text-center sm:pt-24"
             aria-labelledby="pitch"
           >
+            <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
+              <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">
+                Open Source Circle
+              </MetalText>
+            </span>
             <h1
               id="pitch"
-              className="text-gradient text-[40px] font-[350] leading-[1.02] tracking-[-0.04em] sm:text-[64px]"
+              className="text-gradient mt-3 text-[30px] font-[350] leading-[1.05] tracking-[-0.035em] min-[400px]:text-[34px] sm:mt-4 sm:text-[64px] sm:leading-[1.02] sm:tracking-[-0.04em]"
             >
               Paste your username.
               <br />
               Take your place.
             </h1>
 
-            <div className="mt-8 w-full max-w-xl sm:mt-10">
+            <div className="mt-6 w-full max-w-xl sm:mt-10">
               <RankMe
                 board={board}
                 me={me}
@@ -174,15 +204,11 @@ const Index = () => {
                 onRules={() => setHowOpen(true)}
               />
             </div>
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-              <JoinGroupButton invite={board?.invite} size="sm" metal={false} />
-              <span className="text-xs text-t3">Open Source Circle</span>
-            </div>
           </section>
 
           <section
             id="board"
-            className="mt-12 scroll-mt-8 sm:mt-16"
+            className="mt-8 scroll-mt-8 sm:mt-10"
             aria-labelledby="board-title"
           >
             <h2 id="board-title" className="sr-only">
@@ -195,7 +221,7 @@ const Index = () => {
                 navigate(value === "repositories" ? "/repositories" : "/");
               }}
             >
-              <div className="mb-8 flex flex-col items-center gap-3">
+              <div className="mb-5 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
                 <TabsList aria-label="Leaderboard type">
                   <TabsTrigger value="developers">
                     {!repositoriesOpen && <TabPill />}
@@ -261,13 +287,14 @@ const Index = () => {
                   />
 
                   {!isPending && members.length === 0 && (
-                    <p className="mt-4 text-center text-sm text-t3">
-                      Nobody's on the board yet. Paste your GitHub above and
-                      take #1.
-                    </p>
+                    <EmptyState
+                      icon={<UsersGroupRoundedIcon size={22} aria-hidden />}
+                      title="Nobody's on the board yet"
+                      body="Paste your GitHub username above and take #1."
+                    />
                   )}
 
-                  <div className="mt-6">
+                  <div className="mt-4 sm:mt-6">
                     {isPending ? (
                       <TableSkeleton />
                     ) : (
@@ -287,26 +314,32 @@ const Index = () => {
               )}
               <TabsContent value="repositories" asChild>
                 <TabPanel>
-                <p className="mb-5 text-center text-xs text-t3">
-                  Public projects from the circle, ranked by stars.
-                </p>
                 {isPending ? (
                   <TableSkeleton />
                 ) : repositories.length > 0 ? (
+                  <>
+                  <LeaderboardPodium
+                    entries={repoPodium}
+                    unit="stars"
+                    ariaLabel="Top three repositories"
+                  />
+                  <div className="mt-4 sm:mt-6">
+                  {repositories.length > 3 && (
                   <RepositoryTable
-                    repositories={repositories}
+                    repositories={repositories.slice(3)}
                     limit={showAll ? Number.POSITIVE_INFINITY : TABLE_LIMIT}
                     onShowAll={() => setShowAll(true)}
                   />
+                  )}
+                  </div>
+                  </>
                 ) : (
                   !isError && (
-                    <div className="surface-quiet rounded-[28px] px-5 py-8 text-center">
-                      <p className="text-sm text-t2">No repositories yet.</p>
-                      <p className="mt-2 text-xs text-t3">
-                        Join the board and your public projects will appear
-                        here.
-                      </p>
-                    </div>
+                    <EmptyState
+                      icon={<FolderWithFilesIcon size={22} aria-hidden />}
+                      title="No repositories yet"
+                      body="Join the board and your public projects show up here."
+                    />
                   )
                 )}
                 </TabPanel>

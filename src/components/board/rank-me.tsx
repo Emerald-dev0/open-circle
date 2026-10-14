@@ -7,7 +7,8 @@ import { DEFAULT_WEIGHTS } from "@shared/ranking";
 import { projectedRank } from "@shared/ranking";
 import type { Board, Preview, PublicMember } from "@shared/types";
 import { parseGithubInput, parseNickname, parseWhatsappNumber } from "@shared/validation";
-import { UserRoundedIcon } from "@solar-icons/react/bold-duotone";
+import { DEFAULT_INVITE_NOTE } from "@shared/brand";
+import { GitHubIcon, WhatsAppIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -92,17 +93,17 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
 
   return (
     <div>
-      <form onSubmit={lookup} className="flex items-stretch gap-2" noValidate>
+      <form onSubmit={lookup} className="flex flex-wrap items-stretch gap-2 sm:flex-nowrap" noValidate>
         <label htmlFor="github-input" className="sr-only">
           Your GitHub profile link or username
         </label>
-        <div className="relative min-w-0 flex-1">
-          <UserRoundedIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-t4" aria-hidden />
+        <div className="relative min-w-0 basis-full sm:basis-auto sm:flex-1">
+          <GitHubIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-t4" />
           <input
             ref={inputRef}
             id="github-input"
             className="field h-12 pl-10 pr-11"
-            placeholder="your GitHub username"
+            placeholder="GitHub username"
             inputMode="url"
             autoCapitalize="none"
             autoCorrect="off"
@@ -144,10 +145,33 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
             </TooltipContent>
           </Tooltip>
         </div>
-        <MetalButton type="submit" disabled={preview.isPending} className="h-12 w-auto" innerClassName="px-4 sm:px-5">
+        <MetalButton type="submit" disabled={preview.isPending} wrapperClassName="flex-1 sm:flex-none" className="h-12 w-full sm:w-auto" innerClassName="px-4 sm:px-5">
           <CupStarIcon size={16} aria-hidden />
           {preview.isPending ? "Checking…" : "Rank me"}
         </MetalButton>
+        {board?.invite.open !== false ? (
+          <MetalButton asChild className="h-12 w-12" innerClassName="px-0">
+            <a
+              href={board?.invite.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Join the WhatsApp group"
+              title="Join the WhatsApp group"
+            >
+              <WhatsAppIcon className="size-[18px]" />
+            </a>
+          </MetalButton>
+        ) : (
+          <MetalButton
+            type="button"
+            className="h-12 w-12"
+            innerClassName="px-0"
+            aria-label="Join the WhatsApp group"
+            onClick={() => toast(board.invite.note || DEFAULT_INVITE_NOTE)}
+          >
+            <WhatsAppIcon className="size-[18px]" />
+          </MetalButton>
+        )}
       </form>
 
       <AnimatePresence initial={false}>
@@ -164,6 +188,7 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
             <PreviewCard
               preview={step.preview}
               board={board}
+              onClose={reset}
               onJoined={(member) => {
                 setStep({ kind: "joined", member });
                 setInput("");
@@ -191,18 +216,28 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
 function PreviewCard({
   preview,
   board,
+  onClose,
   onJoined,
 }: {
   preview: Preview;
   board?: Board;
+  onClose: () => void;
   onJoined: (member: PublicMember) => void;
 }) {
   const { profile, score } = preview;
   const rank = projectedRank({ score, stars: profile.stars }, board?.members ?? []);
 
   return (
-    <div className="surface mt-3 rounded-[28px] p-4 text-left sm:p-5">
-      <div className="flex items-center gap-3">
+    <div className="surface relative mt-3 rounded-[28px] p-4 text-left sm:p-5">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full text-t4 transition-colors hover:text-foreground"
+      >
+        <CloseCircleIcon size={20} aria-hidden />
+      </button>
+      <div className="flex items-center gap-3 pr-9">
         <Avatar className="size-11 shrink-0">
           <AvatarImage src={profile.avatarUrl} alt="" />
           <AvatarFallback className="bg-alva-card text-xs">{profile.login.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -261,12 +296,13 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
 
   return (
     <form onSubmit={submit} className="mt-4 space-y-2" noValidate aria-describedby={error ? ids.error : undefined}>
+      <div className="grid grid-cols-2 gap-2">
       <label htmlFor={ids.nickname} className="sr-only">
         Nickname
       </label>
       <input
         id={ids.nickname}
-        className="field"
+        className="field min-w-0"
         placeholder="Nickname"
         value={nickname}
         maxLength={24}
@@ -280,19 +316,19 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
       <label htmlFor={ids.whatsapp} className="sr-only">
         WhatsApp number used in the group
       </label>
-      <div className="relative">
         <input
           id={ids.whatsapp}
-          className="field tabular"
+          className="field min-w-0 tabular"
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="WhatsApp number, e.g. +234 803 123 4567"
+          placeholder="WhatsApp number"
           value={whatsapp}
           disabled={register.isPending}
           aria-invalid={errorField === "whatsapp" || undefined}
           aria-describedby={errorField === "whatsapp" ? `${ids.hint} ${ids.error}` : ids.hint}
-          onChange={(e) => setWhatsapp(e.target.value)}
+          // Phone numbers only: digits, spaces and a leading +.
+          onChange={(e) => setWhatsapp(e.target.value.replace(/[^\d+ ]/g, "").replace(/(?!^)\+/g, ""))}
         />
       </div>
       <p id={ids.hint} className="px-4 text-[11px] leading-relaxed text-t3">Use the same number you're on in the group. Your number stays private.</p>

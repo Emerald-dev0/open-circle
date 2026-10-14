@@ -38,3 +38,4 @@ coverage/
 [Cc][Ll][Aa][Uu][Dd][Ee].*
 [Cc][Oo][Dd][Ee][Xx].*
 PRD.md
+dist-server
