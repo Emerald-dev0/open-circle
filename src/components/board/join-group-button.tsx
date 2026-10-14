@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
 import type { InviteConfig } from "@shared/types";
-import { WhatsAppIcon } from "@/components/brand-icons";
+import { ChatRoundDotsIcon } from "@solar-icons/react/bold-duotone";
 import { MetalButton } from "@/components/metal-button";
 import { TextureButton } from "@/components/ui/texture-button";
 
@@ -20,7 +20,7 @@ export function JoinGroupButton({ invite = FALLBACK, size = "default", metal = t
   const label = children ?? "Join the group";
   const content = (
     <>
-      <WhatsAppIcon className={size === "sm" ? "size-3.5" : "size-4"} />
+      <ChatRoundDotsIcon size={size === "sm" ? 14 : 16} aria-hidden />
       {label}
     </>
   );

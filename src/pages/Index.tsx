@@ -1,3 +1,5 @@
+import * as React from "react";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useMatch, useNavigate } from "react-router-dom";
 import { RefreshIcon } from "@solar-icons/react/bold-duotone";
@@ -53,6 +55,31 @@ function TableSkeleton() {
     </div>
   );
 }
+
+/** The active tab's background; slides between triggers via a shared layoutId. */
+function TabPill() {
+  return (
+    <motion.span
+      layoutId="board-tab-pill"
+      className="absolute inset-0 rounded-full bg-white/[0.1]"
+      transition={{ type: "spring", stiffness: 420, damping: 36 }}
+    />
+  );
+}
+
+/** Fades and lifts a tab's content in as it becomes active. */
+const TabPanel = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof motion.div>>(
+  (props, ref) => (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+      {...props}
+    />
+  ),
+);
+TabPanel.displayName = "TabPanel";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -171,14 +198,16 @@ const Index = () => {
               <div className="mb-8 flex flex-col items-center gap-3">
                 <TabsList aria-label="Leaderboard type">
                   <TabsTrigger value="developers">
-                    Developers{" "}
-                    <span className="ml-2 text-xs tabular text-t3">
+                    {!repositoriesOpen && <TabPill />}
+                    <span className="relative">Developers</span>{" "}
+                    <span className="relative ml-2 text-xs tabular text-t3">
                       {formatFull(members.length)}
                     </span>
                   </TabsTrigger>
                   <TabsTrigger value="repositories">
-                    Repositories{" "}
-                    <span className="ml-2 text-xs tabular text-t3">
+                    {repositoriesOpen && <TabPill />}
+                    <span className="relative">Repositories</span>{" "}
+                    <span className="relative ml-2 text-xs tabular text-t3">
                       {formatFull(repositories.length)}
                     </span>
                   </TabsTrigger>
@@ -222,7 +251,8 @@ const Index = () => {
                   </TextureButton>
                 </div>
               ) : (
-                <TabsContent value="developers">
+                <TabsContent value="developers" asChild>
+                <TabPanel>
                   <LeaderboardPodium
                     entries={podium}
                     currentUserId={me}
@@ -252,9 +282,11 @@ const Index = () => {
                       )
                     )}
                   </div>
+                </TabPanel>
                 </TabsContent>
               )}
-              <TabsContent value="repositories">
+              <TabsContent value="repositories" asChild>
+                <TabPanel>
                 <p className="mb-5 text-center text-xs text-t3">
                   Public projects from the circle, ranked by stars.
                 </p>
@@ -277,6 +309,7 @@ const Index = () => {
                     </div>
                   )
                 )}
+                </TabPanel>
               </TabsContent>
             </Tabs>
           </section>

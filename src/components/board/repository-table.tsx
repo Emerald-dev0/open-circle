@@ -1,4 +1,4 @@
-import { FiGitBranch, FiStar } from "react-icons/fi";
+import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
 import { motion, useReducedMotion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -107,14 +107,14 @@ export function RepositoryTable({
                 role="cell"
                 className="inline-flex items-center justify-end gap-1.5 text-sm tabular text-foreground"
               >
-                <FiStar className="size-3 text-t3" aria-hidden="true" />
+                <StarIcon size={12} className="text-t3" aria-hidden />
                 {formatCount(repo.stars)}
               </span>
               <span
                 role="cell"
                 className="hidden items-center justify-end gap-1.5 text-sm tabular text-t3 sm:inline-flex"
               >
-                <FiGitBranch className="size-3" aria-hidden="true" />
+                <BranchingPathsUpIcon size={12} aria-hidden />
                 {formatCount(repo.forks)}
               </span>
               <span

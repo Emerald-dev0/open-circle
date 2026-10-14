@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { MetalText } from "metal-fx";
 import { motion, useSpring, useTransform } from "motion/react";
-import { CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
+import { ChatRoundDotsIcon, CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
 import { toast } from "sonner";
 import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
 import type { InviteConfig } from "@shared/types";
-import { WhatsAppIcon } from "@/components/brand-icons";
 import { LiquidGlass } from "@/components/liquid-glass";
 
 const BRAND_FONT = "650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif";
@@ -110,7 +109,7 @@ export function Dock({
             href={inv.open ? inv.url : undefined}
             onClick={inv.open ? undefined : () => toast(inv.note || DEFAULT_INVITE_NOTE)}
           >
-            <WhatsAppIcon className="size-full" />
+            <ChatRoundDotsIcon size="100%" aria-hidden />
           </DockIcon>
         </LiquidGlass>
       </div>

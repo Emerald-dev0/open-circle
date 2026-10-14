@@ -7,7 +7,7 @@ import { DEFAULT_WEIGHTS } from "@shared/ranking";
 import { projectedRank } from "@shared/ranking";
 import type { Board, Preview, PublicMember } from "@shared/types";
 import { parseGithubInput, parseNickname, parseWhatsappNumber } from "@shared/validation";
-import { GitHubIcon } from "@/components/brand-icons";
+import { UserRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { MetalButton } from "@/components/metal-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -97,7 +97,7 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
           Your GitHub profile link or username
         </label>
         <div className="relative min-w-0 flex-1">
-          <GitHubIcon className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-t4" />
+          <UserRoundedIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-t4" aria-hidden />
           <input
             ref={inputRef}
             id="github-input"
