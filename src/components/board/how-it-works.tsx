@@ -34,6 +34,8 @@ export function HowItWorks({
         </dl>
 
         <p className="mt-5 text-xs text-t4">Ties go to more stars. Forks and private repos don't count.</p>
+        <p className="mt-3 text-xs leading-relaxed text-t3">Repositories rank by stars, then forks, then their name. Only public, original projects from visible members appear.</p>
+        <p className="mt-3 text-xs leading-relaxed text-t3">The board checks for updates every 10 seconds. GitHub stats refresh about once a minute, in batches for larger groups.</p>
       </DialogContent>
     </Dialog>
   );

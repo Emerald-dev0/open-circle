@@ -1,4 +1,9 @@
-import type { Board, InviteConfig, Weights } from "../shared/types.js";
+import type {
+  Board,
+  GithubRepository,
+  InviteConfig,
+  Weights,
+} from "../shared/types.js";
 
 export interface MemberRecord {
   /** Lowercased GitHub login; the primary key. */
@@ -14,6 +19,7 @@ export interface MemberRecord {
   followers: number;
   repos: number;
   activity: number;
+  projects?: GithubRepository[];
   hidden: boolean;
   createdAt: number;
   statsUpdatedAt: number;
@@ -45,18 +51,41 @@ export interface Store {
   setBoard(board: Board): Promise<void>;
   tryLock(name: string, ttlSeconds: number): Promise<boolean>;
   unlock(name: string): Promise<void>;
+  rateLimit(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<boolean>;
 }
 
 const NUMERIC = [
-  "stars", "followers", "repos", "activity", "createdAt", "statsUpdatedAt", "rank", "prevRank", "rankChangedAt",
+  "stars",
+  "followers",
+  "repos",
+  "activity",
+  "createdAt",
+  "statsUpdatedAt",
+  "rank",
+  "prevRank",
+  "rankChangedAt",
 ] as const;
 
 /** Flattens a record (or patch) into string fields for a Redis hash. */
-export function encodeMember(patch: Partial<MemberRecord>): Record<string, string> {
+export function encodeMember(
+  patch: Partial<MemberRecord>,
+): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    out[key] = typeof value === "boolean" ? (value ? "1" : "0") : value === null ? "" : String(value);
+    out[key] = Array.isArray(value)
+      ? JSON.stringify(value)
+      : typeof value === "boolean"
+        ? value
+          ? "1"
+          : "0"
+        : value === null
+          ? ""
+          : String(value);
   }
   return out;
 }
@@ -70,6 +99,7 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     avatarUrl: hash.avatarUrl,
     name: hash.name || null,
     hidden: hash.hidden === "1",
+    projects: hash.projects ? JSON.parse(hash.projects) : [],
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;
   return record;

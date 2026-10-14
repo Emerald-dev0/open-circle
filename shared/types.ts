@@ -21,6 +21,26 @@ export interface GithubStats {
   repos: number;
   /** Public contributions (commits, PRs, reviews, issues, new repos) in the last 30 days. */
   activity: number;
+  projects?: GithubRepository[];
+}
+
+export interface GithubRepository {
+  id: string;
+  name: string;
+  fullName: string;
+  url: string;
+  description: string | null;
+  stars: number;
+  forks: number;
+  language: string | null;
+  updatedAt: string;
+}
+
+export interface PublicRepository extends GithubRepository {
+  rank: number;
+  ownerLogin: string;
+  ownerNickname: string;
+  ownerAvatarUrl: string;
 }
 
 /** A member as the public board sees them. Never carries the WhatsApp number. */
@@ -49,6 +69,7 @@ export interface InviteConfig {
 
 export interface Board {
   members: PublicMember[];
+  repositories: PublicRepository[];
   /** When this snapshot was written. Clients never replace a newer one with an older one. */
   updatedAt: number;
   /** When GitHub stats were last pulled. */

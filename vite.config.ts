@@ -15,9 +15,28 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            react: ["react", "react-dom", "react-router-dom", "@tanstack/react-query"],
+            motion: ["motion/react"],
+            metal: ["metal-fx"],
+            primitives: [
+              "@radix-ui/react-avatar",
+              "@radix-ui/react-dialog",
+              "@radix-ui/react-slot",
+              "@radix-ui/react-switch",
+              "@radix-ui/react-tabs",
+              "@radix-ui/react-tooltip",
+            ],
+          },
+        },
+      },
+    },
     server: {
       port: 5173,
-      open: true,
+      open: false,
     },
     preview: {
       port: 4173,

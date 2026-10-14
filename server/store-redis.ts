@@ -20,6 +20,7 @@ const keys = {
   config: `${P}config`,
   board: `${P}board`,
   lock: (name: string) => `${P}lock:${name}`,
+  rateLimit: (name: string) => `${P}rate:${name}`,
 };
 
 // All three uniqueness claims and the record land together, or nothing does.
@@ -39,6 +40,12 @@ const PATCH = `
 if redis.call('EXISTS', KEYS[1]) == 0 then return 0 end
 redis.call('HSET', KEYS[1], unpack(ARGV))
 return 1`;
+
+const RATE_LIMIT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
+if count <= tonumber(ARGV[1]) then return 1 end
+return 0`;
 
 export class RedisStore implements Store {
   private redis: Redis;
@@ -111,5 +118,10 @@ export class RedisStore implements Store {
 
   async unlock(name: string): Promise<void> {
     await this.redis.del(keys.lock(name));
+  }
+
+  async rateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const result = await this.redis.eval(RATE_LIMIT, [keys.rateLimit(key)], [limit, windowSeconds]);
+    return Number(result) === 1;
   }
 }

@@ -37,7 +37,7 @@ export async function adminState(store: Store, board?: Board): Promise<AdminStat
         rank: pub?.rank ?? 0,
         delta: pub?.delta ?? 0,
         isNew: pub?.isNew ?? false,
-        whatsapp: formatNigerianNumber(r.whatsapp),
+        whatsapp: r.whatsapp.startsWith("+234") ? formatNigerianNumber(r.whatsapp) : r.whatsapp,
         hidden: r.hidden,
         createdAt: r.createdAt,
         statsUpdatedAt: r.statsUpdatedAt,

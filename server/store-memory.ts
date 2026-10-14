@@ -15,8 +15,17 @@ interface Snapshot {
 
 const FILE = path.resolve(process.cwd(), ".data/dev-store.json");
 
+interface RateWindow {
+  count: number;
+  expiresAt: number;
+}
+
 // Vite re-evaluates server modules on edit; keep one copy of the data across reloads.
-const globalStore = globalThis as typeof globalThis & { __devechleonStore?: Snapshot; __devechleonLocks?: Map<string, number> };
+const globalStore = globalThis as typeof globalThis & {
+  __devechleonStore?: Snapshot;
+  __devechleonLocks?: Map<string, number>;
+  __openCircleRateLimits?: Map<string, RateWindow>;
+};
 
 function load(): Snapshot {
   if (globalStore.__devechleonStore) return globalStore.__devechleonStore;
@@ -40,6 +49,7 @@ function save(data: Snapshot) {
 export class MemoryStore implements Store {
   private data = load();
   private locks = (globalStore.__devechleonLocks ??= new Map());
+  private rateLimits = (globalStore.__openCircleRateLimits ??= new Map());
 
   async listMembers() {
     return Object.values(this.data.members).map((m) => ({ ...m }));
@@ -101,5 +111,16 @@ export class MemoryStore implements Store {
 
   async unlock(name: string) {
     this.locks.delete(name);
+  }
+
+  async rateLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+    const now = Date.now();
+    for (const [name, window] of this.rateLimits) {
+      if (window.expiresAt <= now) this.rateLimits.delete(name);
+    }
+    const window = this.rateLimits.get(key) ?? { count: 0, expiresAt: now + windowSeconds * 1000 };
+    window.count += 1;
+    this.rateLimits.set(key, window);
+    return window.count <= limit;
   }
 }

@@ -1,7 +1,22 @@
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../shared/brand.js";
-import { compareStanding, DEFAULT_WEIGHTS, scoreOf } from "../shared/ranking.js";
-import type { Board, GithubStats, Preview, PublicMember, RegisterResult } from "../shared/types.js";
-import { parseGithubInput, parseNickname, parseNigerianNumber } from "../shared/validation.js";
+import {
+  compareStanding,
+  DEFAULT_WEIGHTS,
+  scoreOf,
+} from "../shared/ranking.js";
+import type {
+  Board,
+  GithubStats,
+  Preview,
+  PublicMember,
+  PublicRepository,
+  RegisterResult,
+} from "../shared/types.js";
+import {
+  parseGithubInput,
+  parseNickname,
+  parseWhatsappNumber,
+} from "../shared/validation.js";
 import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
 import { HttpError } from "./http.js";
 import type { AppConfig, MemberRecord, Store } from "./store.js";
@@ -18,7 +33,12 @@ const NEW_WINDOW_MS = 24 * 3_600_000;
 export async function loadConfig(store: Store): Promise<AppConfig> {
   const saved = await store.getConfig();
   return {
-    invite: { url: DEFAULT_INVITE_URL, open: true, note: DEFAULT_INVITE_NOTE, ...saved?.invite },
+    invite: {
+      url: DEFAULT_INVITE_URL,
+      open: true,
+      note: DEFAULT_INVITE_NOTE,
+      ...saved?.invite,
+    },
     weights: { ...DEFAULT_WEIGHTS, ...saved?.weights },
   };
 }
@@ -32,6 +52,7 @@ function statsFields(stats: GithubStats): Partial<MemberRecord> {
     followers: stats.followers,
     repos: stats.repos,
     activity: stats.activity,
+    projects: stats.projects ?? [],
   };
 }
 
@@ -40,13 +61,19 @@ export async function rebuildBoard(
   store: Store,
   opts: { refreshedAt?: number; statsDelayed?: boolean } = {},
 ): Promise<Board> {
-  const [records, config, previous] = await Promise.all([store.listMembers(), loadConfig(store), store.getBoard()]);
+  const [records, config, previous] = await Promise.all([
+    store.listMembers(),
+    loadConfig(store),
+    store.getBoard(),
+  ]);
   const now = Date.now();
 
   const ranked = records
     .filter((m) => !m.hidden)
     .map((m) => ({ m, score: scoreOf(m, config.weights) }))
-    .sort((a, b) => compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }));
+    .sort((a, b) =>
+      compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }),
+    );
 
   const writes: Promise<void>[] = [];
   const members: PublicMember[] = ranked.map(({ m, score }, i) => {
@@ -55,12 +82,15 @@ export async function rebuildBoard(
     // an hour read as ↓3, not ↓1. Landing on the board for the first time isn't a move.
     let { prevRank, rankChangedAt } = m;
     if (m.rank !== rank) {
-      const windowOpen = prevRank > 0 && now - rankChangedAt < MOVEMENT_WINDOW_MS;
+      const windowOpen =
+        prevRank > 0 && now - rankChangedAt < MOVEMENT_WINDOW_MS;
       if (m.rank > 0 && !windowOpen) {
         prevRank = m.rank;
         rankChangedAt = now;
       }
-      writes.push(store.patchMember(m.login, { rank, prevRank, rankChangedAt }));
+      writes.push(
+        store.patchMember(m.login, { rank, prevRank, rankChangedAt }),
+      );
     }
     const recent = prevRank > 0 && now - rankChangedAt < MOVEMENT_WINDOW_MS;
     return {
@@ -79,12 +109,34 @@ export async function rebuildBoard(
   });
 
   for (const m of records) {
-    if (m.hidden && m.rank !== 0) writes.push(store.patchMember(m.login, { rank: 0, prevRank: 0, rankChangedAt: 0 }));
+    if (m.hidden && m.rank !== 0)
+      writes.push(
+        store.patchMember(m.login, { rank: 0, prevRank: 0, rankChangedAt: 0 }),
+      );
   }
   await Promise.all(writes);
 
+  const repositories: PublicRepository[] = ranked
+    .flatMap(({ m }) =>
+      (m.projects ?? []).map((repo) => ({
+        ...repo,
+        rank: 0,
+        ownerLogin: m.displayLogin,
+        ownerNickname: m.nickname,
+        ownerAvatarUrl: m.avatarUrl,
+      })),
+    )
+    .sort(
+      (a, b) =>
+        b.stars - a.stars ||
+        b.forks - a.forks ||
+        a.fullName.localeCompare(b.fullName),
+    )
+    .map((repo, i) => ({ ...repo, rank: i + 1 }));
+
   const board: Board = {
     members,
+    repositories,
     updatedAt: now,
     refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
     statsDelayed: opts.statsDelayed ?? previous?.statsDelayed ?? false,
@@ -98,30 +150,40 @@ export async function rebuildBoard(
 async function refreshStats(store: Store): Promise<Board> {
   const now = Date.now();
   const due = (await store.listMembers())
+    .filter((m) => !m.hidden)
     .filter((m) => now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
     .sort((a, b) => a.statsUpdatedAt - b.statsUpdatedAt)
     .slice(0, REFRESH_LIMIT);
 
-  // Only "delayed" when nothing came back. A slow batch just leaves its
-  // members stalest, so they go first on the next tick.
   let delayed = false;
   if (due.length > 0) {
     const outcome = await lookupMany(due.map((m) => m.login));
     if (outcome.error) {
-      console.warn(`GitHub refresh: ${outcome.error.code}: ${outcome.error.message}`);
-      delayed = outcome.results.size === 0;
+      console.warn(
+        `GitHub refresh: ${outcome.error.code}: ${outcome.error.message}`,
+      );
+      delayed = true;
     }
     await Promise.all(
       due.map((m) => {
         const r = outcome.results.get(m.login);
-        if (r?.kind === "user") return store.patchMember(m.login, { ...statsFields(r.stats), statsUpdatedAt: now });
+        if (!r || r.kind === "error") delayed = true;
+        if (r?.kind === "user")
+          return store.patchMember(m.login, {
+            ...statsFields(r.stats),
+            statsUpdatedAt: now,
+          });
         // Renamed or deleted on GitHub: keep the last known numbers; admin can remove them.
-        if (r?.kind === "missing" || r?.kind === "organization") return store.patchMember(m.login, { statsUpdatedAt: now });
+        if (r?.kind === "missing" || r?.kind === "organization")
+          return store.patchMember(m.login, { statsUpdatedAt: now });
         return Promise.resolve();
       }),
     );
   }
-  return rebuildBoard(store, { refreshedAt: delayed ? undefined : now, statsDelayed: delayed });
+  return rebuildBoard(store, {
+    refreshedAt: delayed ? undefined : now,
+    statsDelayed: delayed,
+  });
 }
 
 async function refreshInBackground(store: Store): Promise<void> {
@@ -143,8 +205,12 @@ export async function readBoard(
   store: Store,
   background: (work: Promise<unknown>) => void = () => {},
 ): Promise<Board> {
-  const board = (await store.getBoard()) ?? (await rebuildBoard(store));
-  if (Date.now() - board.refreshedAt >= REFRESH_EVERY_MS && (await store.tryLock("refresh", REFRESH_LOCK_S))) {
+  const saved = await store.getBoard();
+  const board = saved?.repositories ? saved : await rebuildBoard(store);
+  if (
+    Date.now() - board.refreshedAt >= REFRESH_EVERY_MS &&
+    (await store.tryLock("refresh", REFRESH_LOCK_S))
+  ) {
     background(refreshInBackground(store));
   }
   return board;
@@ -153,12 +219,26 @@ export async function readBoard(
 function requireUser(lookup: Lookup, login: string): GithubStats {
   if (lookup.kind === "user") return lookup.stats;
   if (lookup.kind === "organization") {
-    throw new HttpError(422, "organization", `${login} is an organisation. Use your personal GitHub profile.`, "github");
+    throw new HttpError(
+      422,
+      "organization",
+      `${login} is an organisation. Use your personal GitHub profile.`,
+      "github",
+    );
   }
   if (lookup.kind === "missing") {
-    throw new HttpError(404, "not_found", `There's no GitHub user called ${login}. Check the spelling.`, "github");
+    throw new HttpError(
+      404,
+      "not_found",
+      `There's no GitHub user called ${login}. Check the spelling.`,
+      "github",
+    );
   }
-  throw new HttpError(503, "github_unavailable", "GitHub isn't answering right now. Try again in a minute.");
+  throw new HttpError(
+    503,
+    "github_unavailable",
+    "GitHub isn't answering right now. Try again in a minute.",
+  );
 }
 
 async function fetchUser(login: string): Promise<GithubStats> {
@@ -167,16 +247,27 @@ async function fetchUser(login: string): Promise<GithubStats> {
   } catch (err) {
     if (err instanceof GithubError) {
       console.warn(`GitHub lookup: ${err.code}: ${err.message}`);
-      throw new HttpError(503, "github_unavailable", "GitHub isn't answering right now. Try again in a minute.");
+      throw new HttpError(
+        503,
+        "github_unavailable",
+        "GitHub isn't answering right now. Try again in a minute.",
+      );
     }
     throw err;
   }
 }
 
-export async function previewProfile(store: Store, input: string): Promise<Preview> {
+export async function previewProfile(
+  store: Store,
+  input: string,
+): Promise<Preview> {
   const parsed = parseGithubInput(input);
-  if (!parsed.ok) throw new HttpError(400, "invalid_github", parsed.error, "github");
-  const [profile, config] = await Promise.all([fetchUser(parsed.value), loadConfig(store)]);
+  if (!parsed.ok)
+    throw new HttpError(400, "invalid_github", parsed.error, "github");
+  const [profile, config] = await Promise.all([
+    fetchUser(parsed.value),
+    loadConfig(store),
+  ]);
   return { profile, score: scoreOf(profile, config.weights) };
 }
 
@@ -185,22 +276,39 @@ function field(body: unknown, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-export async function register(store: Store, body: unknown): Promise<RegisterResult> {
+export async function register(
+  store: Store,
+  body: unknown,
+): Promise<RegisterResult> {
   const nickname = parseNickname(field(body, "nickname"));
-  if (!nickname.ok) throw new HttpError(400, "invalid_nickname", nickname.error, "nickname");
+  if (!nickname.ok)
+    throw new HttpError(400, "invalid_nickname", nickname.error, "nickname");
   const github = parseGithubInput(field(body, "github"));
-  if (!github.ok) throw new HttpError(400, "invalid_github", github.error, "github");
-  const whatsapp = parseNigerianNumber(field(body, "whatsapp"));
-  if (!whatsapp.ok) throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
+  if (!github.ok)
+    throw new HttpError(400, "invalid_github", github.error, "github");
+  const whatsapp = parseWhatsappNumber(field(body, "whatsapp"));
+  if (!whatsapp.ok)
+    throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
 
   const existing = await store.getMember(github.value.toLowerCase());
   if (existing) {
     if (existing.hidden) {
-      throw new HttpError(409, "removed", "This account was taken off the board by an admin. Message the organiser.", "github");
+      throw new HttpError(
+        409,
+        "removed",
+        "This account was taken off the board by an admin. Message the organiser.",
+        "github",
+      );
     }
     // A double-submit from the same person is a success, not a conflict.
-    if (existing.whatsapp === whatsapp.value) return { login: existing.displayLogin, board: await rebuildBoard(store) };
-    throw new HttpError(409, "github_taken", "That GitHub account is already on the board.", "github");
+    if (existing.whatsapp === whatsapp.value)
+      return { login: existing.displayLogin, board: await rebuildBoard(store) };
+    throw new HttpError(
+      409,
+      "github_taken",
+      "That GitHub account is already on the board.",
+      "github",
+    );
   }
 
   const stats = await fetchUser(github.value);
@@ -216,6 +324,7 @@ export async function register(store: Store, body: unknown): Promise<RegisterRes
     followers: stats.followers,
     repos: stats.repos,
     activity: stats.activity,
+    projects: stats.projects ?? [],
     hidden: false,
     createdAt: now,
     statsUpdatedAt: now,
@@ -226,10 +335,28 @@ export async function register(store: Store, body: unknown): Promise<RegisterRes
 
   const created = await store.createMember(record);
   if (!created.ok) {
+    if (created.conflict === "github") {
+      const saved = await store.getMember(record.login);
+      if (saved && !saved.hidden && saved.whatsapp === whatsapp.value) {
+        return { login: saved.displayLogin, board: await rebuildBoard(store) };
+      }
+    }
     const messages = {
-      github: ["github_taken", "That GitHub account is already on the board.", "github"],
-      whatsapp: ["whatsapp_taken", "That WhatsApp number is already registered to another member.", "whatsapp"],
-      nickname: ["nickname_taken", "Someone already has that nickname. Pick another.", "nickname"],
+      github: [
+        "github_taken",
+        "That GitHub account is already on the board.",
+        "github",
+      ],
+      whatsapp: [
+        "whatsapp_taken",
+        "That WhatsApp number is already registered to another member.",
+        "whatsapp",
+      ],
+      nickname: [
+        "nickname_taken",
+        "Someone already has that nickname. Pick another.",
+        "nickname",
+      ],
     } as const;
     const [code, message, fieldName] = messages[created.conflict];
     throw new HttpError(409, code, message, fieldName);

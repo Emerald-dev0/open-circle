@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
@@ -6,7 +6,7 @@ import { CloseCircleIcon, CupStarIcon, InfoCircleIcon } from "@solar-icons/react
 import { DEFAULT_WEIGHTS } from "@shared/ranking";
 import { projectedRank } from "@shared/ranking";
 import type { Board, Preview, PublicMember } from "@shared/types";
-import { parseGithubInput, parseNickname, parseNigerianNumber } from "@shared/validation";
+import { parseGithubInput, parseNickname, parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -51,23 +51,11 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const open = step.kind !== "idle";
-
-  // Clicking anywhere outside closes the card; the dock and dialogs count as outside.
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setStep({ kind: "idle" });
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [open]);
-
   const preview = useMutation({ mutationFn: api.preview });
 
   async function lookup(event: React.FormEvent) {
     event.preventDefault();
+    if (preview.isPending) return;
     const parsed = parseGithubInput(input);
     if (!parsed.ok) {
       setInputError(parsed.error);
@@ -103,7 +91,7 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
   const w = board?.weights ?? DEFAULT_WEIGHTS;
 
   return (
-    <div ref={rootRef}>
+    <div>
       <form onSubmit={lookup} className="flex items-stretch gap-2" noValidate>
         <label htmlFor="github-input" className="sr-only">
           Your GitHub profile link or username
@@ -122,8 +110,10 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
             spellCheck={false}
             enterKeyHint="go"
             value={input}
+            disabled={preview.isPending}
             onChange={(e) => {
               setInput(e.target.value);
+              setStep({ kind: "idle" });
               if (inputError) setInputError(null);
             }}
             aria-invalid={inputError ? true : undefined}
@@ -236,19 +226,23 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
   const [nickname, setNickname] = useState(login.slice(0, 24));
   const [whatsapp, setWhatsapp] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const ids = { nickname: useId(), whatsapp: useId(), error: useId() };
+  const [errorField, setErrorField] = useState<string | null>(null);
+  const ids = { nickname: useId(), whatsapp: useId(), error: useId(), hint: useId() };
 
   const register = useMutation({ mutationFn: api.register });
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (register.isPending) return;
     const nick = parseNickname(nickname);
-    const phone = parseNigerianNumber(whatsapp);
+    const phone = parseWhatsappNumber(whatsapp);
     if (!nick.ok || !phone.ok) {
       setError(nick.error ?? phone.error ?? null);
+      setErrorField(!nick.ok ? "nickname" : "whatsapp");
       return;
     }
     setError(null);
+    setErrorField(null);
 
     try {
       const result = await register.mutateAsync({ nickname: nick.value, github: login, whatsapp: phone.value });
@@ -261,6 +255,7 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't register. Try again.");
+      setErrorField(err instanceof ApiError ? err.field ?? null : null);
     }
   }
 
@@ -276,6 +271,9 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
         value={nickname}
         maxLength={24}
         autoComplete="nickname"
+        disabled={register.isPending}
+        aria-invalid={errorField === "nickname" || undefined}
+        aria-describedby={errorField === "nickname" ? ids.error : undefined}
         onChange={(e) => setNickname(e.target.value)}
       />
 
@@ -283,20 +281,21 @@ function RegisterForm({ login, onJoined }: { login: string; onJoined: (member: P
         WhatsApp number used in the group
       </label>
       <div className="relative">
-        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[15px] text-t3" aria-hidden>
-          +234
-        </span>
         <input
           id={ids.whatsapp}
-          className="field pl-[3.75rem] tabular"
+          className="field tabular"
           type="tel"
           inputMode="tel"
-          autoComplete="tel-national"
-          placeholder="WhatsApp number in the group"
+          autoComplete="tel"
+          placeholder="WhatsApp number, e.g. +234 803 123 4567"
           value={whatsapp}
+          disabled={register.isPending}
+          aria-invalid={errorField === "whatsapp" || undefined}
+          aria-describedby={errorField === "whatsapp" ? `${ids.hint} ${ids.error}` : ids.hint}
           onChange={(e) => setWhatsapp(e.target.value)}
         />
       </div>
+      <p id={ids.hint} className="px-4 text-[11px] leading-relaxed text-t3">Use the same number you're on in the group. Your number stays private.</p>
 
       {error && (
         <p id={ids.error} role="alert" className="px-4 text-xs text-down">

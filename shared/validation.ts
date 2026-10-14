@@ -75,6 +75,16 @@ export function formatNigerianNumber(e164: string): string {
   return `+234 ${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}`;
 }
 
+export function parseWhatsappNumber(raw: string): Parsed<string> {
+  const value = raw.trim().replace(/[\s\-().]/g, "").replace(/^00/, "+");
+  if (!value.startsWith("+")) return parseNigerianNumber(value);
+  if (value.startsWith("+234")) return parseNigerianNumber(value);
+  if (!/^\+[1-9]\d{6,14}$/.test(value)) {
+    return fail("Use your WhatsApp number with its country code, like +234 803 123 4567.");
+  }
+  return { ok: true, value };
+}
+
 const LINKISH =
   /(https?:|www\.|:\/\/)|\.(com|net|org|io|dev|ng|app|xyz|me|co|ai|ly|gg|tv|info|biz|site|online|tech|link)\b/i;
 
