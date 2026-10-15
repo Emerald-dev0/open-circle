@@ -371,9 +371,9 @@ describe("Community leaderboard pages", () => {
     expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Repositories" }).getAttribute("href")).toBe("/repositories");
     await waitFor(() => expect(document.title).toBe("Repositories · OpenCircle"));
-    const table = screen.getByRole("table", { name: "Repositories ranked by stars" });
+    const table = screen.getByRole("list", { name: "Repositories ranked by stars" });
     expect(within(table).getByRole("link", { name: /open-kit/ }).getAttribute("href")).toBe("https://github.com/Octocat/open-kit");
-    expect(within(table).getAllByRole("row")).toHaveLength(2);
+    expect(within(table).getAllByRole("listitem")).toHaveLength(1);
     const podium = screen.getByRole("list", { name: "Top three repositories" });
     expect(within(podium).getByRole("link", { name: /open-kit, rank 1, .* stars/ }).getAttribute("href")).toBe("https://github.com/Octocat/open-kit");
     expect(podium.textContent).toContain("forks");
@@ -428,6 +428,6 @@ describe("Community leaderboard pages", () => {
     expect(screen.getByRole("tab", { name: /Tools 0/ })).toBeTruthy();
     expect(screen.getByText("No repositories yet")).toBeTruthy();
     expect(screen.getByText(`OpenCircle v${packageJson.version}`)).toBeTruthy();
-    expect(screen.queryByRole("table", { name: "Repositories ranked by stars" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Repositories ranked by stars" })).toBeNull();
   });
 });

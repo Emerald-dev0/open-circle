@@ -87,6 +87,13 @@ fades), recoloured from brand blue to white.
     @apply border-border;
   }
 
+  /* Nothing may widen the page sideways (metal glows, hover labels); a
+     wider page also drags the bottom-centred dock off screen on phones. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+
   html {
     background: hsl(var(--background));
     -webkit-tap-highlight-color: transparent;

@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { BrandMark } from "@/components/site-header";
 import { TextureButton } from "@/components/ui/texture-button";
+import { Dock } from "@/components/dock";
 
 const NotFound = () => {
   const location = useLocation();
@@ -23,6 +24,7 @@ const NotFound = () => {
           <Link to="/">Back to the board</Link>
         </TextureButton>
       </div>
+      <Dock />
     </div>
   );
 };

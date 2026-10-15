@@ -1,16 +1,18 @@
 import type * as React from "react";
 import { GitHubIcon } from "@/components/brand-icons";
-import { MetalText } from "metal-fx";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyIcon, EyeClosedIcon, EyeIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/bold-duotone";
 import { BRAND_NAME } from "@shared/brand";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import type { AdminAction, AdminConfig, AdminMember, AdminSession, AdminState, Weights } from "@shared/types";
 import { MetalButton } from "@/components/metal-button";
+import { AccountCorner } from "@/components/account-corner";
+import { Dock } from "@/components/dock";
+import { LogoutIcon } from "@solar-icons/react/linear";
 import { Chip, Panel, PanelHeader, Row } from "@/components/panel";
 import { ToolModeration } from "@/components/board/tool-moderation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -61,22 +63,22 @@ const Admin = () => {
   return (
     <div className="relative min-h-dvh">
       <div className="app-backdrop" aria-hidden />
-      <div className="page-container relative z-10 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
-        <header className="flex min-h-16 flex-wrap items-center justify-between gap-2 py-2">
-          <Link to="/" className="flex min-h-11 items-center gap-2 rounded-lg">
-            <MetalText font="650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#F4F7FB" theme="dark">{BRAND_NAME}</MetalText>
-          </Link>
-          {profile && <div className="flex min-w-0 items-center gap-3">
-            <span className="max-w-40 truncate text-sm text-t2" title={`@${profile.login}`}>@{profile.login}</span>
-            <TextureButton variant="minimal" size="sm" className="w-auto" disabled={signOut.isPending} onClick={() => signOut.mutate()}>{signOut.isPending ? "Signing out…" : "Sign out"}</TextureButton>
-          </div>}
-        </header>
-        <main className="mt-8 min-w-0">
+      <div className="page-container relative z-10 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
+        <AccountCorner>
+          {profile && <>
+            <span className="hidden max-w-36 truncate text-xs text-t3 sm:inline" title={`@${profile.login}`}>@{profile.login}</span>
+            <MetalButton variant="icon" size="icon" className="size-9" innerClassName="p-0" aria-label="Sign out" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
+              <LogoutIcon className="size-4" aria-hidden />
+            </MetalButton>
+          </>}
+        </AccountCorner>
+        <main className="min-w-0 pt-[calc(5rem+env(safe-area-inset-top))]">
           {session.isPending ? <AdminDashboardSkeleton label="Checking admin access…" /> : session.isError ? <div className="space-y-3">
             <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
           </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
         </main>
       </div>
+      <Dock />
     </div>
   );
 };
@@ -88,10 +90,9 @@ function SignIn({ configured }: { configured: boolean }) {
     if (error) toast.error(error === "admin_forbidden" ? "This GitHub account doesn't have admin access. Try an approved account." : "Sign-in couldn't finish. Please try again.", { id: "admin-signin" });
   }, [error]);
   return <section className="mx-auto flex min-h-[calc(100dvh-12rem)] max-w-md flex-col items-center justify-center gap-5 px-2 text-center" aria-labelledby="admin-title">
-    <h1 id="admin-title" className="text-2xl font-medium tracking-tight">OpenCircle admin</h1>
-    <p className="text-sm leading-relaxed text-t2">{configured ? "Sign in with an approved GitHub account to manage the community." : "Admin access hasn't been set up. The site owner needs to enable approved GitHub accounts."}</p>
-    {configured && <TextureButton asChild className="w-auto"><a href="/api/auth-start?returnTo=%2Fadmin"><GitHubIcon className="size-4" aria-hidden /> Continue with GitHub</a></TextureButton>}
-    <Link to="/" className="inline-flex min-h-11 items-center rounded-lg text-sm text-t3 hover:text-foreground">Back to the community</Link>
+    <h1 id="admin-title" className="text-2xl font-medium tracking-tight">Sign in</h1>
+    <p className="text-sm leading-relaxed text-t2">{configured ? "Approved GitHub accounts only." : "Admin access hasn't been set up. The site owner needs to enable approved GitHub accounts."}</p>
+    {configured && <MetalButton asChild className="h-11 w-auto" innerClassName="px-5"><a href="/api/auth-start?returnTo=%2Fadmin"><GitHubIcon className="size-4" aria-hidden /> Continue with GitHub</a></MetalButton>}
   </section>;
 }
 
@@ -128,7 +129,7 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
   const hidden = state.data.members.filter((member) => member.hidden).length;
   return <div className="min-w-0 space-y-6">
     <div className="space-y-2">
-      <h1 className="text-3xl font-medium tracking-tight">Manage OpenCircle</h1>
+      <h1 className="text-2xl font-medium tracking-[-0.03em]">Admin</h1>
       <p className="text-sm text-t3">{formatFull(state.data.members.length - hidden)} visible members · {formatFull(hidden)} hidden{pending !== undefined ? ` · ${formatFull(pending)} tools awaiting review` : ""}</p>
     </div>
     <Tabs value={section} onValueChange={setSection}>
@@ -239,7 +240,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
             Cancel
           </MetalButton>
         )}
-        <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-6" disabled={saving || !dirty} type="submit" aria-label="Save settings">
+        <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-6" loading={saving} disabled={!dirty} type="submit" aria-label="Save settings">
           {saving ? "Saving…" : "Save"}
         </MetalButton>
       </div>

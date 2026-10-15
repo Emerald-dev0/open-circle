@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,22 +25,33 @@ beforeEach(() => { vi.mocked(api.community).mockReset(); vi.mocked(api.signOut).
 afterEach(() => clients.splice(0).forEach((client) => client.clear()));
 
 describe("Global GitHub account controls", () => {
-  it("orders username, avatar and sign-out while retaining the full long username", () => {
+  it("opens the avatar menu on first visit with the full username, Portfolio and Log out", () => {
     const login = "a".repeat(39);
     mount({ ...initial, profile: { ...initial.profile!, login } });
     const group = screen.getByRole("group", { name: "GitHub account" });
-    expect([...group.children].map((element) => element.tagName)).toEqual(["SPAN", "IMG", "BUTTON"]);
-    expect(group.children[0].textContent).toBe(`@${login}`);
-    expect(group.children[0].getAttribute("title")).toBe(`@${login}`);
-    expect(group.children[1].getAttribute("src")).toBe(initial.profile!.avatarUrl);
-    expect(screen.getByRole("button", { name: "Sign out of GitHub" })).toBeTruthy();
+    const avatar = within(group).getByRole("button", { name: `Account menu for @${login}` });
+    expect(avatar.getAttribute("aria-expanded")).toBe("true");
+    expect(avatar.querySelector("img")?.getAttribute("src")).toBe(initial.profile!.avatarUrl);
+    const menu = screen.getByRole("menu", { name: "Account" });
+    expect(within(menu).getByText(`@${login}`).getAttribute("title")).toBe(`@${login}`);
+    expect(within(menu).getByRole("menuitem", { name: "Portfolio" }).getAttribute("href")).toBe("/portfolio");
+    expect(within(menu).getByRole("menuitem", { name: "Sign out of GitHub" })).toBeTruthy();
+  });
+
+  it("stays closed once seen and toggles from the avatar", async () => {
+    localStorage.setItem("opencircle:account-menu-seen", "1");
+    mount();
+    const avatar = screen.getByRole("button", { name: "Account menu for @octocat" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    await userEvent.setup().click(avatar);
+    expect(screen.getByRole("menu", { name: "Account" })).toBeTruthy();
   });
 
   it("revokes sign-in and clears personal vote selections from the shared cache", async () => {
     vi.mocked(api.signOut).mockResolvedValue({ ok: true });
     vi.mocked(api.community).mockResolvedValue({ ...initial, profile: null, toolVotes: {} });
     const client = mount();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Sign out of GitHub" }));
+    await userEvent.setup().click(screen.getByRole("menuitem", { name: "Sign out of GitHub" }));
     await screen.findByRole("link", { name: "Sign in to vote" });
     expect(api.signOut).toHaveBeenCalledOnce();
     expect(client.getQueryData<CommunityState>(COMMUNITY_KEY)?.toolVotes).toEqual({});
@@ -51,7 +62,7 @@ describe("Global GitHub account controls", () => {
     vi.mocked(api.signOut).mockRejectedValue(new Error("offline"));
     vi.mocked(api.community).mockResolvedValue(initial);
     mount();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Sign out of GitHub" }));
+    await userEvent.setup().click(screen.getByRole("menuitem", { name: "Sign out of GitHub" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Couldn't sign out. Please try again."));
     expect(screen.getByRole("group", { name: "GitHub account" })).toBeTruthy();
   });

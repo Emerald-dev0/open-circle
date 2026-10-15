@@ -49,6 +49,13 @@ it("serves route metadata, a real 404 and a trailing-slash redirect", async () =
   expect(admin.headers.get("x-robots-tag")).toBe("noindex, nofollow");
   expect(admin.headers.get("x-frame-options")).toBe("DENY");
 
+  const editor = await fetch(`${base}/portfolio`);
+  expect(editor.status).toBe(200);
+  expect(editor.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  expect(editor.headers.get("cache-control")).toBe("no-store");
+  expect(editor.headers.get("x-frame-options")).toBe("DENY");
+  expect(await editor.text()).toContain("<title>Your portfolio · OpenCircle</title>");
+
   const slash = await fetch(`${base}/repositories/?q=1`, { redirect: "manual" });
   expect(slash.status).toBe(301);
   expect(slash.headers.get("location")).toBe("/repositories?q=1");

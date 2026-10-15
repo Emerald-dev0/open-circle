@@ -95,7 +95,7 @@ describe("Admin loading", () => {
     expect(api.adminAnalytics).not.toHaveBeenCalled();
     await act(async () => dashboard.resolve(state));
     await screen.findByRole("status", { name: "Loading analytics…" });
-    expect(screen.getByRole("heading", { name: "Manage OpenCircle" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Admin" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Analytics period" })).toBeTruthy();
     await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
     expect(screen.getByRole("textbox", { name: "WhatsApp invite link" })).toBeTruthy();

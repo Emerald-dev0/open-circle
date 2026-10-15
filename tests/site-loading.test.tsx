@@ -64,22 +64,22 @@ describe("Public Skelo loading", () => {
   });
 
   it.each([
-    ["/", "Loading developer rankings…", "Ranks 4 and below"],
-    ["/repositories", "Loading repositories…", "Repositories ranked by stars"],
-  ])("loads %s and preserves its results during a background refresh", async (path, label, tableName) => {
+    ["/", "Loading developer rankings…", "Ranks 4 and below", "table"],
+    ["/repositories", "Loading repositories…", "Repositories ranked by stars", "list"],
+  ])("loads %s and preserves its results during a background refresh", async (path, label, tableName, role) => {
     const initial = deferred<Board>();
     const refresh = deferred<Board>();
     vi.mocked(api.board).mockReturnValueOnce(initial.promise).mockReturnValueOnce(refresh.promise);
     const { client } = renderPage(path);
     expect(screen.getByRole("status", { name: label }).querySelector(".lr-skeleton")).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole(role, { name: tableName })).toBeNull();
     expect(screen.queryByText(/#\d open/)).toBeNull();
     await act(async () => initial.resolve(board));
-    await screen.findByRole("table", { name: tableName });
+    await screen.findByRole(role, { name: tableName });
     expect(screen.queryByRole("status", { name: label })).toBeNull();
     await act(async () => { void client.invalidateQueries({ queryKey: BOARD_KEY }); });
     await waitFor(() => expect(api.board).toHaveBeenCalledTimes(2));
-    expect(screen.getByRole("table", { name: tableName })).toBeTruthy();
+    expect(screen.getByRole(role, { name: tableName })).toBeTruthy();
     expect(screen.queryByRole("status", { name: label })).toBeNull();
     await act(async () => refresh.resolve(board));
   });

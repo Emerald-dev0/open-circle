@@ -24,8 +24,14 @@ import * as register from "../api/register.js";
 import * as participation from "../api/participation.js";
 import { DEFAULT_SITE_URL } from "../shared/brand.js";
 import { applySeo, originFromHtml, seoDocument } from "../shared/seo.js";
+import * as portfolio from "../api/portfolio.js";
+import * as portfolioGithub from "../api/portfolio-github.js";
+import * as portfolioUpload from "../api/portfolio-upload.js";
+import { MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
 import { readBody } from "./vite-dev-api.js";
-import { handle } from "./http.js";
+import { handle, HttpError } from "./http.js";
+import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
+import { readPublicPortfolio } from "./portfolio.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
@@ -42,6 +48,9 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   preview: preview as Record<string, Handler>,
   register: register as Record<string, Handler>,
   participation: participation as Record<string, Handler>,
+  portfolio: portfolio as Record<string, Handler>,
+  "portfolio-github": portfolioGithub as Record<string, Handler>,
+  "portfolio-upload": portfolioUpload as Record<string, Handler>,
 };
 
 const TYPES: Record<string, string> = {
@@ -85,7 +94,8 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         headers.set("x-vercel-forwarded-for", (process.env.TRUST_PROXY === "1" ? forwarded : undefined) ?? req.socket.remoteAddress ?? "unknown");
         const method = req.method ?? "GET";
         const response = await handle(async () => {
-          const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req);
+          const maxBytes = api[1] === "portfolio-upload" ? MAX_IMAGE_BYTES : api[1] === "portfolio" ? MAX_PORTFOLIO_BYTES : undefined;
+          const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req, maxBytes);
           return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
         });
         res.statusCode = response.status;
@@ -121,7 +131,23 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       res.setHeader("cache-control", "public, max-age=31536000, immutable");
     } else if (target === INDEX) {
       res.setHeader("cache-control", "no-cache");
-      if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const slug = publicPortfolioSlug(req.headers.host ?? "", url.pathname);
+      if (slug) {
+        res.setHeader("cache-control", "no-store");
+        res.setHeader("referrer-policy", "no-referrer");
+        res.setHeader("content-security-policy", "frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'none'");
+        try {
+          const data = await readPublicPortfolio(slug);
+          res.end(portfolioHtml(readFileSync(INDEX, "utf8"), data, slug));
+        } catch (error) {
+          res.statusCode = error instanceof HttpError && error.status === 404 ? 404 : 503;
+          res.setHeader("x-robots-tag", "noindex, nofollow");
+          res.end(portfolioHtml(readFileSync(INDEX, "utf8"), null, slug));
+        }
+        return;
+      }
+      if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/portfolio") {
+        res.setHeader("x-robots-tag", "noindex, nofollow");
         res.setHeader("cache-control", "no-store");
         res.setHeader("x-frame-options", "DENY");
         res.setHeader("referrer-policy", "same-origin");

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useErrorToast } from "@/hooks/use-error-toast";
-import { BookmarkIcon, MagnifierIcon } from "@solar-icons/react/linear";
+import { MagnifierIcon, Tuning2Icon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import type { PublicRepository } from "@shared/types";
 import { SharedSelect } from "@/components/ui/select";
@@ -8,6 +8,7 @@ import { TextureButton } from "@/components/ui/texture-button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCommunity, useCommunityVote } from "@/hooks/use-community";
 import { formatFull } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { RepositoryTable } from "./repository-table";
 import { CommunityVotesSkeleton } from "@/components/site-skeleton";
 
@@ -36,7 +37,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   const [search, setSearch] = useState("");
   const [language, setLanguage] = useState("");
   const [sort, setSort] = useState<Sort>("stars");
-  const [savedOnly, setSavedOnly] = useState(false);
   const [saved, setSaved] = useState(readSaved);
   const [limit, setLimit] = useState(50);
   const counts = community.data?.counts ?? EMPTY_COUNTS;
@@ -45,7 +45,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
     () => [...new Set(repositories.flatMap((repo) => repo.language ? [repo.language] : []))].sort(),
     [repositories],
   );
-  const savedCount = repositories.filter((repo) => saved.has(repo.id)).length;
 
   useEffect(() => {
     function onStorage(event: StorageEvent) {
@@ -58,7 +57,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     return repositories.filter((repo) =>
-      (!savedOnly || saved.has(repo.id)) &&
       (!language || repo.language === language) &&
       (!query || [repo.name, repo.fullName, repo.ownerLogin, repo.ownerNickname, repo.description ?? ""].some((value) => value.toLowerCase().includes(query))),
     ).sort((a, b) => {
@@ -72,7 +70,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
       }
       return b.stars - a.stars || b.forks - a.forks || a.fullName.localeCompare(b.fullName);
     }).map((repo, index) => ({ ...repo, rank: index + 1 }));
-  }, [repositories, savedOnly, saved, language, search, sort, counts]);
+  }, [repositories, language, search, sort, counts]);
 
   function toggleSaved(id: string) {
     const next = new Set(saved);
@@ -89,12 +87,12 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   function resetFilters() {
     setSearch("");
     setLanguage("");
-    setSavedOnly(false);
     setLimit(50);
   }
 
-  const hasFilters = Boolean(search || language || savedOnly);
-  const emptySaved = savedOnly && savedCount === 0;
+  const hasFilters = Boolean(search || language);
+  const filtersActive = Boolean(language) || sort !== "stars";
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useErrorToast(community.error ? true : null, "Community upvotes could not load.", { id: "upvotes-load", retry: () => community.refetch() });
   useErrorToast(vote.error, "Your upvote could not be saved. Try again.");
@@ -103,44 +101,57 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
     <TooltipProvider delayDuration={200}>
       <div className="space-y-5">
         <div className="space-y-3">
-          <div className="relative">
-            <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
-            <input
-              type="search"
-              aria-label="Search repositories"
-              placeholder="Search repositories or builders"
-              value={search}
-              onChange={(event) => { setSearch(event.target.value); setLimit(50); }}
-              className="field pl-11 text-base sm:text-[15px]"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <SharedSelect
-              aria-label="Filter by language"
-              value={language || "all"}
-              onValueChange={(value) => { setLanguage(value === "all" ? "" : value); setLimit(50); }}
-              options={[{ value: "all", label: "All languages" }, ...languages.map((item) => ({ value: item, label: item }))]}
-              className="min-w-0"
-            />
-            <SharedSelect
-              aria-label="Sort repositories"
-              value={sort}
-              onValueChange={(value) => { setSort(value as Sort); setLimit(50); }}
-              options={[{ value: "stars", label: "Most stars" }, { value: "votes", label: "Community upvotes" }, { value: "updated", label: "Recently updated" }]}
-              className="min-w-0"
-            />
+          {/* Phones: search plus a filter toggle on one line; the selects open
+              underneath. From sm up all three sit inline. Same as Tools. */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_11rem_11rem] sm:gap-3">
+            <div className="relative min-w-0">
+              <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
+              <input
+                type="search"
+                aria-label="Search repositories"
+                placeholder="Search repositories or builders"
+                value={search}
+                onChange={(event) => { setSearch(event.target.value); setLimit(50); }}
+                className="field pl-11 text-base sm:text-[15px]"
+              />
+            </div>
             <TextureButton
               type="button"
-              variant={savedOnly ? "primary" : "minimal"}
-              size="default"
-              aria-pressed={savedOnly}
-              onClick={() => { setSavedOnly(!savedOnly); setLimit(50); }}
-              className="h-11 w-full min-[400px]:col-span-2 sm:col-span-1 sm:w-auto"
-              innerClassName="gap-1.5 px-3.5 text-xs"
+              variant="icon"
+              size="icon"
+              className="relative size-11 sm:hidden"
+              aria-label="Filters"
+              aria-expanded={filtersOpen}
+              aria-controls="repository-filters"
+              onClick={() => setFiltersOpen((open) => !open)}
             >
-              <BookmarkIcon className="size-3.5" aria-hidden="true" />
-              Saved {formatFull(savedCount)}
+              <Tuning2Icon className="size-5" aria-hidden="true" />
+              {filtersActive && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-foreground" aria-hidden="true" />}
             </TextureButton>
+            <div
+              id="repository-filters"
+              className={cn(
+                "col-span-2 grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out sm:contents",
+                filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0 sm:visible sm:opacity-100",
+              )}
+            >
+              <div className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden sm:contents">
+                <SharedSelect
+                  aria-label="Filter by language"
+                  value={language || "all"}
+                  onValueChange={(value) => { setLanguage(value === "all" ? "" : value); setLimit(50); }}
+                  options={[{ value: "all", label: "All languages" }, ...languages.map((item) => ({ value: item, label: item }))]}
+                  className="min-w-0 text-sm"
+                />
+                <SharedSelect
+                  aria-label="Sort repositories"
+                  value={sort}
+                  onValueChange={(value) => { setSort(value as Sort); setLimit(50); }}
+                  options={[{ value: "stars", label: "Most stars" }, { value: "votes", label: "Community upvotes" }, { value: "updated", label: "Recently updated" }]}
+                  className="min-w-0 text-sm"
+                />
+              </div>
+            </div>
           </div>
           <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 text-xs text-t3">
             <p role="status">{formatFull(visible.length)} of {formatFull(repositories.length)} {repositories.length === 1 ? "repository" : "repositories"}</p>
@@ -148,7 +159,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
           </div>
         </div>
 
-        <p className="text-xs text-t3">Community upvotes are separate from GitHub stars. One vote per repository in this browser.</p>
         {community.isPending && <CommunityVotesSkeleton />}
 
         {visible.length > 0 ? (
@@ -161,13 +171,14 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             voted={voted}
             saved={saved}
             votingDisabled={!community.data || vote.isPending || Boolean(community.error)}
+            pendingTarget={vote.isPending ? vote.variables?.target ?? null : null}
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}
           />
         ) : (
           <div className="surface-quiet rounded-[28px] px-5 py-8 text-center">
-            <p className="text-sm text-foreground">{repositories.length === 0 ? "No repositories yet." : emptySaved ? "No saved repositories yet." : "No repositories match your filters."}</p>
-            <p className="mt-2 text-xs text-t3">{repositories.length === 0 ? "Member projects appear here after GitHub updates." : emptySaved ? "Save repositories to keep them here on this device." : "Try another search or browse all repositories."}</p>
+            <p className="text-sm text-foreground">{repositories.length === 0 ? "No repositories yet." : "No repositories match your filters."}</p>
+            <p className="mt-2 text-xs text-t3">{repositories.length === 0 ? "Member projects appear here after GitHub updates." : "Try another search or browse all repositories."}</p>
             {hasFilters && (
               <TextureButton type="button" variant="minimal" size="default" className="mt-4 h-11 w-auto" innerClassName="px-3.5 text-xs" onClick={resetFilters}>
                 Browse all repositories

@@ -1,13 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MetalText } from "metal-fx";
 import { toast } from "sonner";
-import { AltArrowLeftIcon, CopyIcon } from "@solar-icons/react/linear";
+import { CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import { parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
-import { GitHubAccount } from "@/components/github-account";
+import { AccountCorner } from "@/components/account-corner";
+import { Dock } from "@/components/dock";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
@@ -39,7 +38,7 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
         ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required minLength={field.min} maxLength={field.max} disabled={busy} />
         : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
-    <MetalButton type="submit" disabled={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+    <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
   </form>;
 }
 
@@ -126,22 +125,12 @@ export default function Participation() {
   return <div className="relative min-h-dvh overflow-x-clip">
     <div className="app-backdrop" aria-hidden />
     <div className="relative z-10">
-      <header className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 pt-5">
-        <Link to="/" className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-t3 transition-colors hover:text-foreground">
-          <AltArrowLeftIcon size={18} aria-hidden /> Back to the board
-        </Link>
-        {/* Signed out, the panel below carries the one sign-in button. */}
-        {profile && <GitHubAccount />}
-      </header>
+      {/* Signed out, the panel below carries the one sign-in button. */}
+      {profile && <AccountCorner />}
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-10 sm:space-y-6 sm:pt-16">
-        <div className="flex flex-col items-center pb-2 text-center sm:pb-4">
-          <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
-            <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">Open Source Circle</MetalText>
-          </span>
-          <h1 className="text-gradient mt-3 text-[34px] font-[350] leading-[1.05] tracking-[-0.035em] sm:text-5xl">Group participation</h1>
-          {page && <p className="mt-3 max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
-        </div>
+      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(5rem+env(safe-area-inset-top))] sm:space-y-6">
+        <h1 className="text-2xl font-medium tracking-[-0.03em]">Participation</h1>
+        {page && <p className="max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
 
 
         {community.isPending ? <ParticipationSkeleton checkingSignIn /> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
@@ -247,6 +236,7 @@ export default function Participation() {
         </>)}
       </main>
       <SiteFooter />
+      <Dock />
     </div>
   </div>;
 }

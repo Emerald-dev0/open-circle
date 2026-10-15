@@ -61,6 +61,14 @@ export const SEO_PAGES: readonly SeoPage[] = [
     index: false,
   },
   {
+    path: "/portfolio",
+    title: `Your portfolio · ${BRAND_NAME}`,
+    description: "Build and manage your OpenCircle portfolio from GitHub.",
+    summary: "Build and manage your OpenCircle portfolio from GitHub.",
+    heading: "Your portfolio",
+    index: false,
+  },
+  {
     path: "/admin",
     title: `Admin · ${BRAND_NAME}`,
     description: "Organiser controls for OpenCircle.",
@@ -166,7 +174,7 @@ export function structuredData(originInput = DEFAULT_SITE_URL) {
 
 export function robotsTxt(originInput = DEFAULT_SITE_URL) {
   const origin = siteOrigin(originInput);
-  return ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
+  return ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
 }
 
 export function sitemapXml(originInput = DEFAULT_SITE_URL, lastmod = new Date().toISOString().slice(0, 10)) {

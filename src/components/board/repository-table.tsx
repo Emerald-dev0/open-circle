@@ -1,7 +1,8 @@
-import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
-import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
+import { StarIcon } from "@solar-icons/react/bold-duotone";
+import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
-import { motion, useReducedMotion } from "motion/react";
+import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
+import { AnimatePresence, motion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -9,9 +10,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatCount, formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const GRID =
-  "grid grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 md:grid-cols-[2rem_minmax(0,1fr)_5rem_4rem_6rem] md:gap-3";
-
+/**
+ * Repositories as cards, not a table: identity and details on the left, the
+ * community upvote on the right of the same line. Reads the same on a phone.
+ */
 export function RepositoryTable({
   repositories,
   limit = 50,
@@ -21,6 +23,7 @@ export function RepositoryTable({
   voted = new Set<string>(),
   saved = new Set<string>(),
   votingDisabled = false,
+  pendingTarget = null,
   onVote,
   onSave,
 }: {
@@ -32,181 +35,125 @@ export function RepositoryTable({
   voted?: ReadonlySet<string>;
   saved?: ReadonlySet<string>;
   votingDisabled?: boolean;
+  /** `repo:ID` whose vote is being saved. */
+  pendingTarget?: string | null;
   onVote?: (repository: PublicRepository, active: boolean) => void;
   onSave?: (id: string) => void;
 }) {
-  const reducedMotion = useReducedMotion();
   return (
     <div>
-      <div
-        role="table"
-        aria-label={label}
-        aria-rowcount={repositories.length + 1}
-      >
-        <div role="rowgroup">
-          <div
-            role="row"
-            className={cn(
-              GRID,
-              "px-3 pb-3 text-[11px] font-medium text-t3 md:px-5",
-            )}
-          >
-            <span role="columnheader">#</span>
-            <span role="columnheader">Repository</span>
-            <span role="columnheader" className="text-right">
-              Stars
-            </span>
-            <span role="columnheader" className="hidden text-right md:block">
-              Forks
-            </span>
-            <span role="columnheader" className="hidden md:block">
-              Language
-            </span>
-          </div>
-        </div>
-        <div role="rowgroup" className="flex flex-col gap-1">
-          {repositories.slice(0, limit).map((repo, index) => (
-            <motion.div
-              key={repo.id}
-              role="row"
-              layout={reducedMotion ? false : "position"}
-              transition={{
-                layout: { type: "spring", stiffness: 420, damping: 38 },
-              }}
-              className={cn(
-                GRID,
-                "rounded-[28px] px-3 py-3 md:px-5",
-                index % 2 === 1 && "surface-quiet",
-              )}
-            >
-              <span role="cell" className="text-sm tabular text-t3">
-                {repo.rank}
-              </span>
-              <div role="cell" className="min-w-0">
-                <a
-                  href={repo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex min-w-0 items-start gap-2 rounded-lg md:items-center md:gap-3"
-                >
-                  <Avatar className="size-6 shrink-0 md:size-8">
-                    <AvatarImage
-                      src={repo.ownerAvatarUrl}
-                      alt=""
-                      loading="lazy"
-                    />
-                    <AvatarFallback className="bg-alva-card text-[10px]">
-                      {repo.ownerNickname.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0">
-                    <strong
-                      className="block break-words text-sm font-medium text-foreground [overflow-wrap:anywhere] md:truncate"
+      <ul aria-label={label} className="flex flex-col gap-2">
+        <AnimatePresence initial={false}>
+          {repositories.slice(0, limit).map((repo) => {
+            const target = `repo:${repo.id}`;
+            const isVoted = voted.has(target);
+            const isSaved = saved.has(repo.id);
+            return (
+              <motion.li
+                key={repo.id}
+                layout="position"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+                transition={{ layout: { type: "spring", stiffness: 340, damping: 34 }, opacity: { duration: 0.2 } }}
+                className="surface-quiet grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-[24px] px-4 py-3 sm:gap-x-4 sm:px-5"
+              >
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="w-5 shrink-0 text-xs tabular text-t4" aria-label={`Rank ${repo.rank}`}>{repo.rank}</span>
+                    <Avatar className="size-7 shrink-0">
+                      <AvatarImage src={repo.ownerAvatarUrl} alt="" loading="lazy" />
+                      <AvatarFallback className="bg-alva-card text-[10px]">{repo.ownerNickname.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <a
+                      href={repo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       title={repo.fullName}
+                      className="min-w-0 truncate rounded text-sm font-medium text-foreground hover:underline hover:underline-offset-4"
                     >
                       {repo.name}
-                    </strong>
-                    <span className="block truncate text-xs text-t3">
-                      @{repo.ownerLogin}
+                    </a>
+                    {repo.language && <span className="hidden shrink-0 text-[11px] text-t4 min-[400px]:inline">{repo.language}</span>}
+                  </div>
+
+                  {repo.description && (
+                    <p className="mt-1.5 line-clamp-2 break-words text-xs leading-relaxed text-t2 [overflow-wrap:anywhere]" title={repo.description}>
+                      {repo.description}
+                    </p>
+                  )}
+
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-t3">
+                    <span className="inline-flex items-center gap-1 tabular">
+                      <StarIcon size={12} aria-hidden />
+                      {formatCount(repo.stars)}<span className="sr-only"> stars</span>
                     </span>
-                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-t3 md:hidden">
-                      {repo.language && <span className="break-words [overflow-wrap:anywhere]">{repo.language}</span>}
-                      <span className="inline-flex items-center gap-1 tabular">
-                        <BranchingPathsUpIcon className="size-3 shrink-0" aria-hidden="true" />
-                        {formatCount(repo.forks)}<span className="sr-only"> forks</span>
-                      </span>
+                    <span className="inline-flex items-center gap-1 tabular">
+                      <GitPullRequestIcon size={12} aria-hidden />
+                      {formatCount(repo.forks)}<span className="sr-only"> forks</span>
                     </span>
-                    {repo.description && (
-                      <span
-                        className="mt-1 line-clamp-2 break-words text-xs text-t3 [overflow-wrap:anywhere] md:line-clamp-none md:truncate md:text-[11px]"
-                        title={repo.description}
-                      >
-                        {repo.description}
-                      </span>
-                    )}
-                  </span>
-                </a>
-                {(onVote || onSave) && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    {onVote && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <TextureButton
-                            type="button"
-                            variant={voted.has(`repo:${repo.id}`) ? "primary" : "minimal"}
-                            size="default"
-                            aria-label={`${voted.has(`repo:${repo.id}`) ? "Remove upvote from" : "Upvote"} ${repo.fullName}`}
-                            aria-pressed={voted.has(`repo:${repo.id}`)}
-                            disabled={votingDisabled}
-                            onClick={() => onVote(repo, !voted.has(`repo:${repo.id}`))}
-                            className="h-11 min-w-11 w-auto tabular"
-                            innerClassName="gap-1.5 px-3 text-xs"
-                          >
-                            <ArrowUpIcon className="size-4" aria-hidden="true" />
-                            <span>{formatCount(counts[`repo:${repo.id}`] ?? 0)}</span>
-                          </TextureButton>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {voted.has(`repo:${repo.id}`) ? "Remove your community upvote" : "Upvote for the circle. GitHub stars stay separate."}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                    <span className="min-w-0 truncate">by {repo.ownerNickname}</span>
                     {onSave && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <TextureButton
+                          <button
                             type="button"
-                            variant={saved.has(repo.id) ? "primary" : "icon"}
-                            size="icon"
-                            aria-label={`${saved.has(repo.id) ? "Unsave" : "Save"} ${repo.fullName}`}
-                            aria-pressed={saved.has(repo.id)}
+                            aria-label={`${isSaved ? "Unsave" : "Save"} ${repo.fullName}`}
+                            aria-pressed={isSaved}
                             onClick={() => onSave(repo.id)}
-                            className="size-11"
-                            innerClassName="p-3"
+                            className="touch-target inline-flex min-h-8 items-center gap-1.5 rounded hover:text-foreground"
                           >
-                            {saved.has(repo.id) ? <SavedBookmarkIcon className="size-4" aria-hidden="true" /> : <BookmarkIcon className="size-4" aria-hidden="true" />}
-                          </TextureButton>
+                            {isSaved ? <SavedBookmarkIcon className="size-3.5 text-foreground" aria-hidden="true" /> : <BookmarkIcon className="size-3.5" aria-hidden="true" />}
+                            <span aria-hidden="true">{isSaved ? "Saved" : "Save"}</span>
+                          </button>
                         </TooltipTrigger>
-                        <TooltipContent>
-                          {saved.has(repo.id) ? "Remove from saved repositories" : "Save on this device"}
-                        </TooltipContent>
+                        <TooltipContent>{isSaved ? "Remove from saved repositories" : "Save on this device"}</TooltipContent>
                       </Tooltip>
                     )}
                   </div>
+                </div>
+
+                {onVote && (
+                  // Same pill as tool votes, upvote only: button and count share one soft background.
+                  <div role="group" aria-label={`Vote on ${repo.fullName}`} className="flex flex-col items-center gap-0.5 rounded-full bg-white/[0.035] p-0.5 sm:flex-row">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <TextureButton
+                          type="button"
+                          variant={isVoted ? "primary" : "icon"}
+                          size="icon"
+                          aria-label={`${isVoted ? "Remove upvote from" : "Upvote"} ${repo.fullName}`}
+                          aria-pressed={isVoted}
+                          disabled={votingDisabled}
+                          loading={pendingTarget === target}
+                          onClick={() => onVote(repo, !isVoted)}
+                          className="size-10 w-10 sm:size-11 sm:w-11"
+                          innerClassName={cn("p-0", isVoted && "text-up")}
+                        >
+                          <ArrowUpIcon className="size-4" aria-hidden="true" />
+                        </TextureButton>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isVoted ? "Remove your community upvote" : "Upvote for the circle."}
+                      </TooltipContent>
+                    </Tooltip>
+                    <span
+                      className="min-w-8 pb-1.5 pt-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0 sm:pr-2.5"
+                      title={`${formatFull(counts[target] ?? 0)} upvotes`}
+                      aria-label={`${formatFull(counts[target] ?? 0)} upvotes for ${repo.fullName}`}
+                    >
+                      {formatCount(counts[target] ?? 0)}
+                    </span>
+                  </div>
                 )}
-              </div>
-              <span
-                role="cell"
-                className="inline-flex items-center justify-end gap-1.5 text-sm tabular text-foreground"
-              >
-                <StarIcon size={12} className="text-t3" aria-hidden />
-                {formatCount(repo.stars)}
-              </span>
-              <span
-                role="cell"
-                className="hidden items-center justify-end gap-1.5 text-sm tabular text-t3 md:inline-flex"
-              >
-                <BranchingPathsUpIcon size={12} aria-hidden />
-                {formatCount(repo.forks)}
-              </span>
-              <span
-                role="cell"
-                className="hidden truncate text-xs text-t3 md:block"
-              >
-                {repo.language ?? "—"}
-              </span>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+      </ul>
       {repositories.length > limit && onShowAll && (
         <div className="mt-4 flex justify-center">
-          <TextureButton
-            variant="minimal"
-            size="sm"
-            className="w-auto"
-            onClick={onShowAll}
-          >
+          <TextureButton variant="minimal" size="sm" className="w-auto" onClick={onShowAll}>
             Show all {formatFull(repositories.length)} repositories
           </TextureButton>
         </div>

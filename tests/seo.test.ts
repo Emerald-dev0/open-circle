@@ -26,6 +26,7 @@ describe("search documents", () => {
   it("keeps admin, participation and unknown addresses out of the index", () => {
     expect(seoDocument("/participation", origin)).toMatchObject({ status: 200, index: false, robots: "noindex, nofollow" });
     expect(seoDocument("/admin", origin)).toMatchObject({ status: 200, index: false });
+    expect(seoDocument("/portfolio", origin)).toMatchObject({ status: 200, index: false, title: "Your portfolio · OpenCircle" });
     expect(seoDocument("/missing", origin)).toMatchObject({ status: 404, index: false, heading: "404", url: `${origin}/missing` });
     expect(seoDocument("/repositories/", origin).url).toBe(`${origin}/repositories`);
   });
@@ -38,8 +39,9 @@ describe("search documents", () => {
     expect(sitemap).toContain(`${origin}/how-it-works`);
     expect(sitemap).not.toContain("/admin");
     expect(sitemap).not.toContain("/participation");
+    expect(sitemap).not.toContain("/portfolio");
     expect(sitemap).toContain("<lastmod>2026-10-15</lastmod>");
-    expect(robotsTxt(origin).split("\n").filter((line) => line.startsWith("Disallow:"))).toEqual(["Disallow: /admin", "Disallow: /api/"]);
+    expect(robotsTxt(origin).split("\n").filter((line) => line.startsWith("Disallow:"))).toEqual(["Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/"]);
     expect(robotsTxt(origin)).toContain("Allow: /");
     expect(robotsTxt(origin)).toContain(`Sitemap: ${origin}/sitemap.xml`);
   });
