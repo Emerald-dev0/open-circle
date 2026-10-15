@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "../../node_modules/.cache/typescript/api.tsbuildinfo",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "strict": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["../../api", "../../server", "../../shared"],
+  "exclude": ["../../server/vite-dev-api.ts", "../../server/vite-seo.ts"]
+}

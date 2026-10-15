@@ -69,6 +69,7 @@ migrations/           Versioned Postgres schema
 scripts/              Migrations and Postgres verification
 public/               Favicon, Aspekta font and font license
 tests/                Server and UI regression coverage
+config/typescript/    App, API, build-tool and test compiler settings
 docs/                 Public setup and reference guides
 .github/              Checks, issue forms and pull request template
 neon.ts               Neon service configuration
@@ -76,5 +77,7 @@ vitest.config.ts      Test environments and worker limits
 ```
 
 `@/` resolves to `src/` and `@shared/` resolves to `shared/`. Keep server secrets and Node-only imports inside `server/` or `api/`. Shared modules must be safe to import into the browser.
+
+`tsconfig.json` is the single root TypeScript entry point. It holds shared settings and references the app, API, Node tooling and test configurations in `config/typescript/`. Each keeps the checks and libraries its environment needs. Generated TypeScript caches go in `node_modules/.cache/typescript/`.
 
 The frontend uses React 19, Vite 6, TypeScript, Tailwind CSS 3, Radix-based UI primitives and TanStack Query. The API uses Web `Request`/`Response` handlers and Node.js features; it is not an edge-only backend.
