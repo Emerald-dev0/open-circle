@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { MetalText } from "metal-fx";
 import { motion, useSpring, useTransform } from "motion/react";
-import { CupStarIcon, InfoCircleIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
+import { CupStarIcon, InfoCircleIcon, UserIdIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { WhatsAppIcon } from "@/components/brand-icons";
 import { toast } from "sonner";
 import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
 import type { InviteConfig } from "@shared/types";
 import { LiquidGlass } from "@/components/liquid-glass";
+import { guardedLeave } from "@/lib/leave-guard";
 
 const BRAND_FONT = "650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif";
 const SLOT = 44;
@@ -22,11 +23,13 @@ function DockIcon({
   children,
   onClick,
   href,
+  active = false,
 }: {
   label: string;
   children: React.ReactNode;
   onClick?: () => void;
   href?: string;
+  active?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const scale = useSpring(1, { stiffness: 400, damping: 28, mass: 0.2 });
@@ -45,12 +48,14 @@ function DockIcon({
       >
         {label}
       </span>
+      {active && <span className="absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full bg-foreground" aria-hidden />}
     </>
   );
   const props = {
     "aria-label": label,
+    "aria-current": active ? ("page" as const) : undefined,
     className:
-      "group relative flex shrink-0 items-center justify-center rounded-full text-t2 transition-colors hover:text-foreground",
+      `group relative flex shrink-0 items-center justify-center rounded-full transition-colors hover:text-foreground ${active ? "text-foreground" : "text-t2"}`,
     style: { width: SLOT, height: SLOT },
     onPointerEnter: (e: React.PointerEvent) => e.pointerType === "mouse" && setHovered(true),
     onPointerLeave: () => setHovered(false),
@@ -74,10 +79,17 @@ export function Dock({
   onRules,
 }: {
   invite?: InviteConfig;
-  onRank: () => void;
-  onRules: () => void;
+  /** Home scrolls to the input in place; elsewhere the dock navigates there. */
+  onRank?: () => void;
+  onRules?: () => void;
 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Every route change goes through the leave guard (unsaved portfolio edits).
+  const go = (path: string, then?: () => void) => guardedLeave(() => { navigate(path); then?.(); });
+  const rank = onRank ?? (() => go("/", () => window.setTimeout(() => document.getElementById("github-input")?.focus(), 400)));
+  const rules = onRules ?? (() => go("/how-it-works"));
+  const onBoard = ["/", "/repositories", "/tools", "/how-it-works"].includes(pathname);
   const inv = invite ?? { url: DEFAULT_INVITE_URL, open: true, note: DEFAULT_INVITE_NOTE };
 
   return (
@@ -90,7 +102,7 @@ export function Dock({
         <LiquidGlass radius={9999} className="flex items-center p-1.5">
           <button
             type="button"
-            onClick={onRank}
+            onClick={rank}
             className="flex h-11 items-center self-center rounded-full px-2 sm:px-4"
             aria-label={`${BRAND_NAME}, back to top`}
           >
@@ -101,13 +113,16 @@ export function Dock({
           radius={9999}
           className="flex items-center gap-1 overflow-visible p-1.5"
         >
-          <DockIcon label="Rank me" onClick={onRank}>
+          <DockIcon label="Rank me" onClick={rank} active={onBoard}>
             <CupStarIcon size="100%" aria-hidden />
           </DockIcon>
-          <DockIcon label="Group participation" onClick={() => navigate("/participation")}>
+          <DockIcon label="Group participation" onClick={() => go("/participation")} active={pathname === "/participation"}>
             <UsersGroupRoundedIcon size="100%" aria-hidden />
           </DockIcon>
-          <DockIcon label="How ranking works" onClick={onRules}>
+          <DockIcon label="Portfolio" onClick={() => go("/portfolio")} active={pathname === "/portfolio"}>
+            <UserIdIcon size="100%" aria-hidden />
+          </DockIcon>
+          <DockIcon label="How ranking works" onClick={rules}>
             <InfoCircleIcon size="100%" aria-hidden />
           </DockIcon>
           <DockIcon

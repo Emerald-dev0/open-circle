@@ -17,12 +17,14 @@ export function Notch({
   backTo = "/",
   backLabel = "Back to the board",
   onBack,
+  showBack = true,
 }: {
   title: ReactNode;
   children?: ReactNode;
   backTo?: string;
   backLabel?: string;
   onBack?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
+  showBack?: boolean;
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -50,15 +52,15 @@ export function Notch({
       >
         <LiquidGlass radius={9999} layout transition={SPRING} className="flex max-w-full items-center gap-1 p-1.5">
           <motion.div layout="position" transition={SPRING} className="flex min-w-0 items-center gap-1.5">
-            <Link
+            {showBack && <Link
               to={backTo}
               onClick={onBack}
               aria-label={backLabel}
               className="flex size-9 shrink-0 items-center justify-center rounded-full text-t3 transition-colors hover:bg-white/[0.07] hover:text-foreground"
             >
               <AltArrowLeftIcon className="size-[18px]" aria-hidden />
-            </Link>
-            <span className="truncate pr-2 text-sm font-medium tracking-[-0.01em]">{title}</span>
+            </Link>}
+            <span className={`truncate text-sm font-medium tracking-[-0.01em] ${showBack ? "pr-2" : "px-3"}`}>{title}</span>
           </motion.div>
           <AnimatePresence initial={false}>
             {children && expanded && (

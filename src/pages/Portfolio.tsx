@@ -7,6 +7,9 @@ import { GitHubIcon } from "@/components/brand-icons";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
 import { Notch } from "@/components/notch";
+import { AccountCorner } from "@/components/account-corner";
+import { Dock } from "@/components/dock";
+import { setLeaveGuard } from "@/lib/leave-guard";
 import { SharedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,13 +30,19 @@ const EXAMPLE: PublicPortfolio = {
   projects: [{ repository: { id: 1, name: "Your featured project", fullName: "your-username/your-project", description: "Tell the story behind something you've built. Add a cover, link to the code, and make it yours.", language: "Your stack", url: "https://github.com", homepage: "", stars: 0, forks: 0 }, title: "", summary: "", imageUrl: "" }],
 };
 
-function StudioHeader({ children, onBack }: { children?: React.ReactNode; onBack?: (event: React.MouseEvent<HTMLAnchorElement>) => void }) {
-  return <Notch title="Portfolio" backLabel="Back to OpenCircle" onBack={onBack}>{children}</Notch>;
+/** Avatar top-right and the dock, on every portfolio state. The editor adds
+ *  a notch for its own actions (save, publish). */
+function StudioChrome({ actions }: { actions?: React.ReactNode }) {
+  return <>
+    <AccountCorner />
+    {actions && <Notch title="Portfolio" showBack={false}>{actions}</Notch>}
+    <Dock />
+  </>;
 }
 
 function PortfolioIntro({ available }: { available: boolean }) {
   const [example, setExample] = useState(EXAMPLE);
-  return <div className="studio"><StudioHeader /><main className="studio-intro"><div className="studio-intro-copy"><h1>Build a portfolio<br />from your GitHub.</h1><p>Choose your GitHub projects, add your story, and share your own address.</p><MetalButton asChild className="h-11 w-auto" innerClassName="px-5"><a href={available ? "/api/auth-start?returnTo=/portfolio" : undefined} aria-disabled={!available}><GitHubIcon className="size-4" />Create with GitHub</a></MetalButton><p className="studio-intro-notice">{available ? "Your address: username.opencircle.cc" : "GitHub sign-in is being set up. You can explore the preview."}</p><div className="mt-9"><p className="mb-3 text-xs text-t3">Try an accent</p><div className="studio-swatches">{Object.entries(PORTFOLIO_ACCENTS).map(([key, accent]) => <button key={key} type="button" className="studio-swatch" aria-label={`${accent.label} preview accent`} aria-pressed={example.accent === key} onClick={() => setExample({ ...example, accent: key as PortfolioContent["accent"], coverStyle: "aurora" })}><span style={{ background: accent.color }} /></button>)}</div></div></div><div className="studio-intro-preview"><div className="studio-preview-toolbar"><span>Example</span><button type="button" className="text-xs text-t2" onClick={() => setExample({ ...example, theme: example.theme === "dark" ? "light" : "dark" })}>Try {example.theme === "dark" ? "light" : "dark"} theme</button></div><div className="studio-preview-frame"><PortfolioView portfolio={example} preview /></div></div></main></div>;
+  return <div className="studio"><StudioChrome /><main className="studio-intro"><div className="studio-intro-copy"><h1>Build a portfolio<br />from your GitHub.</h1><p>Choose your GitHub projects, add your story, and share your own address.</p><MetalButton asChild className="h-11 w-auto" innerClassName="px-5"><a href={available ? "/api/auth-start?returnTo=/portfolio" : undefined} aria-disabled={!available}><GitHubIcon className="size-4" />Create with GitHub</a></MetalButton><p className="studio-intro-notice">{available ? "Your address: username.opencircle.cc" : "GitHub sign-in is being set up. You can explore the preview."}</p><div className="mt-9"><p className="mb-3 text-xs text-t3">Try an accent</p><div className="studio-swatches">{Object.entries(PORTFOLIO_ACCENTS).map(([key, accent]) => <button key={key} type="button" className="studio-swatch" aria-label={`${accent.label} preview accent`} aria-pressed={example.accent === key} onClick={() => setExample({ ...example, accent: key as PortfolioContent["accent"], coverStyle: "aurora" })}><span style={{ background: accent.color }} /></button>)}</div></div></div><div className="studio-intro-preview"><div className="studio-preview-toolbar"><span>Example</span><button type="button" className="text-xs text-t2" onClick={() => setExample({ ...example, theme: example.theme === "dark" ? "light" : "dark" })}>Try {example.theme === "dark" ? "light" : "dark"} theme</button></div><div className="studio-preview-frame"><PortfolioView portfolio={example} preview /></div></div></main></div>;
 }
 
 export function PortfolioEditor({ initial }: { initial: PortfolioEditorState }) {
@@ -95,10 +104,16 @@ export function PortfolioEditor({ initial }: { initial: PortfolioEditorState }) 
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
   }, [dirty]);
+  const pendingLeave = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    if (!dirty) { setLeaveGuard(null); return; }
+    setLeaveGuard((proceed) => { pendingLeave.current = proceed; setDialog("leave"); return true; });
+    return () => setLeaveGuard(null);
+  }, [dirty]);
   const previousTitle = useRef(document.title);
   useEffect(() => { document.title = "Your portfolio · OpenCircle"; const previous = previousTitle.current; return () => { document.title = previous; }; }, []);
   return <div className="studio"><form onSubmit={(event) => { event.preventDefault(); if (!busy && validate()) save.mutate("save"); }}>
-    <StudioHeader onBack={(event) => { if (dirty) { event.preventDefault(); setDialog("leave"); } }}><span className="studio-save-state hidden px-1 sm:flex" role="status">{busy ? "Saving…" : dirty ? "Unsaved" : saved.updatedAt ? <><CheckReadIcon className="size-3.5" />Saved</> : null}</span><MetalButton type="submit" variant="icon" size="icon" className="size-9" innerClassName="p-0" aria-label="Save draft" title="Save draft" disabled={busy || (!dirty && saved.version > 0)}><DisketteIcon className="size-4" aria-hidden /></MetalButton><MetalButton type="button" size="sm" className="h-9 w-auto" innerClassName="px-4" disabled={busy} onClick={() => { if (validate()) setDialog("publish"); }}>{save.isPending ? "Saving…" : saved.publishedAt ? "Publish changes" : "Publish"}</MetalButton></StudioHeader>
+    <StudioChrome actions={<><span className="studio-save-state hidden px-1 sm:flex" role="status">{busy ? "Saving…" : dirty ? "Unsaved" : saved.updatedAt ? <><CheckReadIcon className="size-3.5" />Saved</> : null}</span><MetalButton type="submit" variant="icon" size="icon" className="size-9" innerClassName="p-0" aria-label="Save draft" title="Save draft" disabled={busy || (!dirty && saved.version > 0)}><DisketteIcon className="size-4" aria-hidden /></MetalButton><MetalButton type="button" size="sm" className="h-9 w-auto" innerClassName="px-4" disabled={busy} onClick={() => { if (validate()) setDialog("publish"); }}>{save.isPending ? "Saving…" : saved.publishedAt ? "Publish changes" : "Publish"}</MetalButton></>} />
     <main className="studio-body"><div className="studio-heading"><h1 className="sr-only">Your portfolio</h1><div className="studio-domain"><span>{portfolioHostname(content.slug || initial.profile.login.toLowerCase())}</span>{saved.publishedAt && <><button type="button" aria-label="Copy portfolio link" onClick={() => { void navigator.clipboard.writeText(publicUrl).then(() => toast.success("Portfolio link copied.")).catch(() => toast.error("Couldn't copy. Open your page and copy its address.")); }}><CopyIcon className="size-3.5" aria-hidden /></button><a className="studio-back" href={publicUrl} target="_blank" rel="noopener noreferrer" aria-label="Open published portfolio"><ArrowRightUpIcon className="size-4" /></a></>}</div></div>
     <Tabs value={tab} onValueChange={setTab}><div className="studio-grid"><div className="studio-editor"><TabsList className="studio-tabs" aria-label="Portfolio sections">{[["profile", "Profile"], ["projects", "Projects"], ["readme", "README"], ["style", "Style"], ["contact", "Contact"]].map(([value, label]) => <TabsTrigger className="studio-tab" key={value} value={value}>{label}</TabsTrigger>)}</TabsList>
     <fieldset disabled={busy} className="min-w-0">
@@ -136,7 +151,7 @@ export function PortfolioEditor({ initial }: { initial: PortfolioEditorState }) 
     </main></form>
     <Dialog open={dialog !== null} onOpenChange={(open) => { if (!open && !busy) setDialog(null); }}><DialogContent className="studio-repo-dialog max-w-md"><DialogTitle>{dialog === "publish" ? saved.publishedAt ? "Publish your changes?" : "Ready to share your work?" : dialog === "unpublish" ? "Take your portfolio offline?" : dialog === "import" ? "Replace your README?" : "Leave your unsaved changes?"}</DialogTitle><DialogDescription>{dialog === "publish" ? "Your profile, selected work and public contacts will be visible to anyone with your link." : dialog === "unpublish" ? "Visitors won't be able to see your page. Your saved draft and address stay yours." : dialog === "import" ? "The imported README will replace what you've written here. You can edit it before saving." : "The changes you've made since your last save will be lost."}</DialogDescription>
       {dialog === "publish" && <div className="space-y-3 rounded-2xl bg-white/[.04] p-4"><p className="break-all text-sm">{portfolioHostname(content.slug)}</p><p className="text-xs text-t3">{content.projects.length} selected {content.projects.length === 1 ? "repository" : "repositories"}</p><p className="text-xs text-t3">Public contacts: {visibleContacts.length ? visibleContacts.map((contact) => CONTACT_LABELS[contact.kind]).join(", ") : "none"}</p>{!saved.subdomainsAvailable && <p className="text-xs leading-relaxed text-t3">Your page will have a shareable link. Your subdomain will become available when domain setup is complete.</p>}</div>}
-      <div className="mt-2 flex flex-wrap justify-end gap-2"><TextureButton type="button" variant="secondary" className="w-auto" disabled={busy} onClick={() => setDialog(null)}>Keep editing</TextureButton><TextureButton type="button" className="w-auto" disabled={busy} onClick={() => { if (dialog === "publish") save.mutate("publish"); else if (dialog === "unpublish") save.mutate("unpublish"); else if (dialog === "import") readme.mutate(Number(importRepo)); else { setDialog(null); navigate("/"); } }}>{busy ? "Working…" : dialog === "publish" ? "Publish portfolio" : dialog === "unpublish" ? "Unpublish" : dialog === "import" ? "Replace README" : "Leave page"}</TextureButton></div>
+      <div className="mt-2 flex flex-wrap justify-end gap-2"><TextureButton type="button" variant="secondary" className="w-auto" disabled={busy} onClick={() => setDialog(null)}>Keep editing</TextureButton><TextureButton type="button" className="w-auto" disabled={busy} onClick={() => { if (dialog === "publish") save.mutate("publish"); else if (dialog === "unpublish") save.mutate("unpublish"); else if (dialog === "import") readme.mutate(Number(importRepo)); else { setDialog(null); const proceed = pendingLeave.current; pendingLeave.current = null; if (proceed) { setLeaveGuard(null); proceed(); } else navigate("/"); } }}>{busy ? "Working…" : dialog === "publish" ? "Publish portfolio" : dialog === "unpublish" ? "Unpublish" : dialog === "import" ? "Replace README" : "Leave page"}</TextureButton></div>
     </DialogContent></Dialog>
   </div>;
 }
@@ -145,8 +160,8 @@ export default function Portfolio() {
   const community = useCommunity();
   const profile = community.data?.profile;
   const state = useQuery({ queryKey: ["portfolio-editor", profile?.id], queryFn: ({ signal }) => portfolioApi.editor(signal), enabled: !!profile, retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false });
-  if (community.isPending || (profile && state.isPending)) return <div className="studio"><StudioHeader /><main className="studio-body" aria-busy="true"><div className="h-10 w-56 animate-pulse rounded-2xl bg-white/5" /><div className="studio-grid mt-10"><div className="h-96 animate-pulse rounded-3xl bg-white/5" /><div className="h-[600px] animate-pulse rounded-3xl bg-white/5" /></div><p className="sr-only" role="status">Loading your portfolio…</p></main></div>;
-  if (community.isError || (profile && state.isError)) return <div className="studio"><StudioHeader /><main className="studio-error-panel"><h1>Couldn't open your portfolio</h1><p>{state.error?.message ?? community.error?.message}</p><TextureButton type="button" className="mt-6 w-auto" onClick={() => { void community.refetch(); void state.refetch(); }}>Try again</TextureButton></main></div>;
+  if (community.isPending || (profile && state.isPending)) return <div className="studio"><StudioChrome /><main className="studio-body" aria-busy="true"><div className="h-10 w-56 animate-pulse rounded-2xl bg-white/5" /><div className="studio-grid mt-10"><div className="h-96 animate-pulse rounded-3xl bg-white/5" /><div className="h-[600px] animate-pulse rounded-3xl bg-white/5" /></div><p className="sr-only" role="status">Loading your portfolio…</p></main></div>;
+  if (community.isError || (profile && state.isError)) return <div className="studio"><StudioChrome /><main className="studio-error-panel"><h1>Couldn't open your portfolio</h1><p>{state.error?.message ?? community.error?.message}</p><TextureButton type="button" className="mt-6 w-auto" onClick={() => { void community.refetch(); void state.refetch(); }}>Try again</TextureButton></main></div>;
   if (!profile) return <PortfolioIntro available={community.data?.signInAvailable ?? false} />;
   return state.data ? <PortfolioEditor key={profile.id} initial={state.data} /> : null;
 }

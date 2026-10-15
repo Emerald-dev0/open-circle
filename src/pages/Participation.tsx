@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import { CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import { GitHubIcon } from "@/components/brand-icons";
-import { GitHubAccount } from "@/components/github-account";
-import { Notch } from "@/components/notch";
+import { AccountCorner } from "@/components/account-corner";
+import { Dock } from "@/components/dock";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
@@ -118,10 +118,10 @@ export default function Participation() {
     <div className="app-backdrop" aria-hidden />
     <div className="relative z-10">
       {/* Signed out, the panel below carries the one sign-in button. */}
-      <Notch title="Participation">{profile && <GitHubAccount />}</Notch>
+      {profile && <AccountCorner />}
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(6rem+env(safe-area-inset-top))] sm:space-y-6">
-        <h1 className="sr-only">Group participation</h1>
+      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(5rem+env(safe-area-inset-top))] sm:space-y-6">
+        <h1 className="text-2xl font-medium tracking-[-0.03em]">Participation</h1>
 
 
         {!profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
@@ -227,6 +227,7 @@ export default function Participation() {
         </>)}
       </main>
       <SiteFooter />
+      <Dock />
     </div>
   </div>;
 }

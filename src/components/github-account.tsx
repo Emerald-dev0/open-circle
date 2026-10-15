@@ -6,7 +6,7 @@ import { useIsMutating } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { GitHubIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOL_VOTE_KEY, useCommunity, useGitHubSignOut } from "@/hooks/use-community";
 
 // Shown expanded once, the first time a signed-in member sees it.
@@ -68,6 +68,7 @@ export function GitHubAccount() {
   if (!profile) {
     const available = community.data?.signInAvailable;
     return (
+      <TooltipProvider delayDuration={200}>
       <Tooltip>
         <TooltipTrigger asChild>
           {available ? (
@@ -84,6 +85,7 @@ export function GitHubAccount() {
         </TooltipTrigger>
         <TooltipContent>{available ? "Sign in with GitHub to vote" : "GitHub sign-in is being set up."}</TooltipContent>
       </Tooltip>
+      </TooltipProvider>
     );
   }
 

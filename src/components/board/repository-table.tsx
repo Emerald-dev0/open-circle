@@ -1,4 +1,5 @@
-import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
+import { StarIcon } from "@solar-icons/react/bold-duotone";
+import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
 import { BookmarkIcon as BookmarkFilledIcon } from "@solar-icons/react/bold";
 import { AnimatePresence, motion } from "motion/react";
@@ -85,7 +86,7 @@ export function RepositoryTable({
                       {formatCount(repo.stars)}<span className="sr-only"> stars</span>
                     </span>
                     <span className="inline-flex items-center gap-1 tabular">
-                      <BranchingPathsUpIcon size={12} aria-hidden />
+                      <GitPullRequestIcon size={12} aria-hidden />
                       {formatCount(repo.forks)}<span className="sr-only"> forks</span>
                     </span>
                     <span className="min-w-0 truncate">by {repo.ownerNickname}</span>

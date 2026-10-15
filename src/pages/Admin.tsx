@@ -9,7 +9,8 @@ import { CopyIcon, EyeClosedIcon, EyeIcon, TrashBinMinimalisticIcon } from "@sol
 import { BRAND_NAME } from "@shared/brand";
 import type { AdminAction, AdminConfig, AdminMember, AdminSession, AdminState, Weights } from "@shared/types";
 import { MetalButton } from "@/components/metal-button";
-import { Notch } from "@/components/notch";
+import { AccountCorner } from "@/components/account-corner";
+import { Dock } from "@/components/dock";
 import { LogoutIcon } from "@solar-icons/react/linear";
 import { Chip, Panel, PanelHeader, Row } from "@/components/panel";
 import { ToolModeration } from "@/components/board/tool-moderation";
@@ -72,21 +73,22 @@ const Admin = () => {
   return (
     <div className="relative min-h-dvh">
       <div className="app-backdrop" aria-hidden />
-      <div className="page-container relative z-10 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
-        <Notch title="Admin">
+      <div className="page-container relative z-10 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
+        <AccountCorner>
           {profile && <>
             <span className="hidden max-w-36 truncate text-xs text-t3 sm:inline" title={`@${profile.login}`}>@{profile.login}</span>
             <MetalButton variant="icon" size="icon" className="size-9" innerClassName="p-0" aria-label="Sign out" disabled={signOut.isPending} onClick={() => signOut.mutate()}>
               <LogoutIcon className="size-4" aria-hidden />
             </MetalButton>
           </>}
-        </Notch>
-        <main className="min-w-0 pt-[calc(6rem+env(safe-area-inset-top))]">
+        </AccountCorner>
+        <main className="min-w-0 pt-[calc(5rem+env(safe-area-inset-top))]">
           {session.isPending ? <p role="status" className="text-sm text-t3">Checking admin access…</p> : session.isError ? <div className="space-y-3">
             <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
           </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
         </main>
       </div>
+      <Dock />
     </div>
   );
 };
@@ -136,7 +138,7 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
   const hidden = state.data.members.filter((member) => member.hidden).length;
   return <div className="min-w-0 space-y-6">
     <div className="space-y-2">
-      <h1 className="sr-only">Manage OpenCircle</h1>
+      <h1 className="text-2xl font-medium tracking-[-0.03em]">Admin</h1>
       <p className="text-sm text-t3">{formatFull(state.data.members.length - hidden)} visible members · {formatFull(hidden)} hidden{pending !== undefined ? ` · ${formatFull(pending)} tools awaiting review` : ""}</p>
     </div>
     <Tabs defaultValue="members">

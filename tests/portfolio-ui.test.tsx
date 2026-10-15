@@ -1,16 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { PortfolioView } from "../src/components/portfolio/portfolio-view";
 import { PortfolioEditor } from "../src/pages/Portfolio";
 import { defaultPortfolio, type PortfolioEditorState, type PublicPortfolio } from "../shared/portfolio";
+import { COMMUNITY_KEY } from "../src/hooks/use-community";
 
 const profile = { id: 42, login: "Alice", avatarUrl: "https://avatars.githubusercontent.com/u/42" };
 function initial(): PortfolioEditorState { return { profile, draft: { ...defaultPortfolio(profile), displayName: "Alice Chen" }, version: 0, publishedAt: null, updatedAt: null, uploadsAvailable: false, subdomainsAvailable: false }; }
 function mount(state = initial()) {
-  return render(<MemoryRouter><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}><PortfolioEditor initial={state} /></QueryClientProvider></MemoryRouter>);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
+  // The editor's avatar menu reads the signed-in account; seed it so the only
+  // requests these tests see are the portfolio's own.
+  client.setQueryData(COMMUNITY_KEY, { tools: [], counts: {}, voted: [], toolVotes: {}, signInAvailable: true, profile });
+  return render(<MemoryRouter><QueryClientProvider client={client}><PortfolioEditor initial={state} /></QueryClientProvider></MemoryRouter>);
 }
 
 it("previews actual content and customization, then saves the chosen design", async () => {
@@ -93,4 +98,24 @@ it("accepts a newer saved draft when untouched and preserves changes already bei
   await user.clear(screen.getByLabelText("Name")); await user.type(screen.getByLabelText("Name"), "My unsaved edit");
   view.rerender(page({ ...state, version: 3, draft: { ...state.draft, displayName: "Another saved name" } }));
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("My unsaved edit");
+});
+
+it("asks before the dock leaves unsaved changes, and leaves only when confirmed", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal("fetch", vi.fn());
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  client.setQueryData(COMMUNITY_KEY, { tools: [], counts: {}, voted: [], toolVotes: {}, signInAvailable: true, profile });
+  render(<MemoryRouter initialEntries={["/portfolio"]}><QueryClientProvider client={client}><Routes>
+    <Route path="/portfolio" element={<PortfolioEditor initial={initial()} />} />
+    <Route path="/participation" element={<p>Participation page</p>} />
+  </Routes></QueryClientProvider></MemoryRouter>);
+  await user.type(screen.getByLabelText("Name", { exact: true }), " Jr");
+  await user.click(screen.getByRole("button", { name: "Group participation" }));
+  expect(screen.getByRole("dialog").textContent).toContain("Leave your unsaved changes?");
+  await user.click(screen.getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByLabelText("Name", { exact: true })).toBeTruthy();
+  expect(screen.queryByText("Participation page")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "Group participation" }));
+  await user.click(screen.getByRole("button", { name: "Leave page" }));
+  expect(await screen.findByText("Participation page")).toBeTruthy();
 });

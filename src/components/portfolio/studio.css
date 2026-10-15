@@ -1,4 +1,4 @@
-.studio { min-height: 100dvh; position: relative; padding-bottom: max(40px, env(safe-area-inset-bottom)); }
+.studio { min-height: 100dvh; position: relative; padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
 .studio-back { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: hsl(var(--t3)); background: #ffffff08; }
 .studio-save-state { font-size: 11px; color: hsl(var(--t3)); margin-right: 10px; display: flex; align-items: center; gap: 5px; }
 .studio-body { max-width: 1560px; padding: calc(6rem + env(safe-area-inset-top)) 40px 40px; margin-inline: auto; }
@@ -70,7 +70,7 @@
 .studio-preview-switch { display: flex; gap: 4px; border-radius: 999px; padding: 4px; background: #ffffff06; }
 .studio-preview-switch button { width: 34px; height: 30px; display: grid; place-items: center; border-radius: 999px; color: hsl(var(--t3)); }
 .studio-preview-switch button[aria-pressed="true"] { background: #ffffff10; color: hsl(var(--foreground)); }
-.studio-preview-frame { margin-inline: auto; width: 100%; border-radius: 22px; overflow: hidden; background: #ffffff05; max-height: calc(100dvh - 190px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ffffff25 transparent; transition: max-width .25s ease; }
+.studio-preview-frame { margin-inline: auto; width: 100%; border-radius: 22px; overflow: hidden; border: 1px solid #ffffff15; max-height: calc(100dvh - 190px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ffffff25 transparent; transition: max-width .25s ease; }
 .studio-preview-frame[data-device="mobile"] { max-width: 390px; }
 .studio-preview-frame[data-device="desktop"] { max-width: 1100px; }
 .studio-editor-footer { padding-top: 26px; margin-top: 32px; border-top: 1px solid #ffffff0a; font-size: 11px; color: hsl(var(--t3)); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
