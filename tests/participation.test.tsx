@@ -2,7 +2,7 @@ import { toast } from 'sonner';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Participation from '../src/pages/Participation';
 import { TooltipProvider } from '../src/components/ui/tooltip';
@@ -16,11 +16,15 @@ vi.mock('../src/lib/api',async original=>({...await original<typeof import('../s
 const community:CommunityState={profile:{id:1,login:'Alice',avatarUrl:'https://avatars.githubusercontent.com/u/1'},signInAvailable:true,tools:[],counts:{},voted:[],toolVotes:{}};
 const initial:ParticipationState={activity:{linked:true,login:'Alice',enabled:true,tracking:true,contributions:1,reviewPeers:1,target:4,requiredReviewPeers:2,inactiveDays:3,graceRemainingDays:0,awayUntil:null,awayRequestedDays:null,pendingContributions:0,removalReview:false},projects:[{id:'project_1',title:'Portfolio',url:'https://example.test',owner:'Bob',reviews:0,status:'approved',assignedTo:['Alice'],createdAt:1}],help:[],contributions:[]};
 const clients:QueryClient[]=[];
-function mount(data=initial){
+function HistoryControls(){
+  const navigate=useNavigate();
+  return <><button onClick={()=>navigate(-1)}>Go back</button><button onClick={()=>navigate(1)}>Go forward</button></>;
+}
+function mount(data=initial,{entry='/participation',history=false}={}){
   vi.mocked(api.participation).mockResolvedValue(data);
   const client=new QueryClient({defaultOptions:{queries:{retry:false,retryDelay:0,gcTime:Infinity,refetchOnWindowFocus:false},mutations:{retry:false}}});clients.push(client);
   client.setQueryData(COMMUNITY_KEY,community);
-  render(<QueryClientProvider client={client}><TooltipProvider><MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><Participation/></MemoryRouter></TooltipProvider></QueryClientProvider>);
+  render(<QueryClientProvider client={client}><TooltipProvider><MemoryRouter initialEntries={[entry]} future={{v7_startTransition:true,v7_relativeSplatPath:true}}>{history&&<HistoryControls/>}<Participation/></MemoryRouter></TooltipProvider></QueryClientProvider>);
   return client;
 }
 beforeEach(()=>{vi.mocked(api.community).mockReset().mockResolvedValue(community);vi.mocked(api.participation).mockReset();vi.mocked(api.linkWhatsapp).mockReset();vi.mocked(api.participate).mockReset();});
@@ -76,6 +80,7 @@ it('directs linking to the bot DM with a short-lived sender verification code',a
 
 it('focuses feedback, preserves failed submissions, saves useful reviews and requests a break',async()=>{
   const user=userEvent.setup();mount();
+  await user.click(await screen.findByRole('tab',{name:'Projects'}));
   await user.click(await screen.findByRole('button',{name:'Give feedback'}));
   const field=screen.getByLabelText('What you tried and a useful observation or suggestion');
   expect(document.activeElement).toBe(field);
@@ -86,6 +91,7 @@ it('focuses feedback, preserves failed submissions, saves useful reviews and req
   vi.mocked(api.participate).mockResolvedValue(initial);
   await user.click(screen.getByRole('button',{name:'Submit feedback'}));await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Your contribution is saved and awaits confirmation.',expect.anything()));
   expect(api.participate).toHaveBeenLastCalledWith({action:'review',projectId:'project_1',text:feedback},expect.anything());
+  await user.click(screen.getByRole('tab',{name:'Overview'}));
   await user.click(screen.getByRole('button',{name:'Request break'}));await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Your break request is waiting for admin approval.',expect.anything()));
   expect(api.participate).toHaveBeenLastCalledWith({action:'away',days:7},expect.anything());
 });
@@ -94,6 +100,7 @@ it('shows owner confirmation and clears private participation after sign-out',as
   const user=userEvent.setup();
   const client=mount({...initial,contributions:[{id:'feedback_1',by:'Bob',for:'Alice',kind:'review',targetId:'project_2',text:'Useful feedback on your project.',status:'pending',createdAt:1}]});
   vi.mocked(api.participate).mockResolvedValue(initial);
+  await user.click(await screen.findByRole('tab',{name:'Feedback'}));
   await user.click(await screen.findByRole('button',{name:'Confirm useful'}));await waitFor(()=>expect(api.participate).toHaveBeenCalledWith({action:'confirm',id:'feedback_1',approve:true},expect.anything()));
   vi.mocked(api.community).mockResolvedValue({...community,profile:null});
   await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
@@ -105,9 +112,11 @@ it('shows catch-up and sessions, saves mentor preferences and keeps failed draft
   const user=userEvent.setup();
   const routine:MemberCommunityState={timezone:'Africa/Lagos',quietStart:22,quietEnd:8,groupSchedule:true,updates:[{id:'update_1',date:'2026-10-15',title:'First community task',text:'Try the search form and suggest one improvement. <img src=x>',createdAt:Date.parse('2026-10-15T09:00:00Z'),groupSentAt:null}],sessions:[{id:'help_1',title:'Community help session',startsAt:Date.parse('2026-10-16T17:00:00Z'),endsAt:Date.parse('2026-10-16T18:00:00Z')}],mentor:{available:false,skills:[],weeklyLimit:2},assignedHelp:['help_1']};
   const client=mount({...initial,community:routine,help:[{id:'help_1',owner:'Bob',question:'How do I improve this React form?',createdAt:1,status:'open',skills:['react']}]});
+  await user.click(await screen.findByRole('tab',{name:'Catch up'}));
   expect(await screen.findByText('First community task')).toBeTruthy();
   expect(screen.getByText('Community help session')).toBeTruthy();
   expect(document.querySelector('#catch-up img')).toBeNull();
+  await user.click(screen.getByRole('tab',{name:'Help'}));
   await user.click(screen.getByLabelText('Available for help requests'));
   const skills=screen.getByLabelText(/Your mentoring skills, separated by commas/);
   await user.type(skills,'react, typescript');
@@ -129,17 +138,20 @@ it('shows catch-up and sessions, saves mentor preferences and keeps failed draft
 it('paginates projects, help and feedback independently while keeping later-page actions usable',async()=>{
   const data:ParticipationState={...initial,projects:Array.from({length:12},(_,index)=>({...initial.projects[0],id:`project_${index}`,title:`Project ${index}`})),help:Array.from({length:12},(_,index)=>({id:`help_${index}`,owner:'Bob',question:`Question ${index}`,createdAt:1,status:'open'})),contributions:Array.from({length:12},(_,index)=>({id:`feedback_${index}`,by:'Bob',for:'Alice',kind:'review',targetId:'project_1',text:`Feedback ${index}`,status:'pending',createdAt:1}))};
   mount(data);
-  await screen.findByRole('list',{name:'Projects to review'});
   const user=userEvent.setup();
+  await user.click(await screen.findByRole('tab',{name:'Projects'}));
+  await screen.findByRole('list',{name:'Projects to review'});
   const nav=(name:string)=>within(screen.getByRole('navigation',{name:`${name} pagination`}));
   expect(within(screen.getByRole('list',{name:'Projects to review'})).getAllByRole('listitem')).toHaveLength(10);
   await user.click(nav('Projects to review').getByRole('button',{name:'Next'}));
   expect(within(screen.getByRole('list',{name:'Projects to review'})).getAllByRole('listitem')).toHaveLength(2);
-  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(10);
   await user.click(within(screen.getByText('Project 10').closest('li')!).getByRole('button',{name:'Give feedback'}));
   expect(screen.getByText('Feedback for Project 10')).toBeTruthy();
+  await user.click(screen.getByRole('tab',{name:'Help'}));
+  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(10);
   await user.click(nav('Help requests').getByRole('button',{name:'Next'}));
   expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(2);
+  await user.click(screen.getByRole('tab',{name:'Feedback'}));
   await user.click(nav('Feedback').getByRole('button',{name:'Next'}));
   expect(within(screen.getByRole('list',{name:'Feedback'})).getAllByRole('listitem')).toHaveLength(2);
   vi.mocked(api.participate).mockResolvedValue(data);

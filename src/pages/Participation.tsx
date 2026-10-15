@@ -1,12 +1,13 @@
 import { pollApi } from "@/lib/query-policy";
 import { useEffect, useId, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import { parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
-import { CommunityGuide, CommunityRoutine } from "@/components/community-routine";
+import { CommunityCatchUp, CommunityGuide, CommunityMentoring } from "@/components/community-routine";
 import { RepositorySubmissions } from "@/components/repository-submissions";
 import { AccountCorner } from "@/components/account-corner";
 import { Dock } from "@/components/dock";
@@ -21,6 +22,17 @@ import { pageFor } from "@shared/seo";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const participationSections = [
+  { value: "overview", label: "Overview" },
+  { value: "catch-up", label: "Catch up" },
+  { value: "repositories", label: "Repos" },
+  { value: "projects", label: "Projects" },
+  { value: "help", label: "Help" },
+  { value: "feedback", label: "Feedback" },
+] as const;
+type ParticipationSection = typeof participationSections[number]["value"];
 
 type Field = { required?: boolean; name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder: string };
 
@@ -84,6 +96,10 @@ function isTemporaryFailure(error: Error | null) {
 
 export default function Participation() {
   usePageMeta();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const section = participationSections.find((entry) => location.hash === `#${entry.value}`)?.value ?? "overview";
+  const selectSection = (value: ParticipationSection) => navigate({ pathname: location.pathname, search: location.search, hash: `#${value}` });
   const page = pageFor("/participation");
   const community = useCommunity();
   const communityUnavailable = community.isError && (!community.data || !isTemporaryFailure(community.error));
@@ -106,7 +122,10 @@ export default function Participation() {
   const data = state.data;
   useEffect(() => { setChallenge(null); setTarget(null); setError(null); setNotice(null); if (!profile?.id) client.removeQueries({ queryKey: ["participation"] }); }, [profile?.id, client]);
   useEffect(() => { if (data?.activity.linked) setChallenge(null); }, [data?.activity.linked]);
-  useEffect(() => { if (target) feedbackForm.current?.querySelector("textarea")?.focus(); }, [target]);
+  useEffect(() => { if (target && section === "feedback") feedbackForm.current?.querySelector("textarea")?.focus(); }, [target, section]);
+  useEffect(() => {
+    if (profile && data?.activity.linked && location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView?.({ block: "start", behavior: "instant" });
+  }, [profile?.id, data?.activity.linked, location.hash]);
 
   async function submit(input: ParticipationAction) {
     setError(null); setNotice(null);
@@ -144,7 +163,7 @@ export default function Participation() {
 
       <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(5rem+env(safe-area-inset-top))] sm:space-y-6">
         <h1 className="text-2xl font-medium tracking-[-0.03em]">Participation</h1>
-        {page && <p className="max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
+        {page && (!profile || !data?.activity.linked) && <p className="max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
 
 
         <CommunityGuide key={profile?.id ?? "signed-out"} completed={!!profile && !!data?.activity.linked} />
@@ -186,9 +205,12 @@ export default function Participation() {
           </div>}
         </Panel>
 
-        : <>
-          {data.community && <CommunityRoutine data={data.community} busy={busy} submit={submit} />}
-          {data.community && <RepositorySubmissions repositories={data.community.repositories ?? []} login={profile!.login} busy={busy} submit={submit} />}
+        : <Tabs key={`participation:${profile!.id}`} value={section} onValueChange={(value) => { if (participationSections.some((entry) => entry.value === value)) selectSection(value as ParticipationSection); }}>
+          <TabsList aria-label="Participation sections" className="mb-6 grid h-auto w-full grid-cols-3 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
+            {participationSections.map((entry) => <TabsTrigger key={entry.value} value={entry.value} className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]">{entry.label}</TabsTrigger>)}
+          </TabsList>
+          <TabsContent value="overview" forceMount hidden={section !== "overview"}>
+            <section id="overview" className="scroll-mt-24 space-y-4 sm:space-y-6">
           <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
             <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
             <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
@@ -199,18 +221,30 @@ export default function Participation() {
             </div>}
           </Panel>
 
-          {target && <section ref={feedbackForm}>
-            <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
-              <div className="py-4">
-                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
-                <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
-              </div>
-            </Panel>
-          </section>}
-
+          <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>
+            <div className="py-4">
+              {data.activity.awayUntil && data.activity.awayUntil > Date.now()
+                ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
+                : data.activity.awayRequestedDays
+                  ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
+                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7", placeholder: "e.g. 7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
+            </div>
+          </Panel>
+            </section>
+          </TabsContent>
+          <TabsContent value="catch-up" forceMount hidden={section !== "catch-up"}>
+            <section id="catch-up" className="scroll-mt-24 space-y-4 sm:space-y-6">
+            {data.community ? <CommunityCatchUp data={data.community} /> : <Panel header={<PanelHeader title="Catch up" />}><Empty>No catch-up updates are available yet.</Empty></Panel>}
+            </section>
+          </TabsContent>
+          <TabsContent value="repositories" forceMount hidden={section !== "repositories"} className="space-y-4 sm:space-y-6">
+            {data.community ? <RepositorySubmissions repositories={data.community.repositories ?? []} login={profile!.login} busy={busy} submit={submit} /> : <section id="repositories" className="scroll-mt-24"><Panel header={<PanelHeader title="Open-source repos" />}><Empty>Repo submissions are unavailable right now. Please try again later.</Empty></Panel></section>}
+          </TabsContent>
+          <TabsContent value="projects" forceMount hidden={section !== "projects"}>
+            <section id="projects" className="scroll-mt-24 space-y-4 sm:space-y-6">
           <Panel header={<PanelHeader title="Projects to review" subtitle={`${data.projects.length} in the circle`} />}>
             {data.projects.length ? <PaginatedList items={data.projects} label="Projects to review" resetKey={String(profile?.id)} disabled={busy}>{(project) => <Item key={project.id} action={<>
-              {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "review", id: project.id, title: project.title })}>Give feedback</MetalButton>}
+              {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "review", id: project.id, title: project.title }); selectSection("feedback"); }}>Give feedback</MetalButton>}
               {mine(project.owner) && project.status !== "closed" && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</MetalButton>}
             </>}>
               <div className="flex flex-wrap items-center gap-2">
@@ -225,10 +259,13 @@ export default function Participation() {
               <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80, placeholder: "e.g. Developer Portfolio" }, { name: "url", label: "Project link", type: "url", placeholder: "https://github.com/yourname/project" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false, placeholder: "e.g. Check the mobile layout and keyboard navigation" }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false, placeholder: "react, typescript, design" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
-
+            </section>
+          </TabsContent>
+          <TabsContent value="help" forceMount hidden={section !== "help"}>
+            <section id="help" className="scroll-mt-24 space-y-4 sm:space-y-6">
           <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
             {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
-              {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "answer", id: help.id, title: help.owner })}>Help with this</MetalButton>}
+              {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "answer", id: help.id, title: help.owner }); selectSection("feedback"); }}>Help with this</MetalButton>}
               {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
               {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
             </>}>
@@ -240,6 +277,19 @@ export default function Participation() {
               <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
+            {data.community && <CommunityMentoring data={data.community} busy={busy} submit={submit} />}
+            </section>
+          </TabsContent>
+          <TabsContent value="feedback" forceMount hidden={section !== "feedback"}>
+            <section id="feedback" className="scroll-mt-24 space-y-4 sm:space-y-6">
+          {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
+            <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
+              <div className="py-4">
+                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
+                <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
+              </div>
+            </Panel>
+          </section>}
 
           <Panel header={<PanelHeader title="Feedback" subtitle="Given and received." />}>
             {data.contributions.length ? <PaginatedList items={data.contributions} label="Feedback" resetKey={String(profile?.id)} disabled={busy}>{(entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
@@ -250,17 +300,9 @@ export default function Participation() {
               <p className="break-words text-sm text-t2">{entry.text}</p>
             </Item>}</PaginatedList> : <Empty>Your submitted and received feedback will appear here.</Empty>}
           </Panel>
-
-          <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>
-            <div className="py-4">
-              {data.activity.awayUntil && data.activity.awayUntil > Date.now()
-                ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
-                : data.activity.awayRequestedDays
-                  ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
-                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7", placeholder: "e.g. 7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
-            </div>
-          </Panel>
-        </>)}
+            </section>
+          </TabsContent>
+        </Tabs>)}
       </main>
       <SiteFooter />
       <Dock />

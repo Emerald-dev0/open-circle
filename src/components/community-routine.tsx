@@ -20,11 +20,9 @@ export function CommunityGuide({ completed = false }: { completed?: boolean }) {
   </section>;
 }
 
-export function CommunityRoutine({ data, busy, submit }: { data: MemberCommunityState; busy: boolean; submit: (input: ParticipationAction) => Promise<boolean> }) {
+export function CommunityCatchUp({ data }: { data: MemberCommunityState }) {
   const date = new Intl.DateTimeFormat("en", { timeZone: data.timezone, dateStyle: "medium", timeStyle: "short" });
-  return <>
-    <section id="catch-up" className="scroll-mt-24">
-      <Panel header={<PanelHeader title="Catch up" />}>
+  return <Panel header={<PanelHeader title="Catch up" />}>
         {data.groupSchedule && <p className="py-3 text-sm text-t3">Group quiet hours: {data.quietStart}:00 to {data.quietEnd}:00 ({data.timezone}). You can use this page at any time.</p>}
         {data.sessions.length > 0 && <div className="border-b border-foreground/[0.06] py-4">
           <h2 className="mb-3 text-sm font-medium">Upcoming sessions</h2>
@@ -34,10 +32,12 @@ export function CommunityRoutine({ data, busy, submit }: { data: MemberCommunity
           <h2 className="break-words text-sm font-medium">{update.title}</h2>
           <time className="block text-xs text-t3" dateTime={new Date(update.createdAt).toISOString()}>{date.format(update.createdAt)}</time>
           <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-t2">{update.text}</p>
-        </li>}</PaginatedList> : <p className="py-5 text-sm text-t3">No catch-up updates have been published yet. Projects and open questions are below.</p>}
-      </Panel>
-    </section>
-    <Panel header={<PanelHeader title="Volunteer to help" subtitle="Choose your skills and a weekly limit. You can pause or decline requests." />}>
+        </li>}</PaginatedList> : <p className="py-5 text-sm text-t3">No catch-up updates have been published yet.</p>}
+  </Panel>;
+}
+
+export function CommunityMentoring({ data, busy, submit }: { data: MemberCommunityState; busy: boolean; submit: (input: ParticipationAction) => Promise<boolean> }) {
+  return <Panel header={<PanelHeader title="Volunteer to help" subtitle="Choose your skills and a weekly limit. You can pause or decline requests." />}>
       <form key={JSON.stringify(data.mentor)} className="space-y-4 py-4" onSubmit={async (event) => {
         event.preventDefault();
         const values = new FormData(event.currentTarget);
@@ -48,6 +48,5 @@ export function CommunityRoutine({ data, busy, submit }: { data: MemberCommunity
         <label className="block space-y-1.5 text-sm"><span>Maximum requests per week</span><input className="field placeholder:text-t3 h-11 text-sm" name="weeklyLimit" type="number" min={1} max={5} required defaultValue={data.mentor.weeklyLimit} placeholder="e.g. 2" disabled={busy} /></label>
         <MetalButton type="submit" loading={busy} className="h-11 w-full" innerClassName="px-5">Save mentor preferences</MetalButton>
       </form>
-    </Panel>
-  </>;
+  </Panel>;
 }

@@ -19,7 +19,6 @@
 .studio-section h2 { font-size: 18px; letter-spacing: -.025em; }
 .studio-section-title { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 .studio-section-title p, .studio-help { font-size: 12px; line-height: 1.65; color: hsl(var(--t3)); }
-.studio-section-title button { margin-top: 7px; }
 .studio-field { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .studio-field label { font-size: 12px; color: hsl(var(--t2)); }
 .studio-field p { font-size: 11px; line-height: 1.7; color: hsl(var(--t3)); }
