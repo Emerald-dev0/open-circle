@@ -15,7 +15,7 @@ export function SiteFooter() {
       </nav>
       <p className="mt-3 text-center text-xs text-t3">
         Skeleton loaders made easy with{" "}
-        <a href="https://github.com/appdever01/skelo" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded text-t2 underline decoration-white/20 underline-offset-4 hover:text-foreground">
+        <a href="https://github.com/appdever01/skelo" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded text-t2 underline decoration-foreground/20 underline-offset-4 hover:text-foreground">
           Skelo<span className="sr-only"> (opens in a new tab)</span>
         </a>.
       </p>

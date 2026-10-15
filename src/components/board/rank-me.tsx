@@ -124,7 +124,7 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
             <TooltipContent
               side="bottom"
               align="end"
-              className="max-w-[260px] rounded-2xl border-0 bg-[hsl(218_29%_13%)] px-3.5 py-2.5 text-left text-xs leading-relaxed text-t2 shadow-none"
+              className="max-w-[260px] rounded-2xl border-0 bg-alva-surface px-3.5 py-2.5 text-left text-xs leading-relaxed text-t2 shadow-none"
             >
               <p className="font-medium text-foreground">How ranking works</p>
               <p className="mt-1">

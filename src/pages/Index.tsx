@@ -19,6 +19,8 @@ import { RankTable } from "@/components/board/rank-table";
 import { RepositoryExplorer } from "@/components/board/repository-explorer";
 import { ToolsDirectory } from "@/components/board/tools-directory";
 import { GitHubAccount } from "@/components/github-account";
+import { ThemeSelect } from "@/components/theme-select";
+import { useTheme } from "@/hooks/use-theme";
 import { SiteFooter } from "@/components/site-footer";
 import { Dock } from "@/components/dock";
 import { BoardSkeleton } from "@/components/site-skeleton";
@@ -64,7 +66,7 @@ function repoEntry(r: PublicRepository): LeaderboardEntry {
 function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div className="flex flex-col items-center px-5 py-8 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-white/[0.06] text-t3">{icon}</span>
+      <span className="flex size-12 items-center justify-center rounded-full bg-foreground/[0.06] text-t3">{icon}</span>
       <p className="mt-3 text-sm font-medium text-t2">{title}</p>
       <p className="mt-1 max-w-xs text-xs text-t4">{body}</p>
     </div>
@@ -76,7 +78,7 @@ function TabPill() {
   return (
     <motion.span
       layoutId="board-tab-pill"
-      className="absolute inset-0 rounded-full bg-white/[0.1]"
+      className="absolute inset-0 rounded-full bg-foreground/[0.1]"
       transition={{ type: "spring", stiffness: 420, damping: 36 }}
     />
   );
@@ -105,6 +107,7 @@ const TabPanel = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef
 TabPanel.displayName = "TabPanel";
 
 const Index = () => {
+  const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   usePageMeta();
@@ -191,7 +194,7 @@ const Index = () => {
           <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-2">
             <GitHubButton
               href="https://github.com/opencirclehq/open-circle"
-              data-color-scheme="dark"
+              data-color-scheme={resolvedTheme}
               data-icon="octicon-star"
               data-size="large"
               data-show-count="true"
@@ -201,7 +204,7 @@ const Index = () => {
             </GitHubButton>
             <GitHubButton
               href="https://github.com/opencirclehq"
-              data-color-scheme="dark"
+              data-color-scheme={resolvedTheme}
               data-size="large"
               data-show-count="true"
               aria-label="Follow @opencirclehq on GitHub"
@@ -209,7 +212,7 @@ const Index = () => {
               Follow @opencirclehq
             </GitHubButton>
           </div>
-          <div className="ml-auto min-w-0 max-w-full"><GitHubAccount /></div>
+          <div className="ml-auto flex min-w-0 max-w-full items-center gap-2"><ThemeSelect /><GitHubAccount /></div>
         </header>
 
         <main className="page-container pb-6">
@@ -218,7 +221,7 @@ const Index = () => {
             aria-labelledby="pitch"
           >
             <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
-              <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">
+              <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color={resolvedTheme === "dark" ? "#E2E2E2" : "#252E3D"} theme={resolvedTheme}>
                 Open Source Circle
               </MetalText>
             </span>

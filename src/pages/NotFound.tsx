@@ -4,6 +4,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { BrandMark } from "@/components/site-header";
 import { TextureButton } from "@/components/ui/texture-button";
 import { Dock } from "@/components/dock";
+import { AccountCorner } from "@/components/account-corner";
 
 const NotFound = () => {
   const location = useLocation();
@@ -16,6 +17,7 @@ const NotFound = () => {
   return (
     <div className="page-container relative flex min-h-dvh items-center justify-center py-8">
       <div className="app-backdrop" aria-hidden />
+      <AccountCorner>{null}</AccountCorner>
       <div className="relative z-10 flex flex-col items-center text-center">
         <BrandMark className="size-10" />
         <h1 className="text-gradient mt-6 text-5xl font-light tracking-[-0.04em]">404</h1>

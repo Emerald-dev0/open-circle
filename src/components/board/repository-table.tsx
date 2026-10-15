@@ -112,7 +112,7 @@ export function RepositoryTable({
 
                 {onVote && (
                   // Same pill as tool votes, upvote only: button and count share one soft background.
-                  <div role="group" aria-label={`Vote on ${repo.fullName}`} className="flex flex-col items-center gap-0.5 rounded-full bg-white/[0.035] p-0.5 sm:flex-row">
+                  <div role="group" aria-label={`Vote on ${repo.fullName}`} className="flex flex-col items-center gap-0.5 rounded-full bg-foreground/[0.035] p-0.5 sm:flex-row">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <TextureButton

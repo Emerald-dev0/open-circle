@@ -104,7 +104,7 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ layout: { type: "spring", stiffness: 340, damping: 34 }, duration: 0.2 }}
-                  className="flex flex-col gap-3 overflow-hidden border-b border-white/[0.06] py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 overflow-hidden border-b border-foreground/[0.06] py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 items-start gap-3">
                     <ToolFavicon url={tool.url} />

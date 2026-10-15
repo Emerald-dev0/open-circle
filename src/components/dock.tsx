@@ -9,6 +9,7 @@ import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/bra
 import type { InviteConfig } from "@shared/types";
 import { LiquidGlass } from "@/components/liquid-glass";
 import { guardedLeave } from "@/lib/leave-guard";
+import { useTheme } from "@/hooks/use-theme";
 
 const BRAND_FONT = "650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif";
 const SLOT = 44;
@@ -47,7 +48,7 @@ function DockIcon({
       </motion.span>
       <span
         role="tooltip"
-        className={`pointer-events-none absolute -top-12 whitespace-nowrap ${edge ? "right-0" : "left-1/2 -translate-x-1/2"} rounded-full bg-[hsl(218_29%_13%)] px-2.5 py-1 text-xs font-medium text-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100`}
+        className={`pointer-events-none absolute -top-12 whitespace-nowrap ${edge ? "right-0" : "left-1/2 -translate-x-1/2"} rounded-full bg-alva-surface px-2.5 py-1 text-xs font-medium text-foreground opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100`}
       >
         {label}
       </span>
@@ -85,6 +86,7 @@ export function Dock({
   onRank?: () => void;
 }) {
   const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
   const { pathname } = useLocation();
   // Every route change goes through the leave guard (unsaved portfolio edits).
   const go = (path: string, then?: () => void) => guardedLeave(() => { navigate(path); then?.(); });
@@ -106,7 +108,7 @@ export function Dock({
             className="flex h-11 items-center self-center rounded-full px-2 sm:px-4"
             aria-label={`${BRAND_NAME}, back to top`}
           >
-            <MetalText font={BRAND_FONT} color="#F4F7FB" theme="dark">{BRAND_NAME}</MetalText>
+            <MetalText font={BRAND_FONT} color={resolvedTheme === "dark" ? "#F4F7FB" : "#252E3D"} theme={resolvedTheme}>{BRAND_NAME}</MetalText>
           </button>
         </LiquidGlass>
         <LiquidGlass

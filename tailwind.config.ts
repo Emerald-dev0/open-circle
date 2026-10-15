@@ -102,7 +102,7 @@ export default {
 				},
 				'row-flash': {
 					'0%, 100%': { backgroundColor: 'transparent' },
-					'20%, 60%': { backgroundColor: 'hsl(0 0% 100% / 0.12)' }
+					'20%, 60%': { backgroundColor: 'hsl(var(--foreground) / 0.12)' }
 				}
 			},
 			animation: {

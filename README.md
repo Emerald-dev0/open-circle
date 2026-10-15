@@ -37,6 +37,8 @@ OpenCircle brings the group's GitHub profiles and public projects into one place
 - Share projects, give feedback and answer help requests through group participation.
 - Manage members, tool submissions and ranking settings through the admin page.
 
+Choose **Light**, **Dark** or **System** from the Appearance control at the top right. Your choice stays saved in this browser; System follows your device’s appearance setting.
+
 GitHub sign-in is required for portfolio editing, tool voting, group participation and admin access. Joining the board requires a personal GitHub profile and a number in the WhatsApp group.
 
 ## Member portfolios

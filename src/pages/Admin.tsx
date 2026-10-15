@@ -137,10 +137,10 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
     </div>
     <Tabs value={section} onValueChange={setSection}>
       <TabsList aria-label="Admin sections" className="mb-6 grid h-auto w-full grid-cols-2 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
-        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="overview">Overview</TabsTrigger>
-        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="members">Members</TabsTrigger>
-        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
-        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="settings">Settings</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="overview">Overview</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="members">Members</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="overview"><AdminAnalytics onUnauthorized={onUnauthorized} onReviewTools={() => setSection("tools")} /></TabsContent>
       <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
@@ -291,7 +291,7 @@ function Members({
           {pagination.items.map((m) => (
             <li
               key={m.login}
-              className={cn("grid grid-cols-[1.5rem_2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-white/[0.06] py-3 last:border-0 sm:flex", m.hidden && "opacity-55")}
+              className={cn("grid grid-cols-[1.5rem_2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-foreground/[0.06] py-3 last:border-0 sm:flex", m.hidden && "opacity-55")}
             >
               <span className="w-6 shrink-0 font-mono text-xs tabular text-t4">{m.rank || "—"}</span>
               <Avatar className="size-9 shrink-0">

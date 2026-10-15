@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#04060A" />
     <meta name="color-scheme" content="dark" />
+    <script>
+      (() => {
+        let theme;
+        try { theme = localStorage.getItem("opencircle:theme"); } catch {}
+        const dark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        const resolved = dark ? "dark" : "light";
+        document.documentElement.classList.toggle("dark", dark);
+        document.documentElement.classList.toggle("light", !dark);
+        document.documentElement.style.colorScheme = resolved;
+        document.querySelector('meta[name="color-scheme"]').content = resolved;
+        document.querySelector('meta[name="theme-color"]').content = dark ? "#04060A" : "#F6F7F9";
+      })();
+    </script>
 
     <title>OpenCircle · Live GitHub ranking for Open Source Circle</title>
     <meta name="description" content="The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work." />

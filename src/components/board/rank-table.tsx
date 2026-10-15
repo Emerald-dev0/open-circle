@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
+import { useTheme } from "@/hooks/use-theme";
 
 // Phone: rank · member · score. From md up, every column in PRD §11.3 order.
 const GRID =
@@ -22,6 +23,7 @@ function Row({
   isMe: boolean;
   flash: boolean;
 }) {
+  const { resolvedTheme } = useTheme();
   const id = member.login.toLowerCase();
   return (
     <motion.div
@@ -35,7 +37,7 @@ function Row({
       className={cn(
         GRID,
         "scroll-mt-24 rounded-full px-3 py-2.5 md:px-5",
-        isMe ? "bg-white/[0.09]" : index % 2 === 1 && "surface-quiet",
+        isMe ? "bg-foreground/[0.09]" : index % 2 === 1 && "surface-quiet",
         flash && "animate-row-flash",
       )}
     >
@@ -59,10 +61,10 @@ function Row({
           </Avatar>
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-medium text-foreground group-hover:text-white">{member.nickname}</span>
+              <span className="truncate text-sm font-medium text-foreground group-hover:text-foreground">{member.nickname}</span>
               {isMe && (
                 <span className="shrink-0">
-                  <MetalBadge theme="dark" scale={0.78}>You</MetalBadge>
+                  <MetalBadge theme={resolvedTheme} scale={0.78}>You</MetalBadge>
                 </span>
               )}
             </span>

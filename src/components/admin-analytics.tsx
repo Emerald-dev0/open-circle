@@ -62,7 +62,7 @@ export function AdminAnalytics({ onUnauthorized, onReviewTools }: { onUnauthoriz
         <Breakdown title="Popular pages" items={data.current.pages.map((item) => ({ ...item, name: ANALYTICS_PAGES[item.name as keyof typeof ANALYTICS_PAGES] ?? item.name }))} total={data.current.pageViews} />
         <Breakdown title="Referral sources" items={data.current.sources} total={data.current.pageViews} />
       </div>
-      {data.growth.pendingTools > 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-white/[0.045] px-5 py-4">
+      {data.growth.pendingTools > 0 && <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] bg-foreground/[0.045] px-5 py-4">
         <p className="text-sm text-t2">{formatFull(data.growth.pendingTools)} {data.growth.pendingTools === 1 ? "tool needs" : "tools need"} your review</p>
         <TextureButton variant="minimal" size="sm" className="w-auto" onClick={onReviewTools}>Review tools</TextureButton>
       </div>}
@@ -85,12 +85,12 @@ function TrafficChart({ daily }: { daily: TrafficDay[] }) {
     </div>
     <div role="img" aria-label={`Daily ${metric === "visitors" ? "unique visitors" : "page views"} from ${daily[0].date} to ${daily.at(-1)!.date}. ${total === 0 ? "No traffic recorded." : `Peak ${formatFull(peak)} in one day. Exact values are in the daily data table.`}`} className="relative h-40">
       <div aria-hidden className="absolute inset-0 flex flex-col justify-between text-xs tabular text-t3">
-        {[max, Math.round(max / 2), 0].map((tick, index) => <div key={index} className="flex items-center gap-3"><span className="w-8 shrink-0 text-right">{formatFull(tick)}</span><span className="h-px flex-1 bg-white/[0.06]" /></div>)}
+        {[max, Math.round(max / 2), 0].map((tick, index) => <div key={index} className="flex items-center gap-3"><span className="w-8 shrink-0 text-right">{formatFull(tick)}</span><span className="h-px flex-1 bg-foreground/[0.06]" /></div>)}
       </div>
       <div aria-hidden className="absolute inset-y-1.5 left-11 right-0 flex items-end gap-[2px] sm:gap-1">
         {daily.map((day) => <div key={day.date} title={`${dateLabel(day.date)}: ${formatFull(day[key])}`} className="min-w-0 flex-1 rounded-t-sm bg-foreground/70" style={{ height: `${day[key] / max * 100}%` }} />)}
       </div>
-      {total === 0 && <p className="absolute inset-0 flex items-center justify-center bg-[hsl(218_31%_7%)] text-sm text-t3">No traffic recorded in this period.</p>}
+      {total === 0 && <p className="absolute inset-0 flex items-center justify-center bg-card text-sm text-t3">No traffic recorded in this period.</p>}
     </div>
     <div aria-hidden className="ml-11 mt-2 flex justify-between gap-2 text-xs text-t3"><span>{dateLabel(daily[0].date)}</span><span>{dateLabel(daily[middle].date)}</span><span>{dateLabel(daily.at(-1)!.date)}</span></div>
     <details className="mt-4 text-xs text-t3">
@@ -107,7 +107,7 @@ function Breakdown({ title, items, total }: { title: string; items: { name: stri
     {items.length === 0 ? <p className="py-8 text-sm text-t3">No visits recorded yet.</p> : <ol className="space-y-4 py-5">
       {items.map((item) => <li key={item.name}>
         <div className="mb-2 flex justify-between gap-3 text-sm"><span className="min-w-0 break-all text-t2">{item.name}</span><span className="shrink-0 tabular text-t3">{formatFull(item.views)} <span className="text-xs">({total ? Math.round(item.views / total * 100) : 0}%)</span></span></div>
-        <div aria-hidden className="h-1 rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-foreground/45" style={{ width: `${total ? item.views / total * 100 : 0}%` }} /></div>
+        <div aria-hidden className="h-1 rounded-full bg-foreground/[0.06]"><div className="h-full rounded-full bg-foreground/45" style={{ width: `${total ? item.views / total * 100 : 0}%` }} /></div>
       </li>)}
     </ol>}
   </Panel>;

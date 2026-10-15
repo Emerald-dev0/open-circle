@@ -21,7 +21,7 @@ export function HowItWorks({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-sm gap-0 rounded-[28px] border-0 bg-[hsl(218_29%_9%)] p-6 shadow-none sm:rounded-[28px]">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-sm gap-0 rounded-[28px] border-0 bg-popover p-6 shadow-none sm:rounded-[28px]">
         <DialogTitle className="pr-8 text-base font-medium tracking-tight">How ranking works</DialogTitle>
         <DialogDescription className="mt-1 text-xs text-t3">Points from GitHub and community upvotes.</DialogDescription>
 

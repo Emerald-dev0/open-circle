@@ -13,7 +13,7 @@ import { TOOL_VOTE_KEY, useCommunity, useGitHubSignOut } from "@/hooks/use-commu
 
 // Shown expanded once, the first time a signed-in member sees it.
 const SEEN_KEY = "opencircle:account-menu-seen";
-const ITEM = "flex min-h-10 w-full items-center gap-2.5 rounded-full px-3.5 text-left text-sm text-t2 transition-colors hover:bg-white/[0.07] hover:text-foreground focus-visible:bg-white/[0.07] focus-visible:text-foreground disabled:opacity-50";
+const ITEM = "flex min-h-10 w-full items-center gap-2.5 rounded-full px-3.5 text-left text-sm text-t2 transition-colors hover:bg-foreground/[0.07] hover:text-foreground focus-visible:bg-foreground/[0.07] focus-visible:text-foreground disabled:opacity-50";
 
 function seen() {
   try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return true; }
@@ -116,7 +116,7 @@ export function GitHubAccount() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 460, damping: 34 }}
-            className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-[24px] bg-[hsl(218_29%_10%/0.94)] p-1.5 backdrop-blur-xl"
+            className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-[24px] bg-[hsl(var(--alva-card)/0.94)] p-1.5 backdrop-blur-xl"
           >
             <p className="truncate px-3.5 pb-1.5 pt-2 text-xs text-t4" title={`@${profile.login}`}>@{profile.login}</p>
             <PortfolioItem onSelect={close} />

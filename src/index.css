@@ -5,7 +5,7 @@
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 
-Dark only. Surfaces are separated by fill and gradient, never by borders or
+Surfaces are separated by fill and gradient, never by borders or
 shadows. Gradient language follows the VoiceOps deck (light rising from the
 bottom, a soft radial wash from above, 160deg surface sheens, 90deg text
 fades), recoloured from brand blue to white.
@@ -70,6 +70,12 @@ fades), recoloured from brand blue to white.
     --up: 156 58% 59%;
     --down: 357 82% 66%;
     --warn: 35 85% 67%;
+    --material-ink: 0 0% 100%;
+    --field-tone: 220 60% 85%;
+    --heading-start: 0 0% 100%;
+    --heading-end: 214 30% 80%;
+    --heading-fade: 0.42;
+    --toast: 218 29% 12%;
 
     --sidebar-background: 218 31% 7%;
     --sidebar-foreground: 214 45% 97%;
@@ -79,6 +85,54 @@ fades), recoloured from brand blue to white.
     --sidebar-accent-foreground: 214 45% 97%;
     --sidebar-border: 218 25% 12%;
     --sidebar-ring: 214 45% 97%;
+  }
+
+  .light {
+    color-scheme: light;
+    --background: 220 20% 97%;
+    --foreground: 220 30% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 30% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 30% 12%;
+    --primary: 220 30% 12%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 18% 92%;
+    --secondary-foreground: 220 30% 12%;
+    --muted: 220 18% 92%;
+    --muted-foreground: 220 14% 38%;
+    --accent: 220 18% 89%;
+    --accent-foreground: 220 30% 12%;
+    --destructive: 357 70% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 86%;
+    --input: 220 16% 86%;
+    --ring: 220 30% 12%;
+    --alva-bg: 220 20% 97%;
+    --alva-card: 220 22% 94%;
+    --alva-surface: 220 18% 90%;
+    --alva-border: 220 16% 84%;
+    --alva-accent: 220 30% 12%;
+    --t2: 220 22% 24%;
+    --t3: 220 14% 38%;
+    --t4: 220 12% 40%;
+    --up: 156 72% 25%;
+    --down: 357 70% 40%;
+    --warn: 32 90% 30%;
+    --material-ink: 220 30% 12%;
+    --field-tone: 220 25% 18%;
+    --heading-start: 220 30% 12%;
+    --heading-end: 220 22% 24%;
+    --heading-fade: 0.72;
+    --toast: 0 0% 100%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 30% 12%;
+    --sidebar-primary: 220 30% 12%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 18% 92%;
+    --sidebar-accent-foreground: 220 30% 12%;
+    --sidebar-border: 220 16% 86%;
+    --sidebar-ring: 220 30% 12%;
   }
 }
 
@@ -113,7 +167,7 @@ fades), recoloured from brand blue to white.
   }
 
   ::selection {
-    background: hsl(0 0% 100% / 0.22);
+    background: hsl(var(--foreground) / 0.22);
   }
 }
 
@@ -137,31 +191,38 @@ fades), recoloured from brand blue to white.
       hsl(var(--background));
   }
 
+  .light .app-backdrop {
+    background:
+      radial-gradient(120% 55% at 50% -14%, hsl(0 0% 100% / 0.9), transparent 72%),
+      linear-gradient(to top, hsl(220 30% 70% / 0.07), transparent 55%),
+      hsl(var(--background));
+  }
+
   /* Surface sheen, after the deck's 160deg card highlight. */
   .surface {
     background:
-      linear-gradient(160deg, hsl(0 0% 100% / 0.075) 0%, hsl(0 0% 100% / 0.025) 42%, hsl(0 0% 100% / 0.04) 100%);
+      linear-gradient(160deg, hsl(var(--material-ink) / 0.075) 0%, hsl(var(--material-ink) / 0.025) 42%, hsl(var(--material-ink) / 0.04) 100%);
   }
 
   .surface-quiet {
-    background: hsl(220 60% 85% / 0.045);
+    background: hsl(var(--field-tone) / 0.045);
   }
 
   /* Light rising from the bottom, the deck's team-card gradient in white. */
   .surface-rise {
     background:
-      linear-gradient(to top, hsl(0 0% 100% / 0.11) 0%, hsl(0 0% 100% / 0.045) 34%, hsl(0 0% 100% / 0.02) 100%);
+      linear-gradient(to top, hsl(var(--material-ink) / 0.11) 0%, hsl(var(--material-ink) / 0.045) 34%, hsl(var(--material-ink) / 0.02) 100%);
   }
 
   .text-gradient {
-    background: linear-gradient(180deg, #ffffff 25%, hsl(214 30% 80% / 0.62) 100%);
+    background: linear-gradient(180deg, hsl(var(--heading-start)) 25%, hsl(var(--heading-end) / 0.62) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
   .text-gradient-x {
-    background: linear-gradient(90deg, #ffffff 0%, hsl(0 0% 100% / 0.42) 100%);
+    background: linear-gradient(90deg, hsl(var(--heading-start)) 0%, hsl(var(--heading-start) / var(--heading-fade)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -169,13 +230,13 @@ fades), recoloured from brand blue to white.
 
   .field {
     @apply h-11 min-w-0 w-full rounded-full px-4 text-base text-foreground outline-none transition-colors placeholder:text-[hsl(var(--t4))] sm:text-[15px];
-    background: hsl(220 60% 85% / 0.06);
+    background: hsl(var(--field-tone) / 0.06);
   }
   .field:hover {
-    background: hsl(220 60% 85% / 0.08);
+    background: hsl(var(--field-tone) / 0.08);
   }
   .field:focus-visible {
-    background: hsl(220 60% 85% / 0.1);
+    background: hsl(var(--field-tone) / 0.1);
     outline: 2px solid hsl(var(--foreground) / 0.4);
     outline-offset: 0;
   }
@@ -193,6 +254,10 @@ fades), recoloured from brand blue to white.
   }
   .liquid-glass[data-refract] {
     backdrop-filter: var(--lg-filter) blur(2px) saturate(1.7) brightness(1.06);
+  }
+
+  .light .liquid-glass {
+    background: linear-gradient(180deg, hsl(220 20% 98% / 0.94), hsl(220 18% 89% / 0.9));
   }
 
   /* MetalFx clears its child's outline, so the focus ring moves to the wrapper. */

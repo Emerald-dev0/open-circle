@@ -2,6 +2,7 @@ import * as React from "react";
 import { MetalFx } from "metal-fx";
 import { TextureButton, type UnifiedButtonProps } from "@/components/ui/texture-button";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/use-theme";
 
 interface MetalButtonProps extends UnifiedButtonProps {
   preset?: "chromatic" | "silver" | "gold";
@@ -15,21 +16,24 @@ interface MetalButtonProps extends UnifiedButtonProps {
  * plain texture button where WebGL2 isn't available.
  */
 export const MetalButton = React.forwardRef<HTMLButtonElement, MetalButtonProps>(
-  ({ preset = "chromatic", wrapperClassName, className, size = "default", ...props }, ref) => (
-    <MetalFx
-      preset={preset}
-      theme="dark"
-      variant="button"
-      strength={0.95}
-      className={cn("shrink-0 !bg-transparent !opacity-100 !visible", wrapperClassName)}
-    >
-      <TextureButton
-        ref={ref}
-        size={size}
-        className={cn(size === "sm" ? "rounded-full p-[2.5px]" : "rounded-full p-[3px]", className)}
-        {...props}
-      />
-    </MetalFx>
-  ),
+  ({ preset = "chromatic", wrapperClassName, className, size = "default", ...props }, ref) => {
+    const { resolvedTheme } = useTheme();
+    return (
+      <MetalFx
+        preset={preset}
+        theme={resolvedTheme}
+        variant="button"
+        strength={0.95}
+        className={cn("shrink-0 !bg-transparent !opacity-100 !visible", wrapperClassName)}
+      >
+        <TextureButton
+          ref={ref}
+          size={size}
+          className={cn(size === "sm" ? "rounded-full p-[2.5px]" : "rounded-full p-[3px]", className)}
+          {...props}
+        />
+      </MetalFx>
+    );
+  },
 );
 MetalButton.displayName = "MetalButton";

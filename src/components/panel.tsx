@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 /** Outer frame holding a header card and a body card, like a status console. */
 export function Panel({ header, children }: { header: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="rounded-[30px] bg-white/[0.06] p-1.5 sm:rounded-[34px] sm:p-2">
-      <div className="rounded-[24px] bg-[hsl(218_31%_7%)] px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">{header}</div>
-      <div className="mt-1.5 rounded-[24px] bg-[hsl(218_31%_7%)] px-4 sm:mt-2 sm:rounded-[28px] sm:px-6">{children}</div>
+    <section className="rounded-[30px] bg-foreground/[0.06] p-1.5 sm:rounded-[34px] sm:p-2">
+      <div className="rounded-[24px] bg-card px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">{header}</div>
+      <div className="mt-1.5 rounded-[24px] bg-card px-4 sm:mt-2 sm:rounded-[28px] sm:px-6">{children}</div>
     </section>
   );
 }
@@ -26,7 +26,7 @@ export function PanelHeader({ title, subtitle, chip }: { title: string; subtitle
 export function Chip({ tone, children }: { tone: "ok" | "warn" | "muted"; children: React.ReactNode }) {
   const dot = tone === "ok" ? "bg-[hsl(var(--up))]" : tone === "warn" ? "bg-[hsl(var(--warn))]" : "bg-t4";
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-t2">
+    <span className="inline-flex items-center gap-2 rounded-full bg-foreground/[0.06] px-3 py-1.5 text-xs font-medium text-t2">
       <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />
       {children}
     </span>
@@ -38,7 +38,7 @@ export function Row({ label, htmlFor, stack, children }: { label: string; htmlFo
   return (
     <div
       className={cn(
-        "flex gap-2 border-b border-white/[0.06] py-3.5 last:border-0 sm:items-center sm:gap-6",
+        "flex gap-2 border-b border-foreground/[0.06] py-3.5 last:border-0 sm:items-center sm:gap-6",
         stack ? "flex-col sm:flex-row" : "items-center justify-between",
       )}
     >

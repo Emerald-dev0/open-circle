@@ -60,7 +60,7 @@ export function ToolRow({ tool, count, value, saved, disabled, pendingValue = nu
         </div>
       </div>
       {/* Votes sit on the right of the same line: stacked on phones, a pill from sm up. */}
-      <div role="group" aria-label={`Vote on ${tool.name}`} className="flex flex-col items-center gap-0.5 rounded-full bg-white/[0.035] p-0.5 sm:flex-row">
+      <div role="group" aria-label={`Vote on ${tool.name}`} className="flex flex-col items-center gap-0.5 rounded-full bg-foreground/[0.035] p-0.5 sm:flex-row">
         <TextureButton type="button" variant={value === 1 ? "primary" : "icon"} size="icon" aria-label={`${value === 1 ? "Remove upvote for" : "Upvote"} ${tool.name}`} aria-pressed={value === 1} disabled={disabled} loading={spinning === 1} onClick={() => onVote(value === 1 ? 0 : 1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === 1 && "text-up")}>
           <ArrowUpIcon className="size-4" aria-hidden="true" />
         </TextureButton>

@@ -49,20 +49,20 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
 /** x of y with a thin bar. */
 function Progress({ label, value, total }: { label: string; value: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
-  return <div className="space-y-2 border-b border-white/[0.06] py-4 last:border-0">
+  return <div className="space-y-2 border-b border-foreground/[0.06] py-4 last:border-0">
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <span className="text-t3">{label}</span>
       <span className="tabular font-medium text-foreground">{value}<span className="text-t4"> / {total}</span></span>
     </div>
-    <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={total}>
-      <div className="h-full rounded-full bg-gradient-to-r from-white/60 to-white transition-[width] duration-500" style={{ width: `${pct}%` }} />
+    <div className="h-1.5 overflow-hidden rounded-full bg-foreground/[0.06]" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={total}>
+      <div className="h-full rounded-full bg-gradient-to-r from-foreground/60 to-foreground transition-[width] duration-500" style={{ width: `${pct}%` }} />
     </div>
   </div>;
 }
 
 /** A list row: content left, action right; stacks on phones. */
 function Item({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
-  return <li className="flex flex-col gap-3 border-b border-white/[0.06] py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+  return <li className="flex flex-col gap-3 border-b border-foreground/[0.06] py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
     <div className="min-w-0 space-y-1">{children}</div>
     {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
   </li>;
@@ -73,7 +73,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 function FormFooter({ children }: { children: React.ReactNode }) {
-  return <div className="border-t border-white/[0.06] py-4">{children}</div>;
+  return <div className="border-t border-foreground/[0.06] py-4">{children}</div>;
 }
 
 const statusTone = (status: string) => (status === "approved" || status === "open" || status === "confirmed" ? "ok" : status === "pending" ? "warn" : "muted") as "ok" | "warn" | "muted";
@@ -140,7 +140,7 @@ export default function Participation() {
     <div className="app-backdrop" aria-hidden />
     <div className="relative z-10">
       {/* Signed out, the panel below carries the one sign-in button. */}
-      {profile && <AccountCorner />}
+      {profile ? <AccountCorner /> : <AccountCorner>{null}</AccountCorner>}
 
       <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(5rem+env(safe-area-inset-top))] sm:space-y-6">
         <h1 className="text-2xl font-medium tracking-[-0.03em]">Participation</h1>
@@ -169,9 +169,9 @@ export default function Participation() {
           <div className="py-4">
             <ParticipationForm inline button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel", placeholder: "e.g. +234 803 123 4567" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
           </div>
-          {challenge && <div className="space-y-3 border-t border-white/[0.06] py-4" role="status">
+          {challenge && <div className="space-y-3 border-t border-foreground/[0.06] py-4" role="status">
             <p className="text-sm text-t3">Send this command to the OpenCircle bot in a private WhatsApp chat from that number:</p>
-            <div className="flex items-center gap-2 rounded-full bg-white/[0.06] py-1.5 pl-4 pr-1.5">
+            <div className="flex items-center gap-2 rounded-full bg-foreground/[0.06] py-1.5 pl-4 pr-1.5">
               <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
               <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
             </div>

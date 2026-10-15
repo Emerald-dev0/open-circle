@@ -17,7 +17,7 @@ export default function PublicPortfolio({ slug: tenantSlug }: { slug?: string })
     document.title = query.isError ? "Portfolio unavailable · OpenCircle" : `${query.data!.displayName}${query.data!.headline ? ` · ${query.data!.headline}` : ""}`;
     return () => { document.title = previous; };
   }, [query.data, query.isError]);
-  if (query.isPending) return <main className="mx-auto max-w-5xl px-6 py-16" aria-busy="true"><div className="h-64 animate-pulse rounded-3xl bg-white/5" /><div className="mt-10 h-12 w-2/3 animate-pulse rounded-2xl bg-white/5" /><p className="sr-only" role="status">Loading portfolio…</p></main>;
+  if (query.isPending) return <main className="mx-auto max-w-5xl px-6 py-16" aria-busy="true"><div className="h-64 animate-pulse rounded-3xl bg-foreground/5" /><div className="mt-10 h-12 w-2/3 animate-pulse rounded-2xl bg-foreground/5" /><p className="sr-only" role="status">Loading portfolio…</p></main>;
   if (!query.data || query.isError) {
     const missing = query.error instanceof ApiError && query.error.status === 404;
     return <main className="studio-error-panel"><h1>{missing ? "Portfolio unavailable" : "Couldn't load this portfolio"}</h1><p>{missing ? "This portfolio hasn't been published, or its owner has taken it offline." : query.error?.message ?? "Please try again."}</p>{!missing && <TextureButton type="button" className="mt-6 w-auto" onClick={() => void query.refetch()}>Try again</TextureButton>}<TextureButton asChild variant="secondary" className="mt-6 w-auto"><a href="https://opencircle.cc">Explore OpenCircle</a></TextureButton></main>;
