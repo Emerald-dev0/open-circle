@@ -47,16 +47,16 @@ Choose a light or dark theme, accent colors and a cover image. Add skills, write
 
 Contacts are private until you choose to show them. The Hire me button uses your chosen public contact while you are available for work. Your WhatsApp group number is never added to your portfolio automatically.
 
-See the [portfolio guide](https://github.com/opencirclehq/open-circle/blob/member-portfolios/docs/portfolios.md) for setup, uploads and subdomain hosting.
+See the [portfolio guide](docs/portfolios.md) for setup, uploads and subdomain hosting.
 
 ## Run locally
 
 Use Node.js **22.13+** and pnpm **11.7.0**. If needed, install pnpm with `npm install --global pnpm@11.7.0`.
 
-The live portfolio release is on the [`member-portfolios`](https://github.com/opencirclehq/open-circle/tree/member-portfolios) branch. The commands below use that branch.
+The live website and portfolio editor use the [`main`](https://github.com/opencirclehq/open-circle/tree/main) branch.
 
 ```bash
-git clone --branch member-portfolios https://github.com/opencirclehq/open-circle.git
+git clone --branch main https://github.com/opencirclehq/open-circle.git
 cd open-circle
 pnpm install --frozen-lockfile
 cp .env.example .env.local
@@ -148,7 +148,7 @@ Thanks to [everyone who contributes](https://github.com/opencirclehq/open-circle
 | [App behaviour](docs/reference.md) | Registration, rankings, voting, refreshes, storage and current limits. |
 | [API](docs/api.md) | Endpoints, request formats and error responses. |
 | [Deployment](docs/deployment.md) | Running the built app and troubleshooting setup problems. |
-| [Portfolios](https://github.com/opencirclehq/open-circle/blob/member-portfolios/docs/portfolios.md) | Customization, publishing, contact privacy, uploads and subdomains. |
+| [Portfolios](docs/portfolios.md) | Customization, publishing, contact privacy, uploads and subdomains. |
 
 ## Privacy
 
