@@ -1,3 +1,4 @@
+import { isRateLimited } from "@/lib/query-policy";
 import { useEffect, useMemo, useState } from "react";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { MagnifierIcon, Tuning2Icon } from "@solar-icons/react/linear";
@@ -172,7 +173,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             counts={counts}
             voted={voted}
             saved={saved}
-            votingDisabled={!community.data || vote.isPending || Boolean(community.error)}
+            votingDisabled={!community.data || vote.isPending || (Boolean(community.error) && !isRateLimited(community.error))}
             pendingTarget={vote.isPending ? vote.variables?.target ?? null : null}
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}

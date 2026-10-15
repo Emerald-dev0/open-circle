@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 export const PAGE_SIZE = 20;
 
@@ -11,13 +11,15 @@ export function usePagination<T>(items: readonly T[], pageSize = PAGE_SIZE, rese
   const setPage = useCallback((next: number) => {
     setPosition({ key: resetKey, page: Math.max(1, Math.min(pageCount, Math.floor(next) || 1)) });
   }, [resetKey, pageCount]);
-  const changePage = (next: number) => {
+  const changePage = useCallback((next: number) => {
+    if (next === page) return;
     setPage(next);
     regionRef.current?.focus({ preventScroll: true });
     regionRef.current?.scrollIntoView?.({ block: "start", behavior: "instant" });
-  };
+  }, [page, setPage]);
+  const shown = useMemo(() => items.slice((page - 1) * pageSize, page * pageSize), [items, page, pageSize]);
   return {
-    items: items.slice((page - 1) * pageSize, page * pageSize),
+    items: shown,
     page, pageSize, total: items.length, setPage, changePage, regionRef,
   };
 }

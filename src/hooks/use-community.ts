@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { CommunityState } from "@shared/community";
+import { pollApi, retryApiQuery } from "@/lib/query-policy";
 import { api } from "@/lib/api";
 import { BOARD_KEY } from "./use-board";
 
@@ -12,8 +13,8 @@ export function useCommunity() {
     queryKey: COMMUNITY_KEY,
     queryFn: ({ signal }) => api.community(signal),
     staleTime: 5_000,
-    refetchInterval: 10_000,
-    retry: 2,
+    refetchInterval: pollApi(10_000),
+    retry: retryApiQuery,
   });
 }
 

@@ -28,6 +28,7 @@ import * as portfolio from "../api/portfolio.js";
 import * as portfolioGithub from "../api/portfolio-github.js";
 import * as portfolioUpload from "../api/portfolio-upload.js";
 import { apiBodyLimit, validateApiRequest } from "./api-security.js";
+import { encodePublicJson } from "./http-encoding.js";
 import { readBody } from "./vite-dev-api.js";
 import { handle, HttpError, json } from "./http.js";
 import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
@@ -102,6 +103,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
           const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req, maxBytes);
           return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
         });
+        const responseBody = await encodePublicJson(response, req.headers["accept-encoding"] ?? "");
         res.statusCode = response.status;
         response.headers.forEach((value, key) => {
           // Vercel-only CDN directive; meaningless here.
@@ -110,7 +112,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         const cookies = response.headers.getSetCookie();
         if (cookies.length) res.setHeader("set-cookie", cookies);
         if (response.status === 413) res.setHeader("connection", "close");
-        res.end(Buffer.from(await response.arrayBuffer()));
+        res.end(responseBody);
       } catch (err) {
         console.error(err);
         if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });

@@ -9,7 +9,7 @@ import { ApiError, api } from "../src/lib/api";
 import { toast } from "sonner";
 
 const communityMock = vi.hoisted(() => ({
-  query: { data: undefined as CommunityState | undefined, isLoading: false, isError: false, refetch: vi.fn() },
+  query: { data: undefined as CommunityState | undefined, isLoading: false, isError: false, error: null as Error | null, refetch: vi.fn() },
   vote: { mutate: vi.fn(), isPending: false, variables: undefined as { target: string; value: -1 | 0 | 1 } | undefined, error: null as Error | null },
 }));
 
@@ -65,6 +65,7 @@ beforeEach(() => {
   communityMock.query.data = { tools: fixtures, counts: { "tool:editor": 3, "tool:design": 9, "tool:docs": 2 }, voted: [], profile, signInAvailable: true, toolVotes: {} };
   communityMock.query.isLoading = false;
   communityMock.query.isError = false;
+  communityMock.query.error = null;
   communityMock.query.refetch.mockReset();
   communityMock.vote.mutate.mockReset();
   communityMock.vote.isPending = false;
@@ -77,6 +78,20 @@ beforeEach(() => {
 afterEach(() => clients.splice(0).forEach((client) => client.clear()));
 
 describe("Community tools directory", () => {
+  it("keeps votes and tool sharing available during a temporary read limit when results are cached", async () => {
+    communityMock.query.isError = true;
+    communityMock.query.error = new ApiError(429, "rate_limited", "Updates will resume shortly.");
+    renderDirectory();
+    const user = userEvent.setup();
+    const vote = screen.getByRole("button", { name: "Upvote VS Code" });
+    expect((vote as HTMLButtonElement).disabled).toBe(false);
+    await user.click(vote);
+    expect(communityMock.vote.mutate).toHaveBeenCalledWith({ target: "tool:editor", value: 1 });
+    await user.click(screen.getByRole("button", { name: "Share a tool" }));
+    expect(screen.getByRole("textbox", { name: "Name" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Share tool" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("paginates the directory and resets to the first page for search and sort changes", async () => {
     communityMock.query.data!.tools = Array.from({ length: 45 }, (_, index) => ({ ...fixtures[0], id: `tool-${index}`, name: `Tool ${String(index).padStart(2, "0")}` }));
     renderDirectory();
@@ -216,6 +231,7 @@ describe("Community tools directory", () => {
     expect(communityMock.query.refetch).toHaveBeenCalledTimes(1);
     second.unmount();
     communityMock.query.isError = false;
+  communityMock.query.error = null;
     communityMock.query.data = { tools: [], counts: {}, voted: [], profile, signInAvailable: true, toolVotes: {} };
     renderDirectory();
     expect(screen.getByText("No tools shared yet.")).toBeTruthy();

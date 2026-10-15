@@ -1,3 +1,4 @@
+import { pollApi } from "@/lib/query-policy";
 import type * as React from "react";
 import { GitHubIcon } from "@/components/brand-icons";
 import { motion } from "motion/react";
@@ -41,7 +42,7 @@ const Admin = () => {
     try { sessionStorage.removeItem("devechleon:admin"); } catch { return; }
   }, []);
   const queryClient = useQueryClient();
-  const session = useQuery({ queryKey: SESSION_KEY, queryFn: ({ signal }) => api.adminSession(signal), retry: false, gcTime: 0, refetchInterval: 30_000, refetchIntervalInBackground: false });
+  const session = useQuery({ queryKey: SESSION_KEY, queryFn: ({ signal }) => api.adminSession(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000), refetchIntervalInBackground: false });
   const clearPrivate = useCallback(() => {
     void queryClient.cancelQueries({ predicate: isPrivateQuery });
     queryClient.removeQueries({ predicate: isPrivateQuery });
@@ -101,8 +102,8 @@ function SignIn({ configured }: { configured: boolean }) {
 function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [section, setSection] = useState("overview");
   const queryClient = useQueryClient();
-  const state = useQuery({ queryKey: STATE_KEY, queryFn: ({ signal }) => api.adminState(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
-  const tools = useQuery({ queryKey: TOOLS_KEY, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
+  const state = useQuery({ queryKey: STATE_KEY, queryFn: ({ signal }) => api.adminState(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
+  const tools = useQuery({ queryKey: TOOLS_KEY, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
   const action = useMutation({
     mutationFn: (a: AdminAction) => api.adminAction(a),
     onSuccess: (next: AdminState) => {

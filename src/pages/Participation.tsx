@@ -1,3 +1,4 @@
+import { pollApi } from "@/lib/query-policy";
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -83,7 +84,7 @@ export default function Participation() {
   const profile = community.data?.profile;
   const key = ["participation", profile?.id ?? null];
   const client = useQueryClient();
-  const state = useQuery({ queryKey: key, queryFn: ({ signal }) => api.participation(signal), enabled: !!profile, refetchInterval: 15_000, retry: false });
+  const state = useQuery({ queryKey: key, queryFn: ({ signal }) => api.participation(signal), enabled: !!profile, refetchInterval: pollApi(15_000), retry: false });
   const [challenge, setChallenge] = useState<LinkChallenge | null>(null);
   const [target, setTarget] = useState<{ kind: "review" | "answer"; id: string; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);

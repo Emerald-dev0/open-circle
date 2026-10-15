@@ -63,3 +63,11 @@ it("keeps multiple lists independent", async () => {
   expect(within(screen.getByRole("list", { name: "First" })).getAllByRole("listitem")).toHaveLength(5);
   expect(within(screen.getByRole("list", { name: "Second" })).getAllByRole("listitem")).toHaveLength(10);
 });
+
+it("keeps focus in place when the current page is selected again", async () => {
+  render(list());
+  const current = screen.getByRole("button", { name: "Go to page 1" });
+  await userEvent.setup().click(current);
+  expect(document.activeElement).toBe(current);
+  expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+});

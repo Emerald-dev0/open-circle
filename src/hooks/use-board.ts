@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Board } from "@shared/types";
+import { pollApi, retryApiQuery } from "@/lib/query-policy";
 import { api } from "@/lib/api";
 
 export const BOARD_KEY = ["board"] as const;
@@ -19,10 +20,13 @@ export function useBoard() {
   const queryClient = useQueryClient();
   return useQuery({
     queryKey: BOARD_KEY,
-    queryFn: async () => newerBoard(queryClient.getQueryData<Board>(BOARD_KEY), await api.board()),
-    refetchInterval: POLL_MS,
+    queryFn: async ({ signal }) => {
+      const next = await api.board(signal);
+      return newerBoard(queryClient.getQueryData<Board>(BOARD_KEY), next);
+    },
+    refetchInterval: pollApi(POLL_MS),
     staleTime: POLL_MS / 2,
-    retry: 2,
+    retry: retryApiQuery,
   });
 }
 

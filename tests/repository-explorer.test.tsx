@@ -1,5 +1,6 @@
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { ApiError } from "../src/lib/api";
 import { toast } from "sonner";
 import { MotionConfig } from "motion/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,6 +45,15 @@ beforeEach(() => {
 });
 
 describe("Repository discovery", () => {
+  it("keeps cached repository votes available during a temporary refresh limit", async () => {
+    hooks.community.mockReturnValue({ data, isPending: false, error: new ApiError(429, "rate_limited", "Updates will resume shortly."), refetch });
+    render(explorer());
+    const vote = screen.getByRole("button", { name: "Upvote spark/circle-cli" });
+    expect((vote as HTMLButtonElement).disabled).toBe(false);
+    await userEvent.setup().click(vote);
+    expect(mutate).toHaveBeenCalledWith({ target: "repo:R_cli", active: true });
+  });
+
   it("keeps long repository names, owners and exact GitHub counts available alongside community actions", async () => {
     const name = "repository-".repeat(12);
     const ownerLogin = "builder-".repeat(4);

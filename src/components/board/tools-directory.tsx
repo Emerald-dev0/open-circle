@@ -1,3 +1,4 @@
+import { isRateLimited } from "@/lib/query-policy";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { AddIcon, MagnifierIcon, Tuning2Icon } from "@solar-icons/react/linear";
@@ -54,6 +55,7 @@ export function ToolsDirectory() {
   const formRef = useRef<HTMLFormElement>(null);
   const shareButtonRef = useRef<HTMLButtonElement>(null);
   const profile = community.data?.profile;
+  const unavailable = community.isError && !isRateLimited(community.error);
   const signingOut = useIsMutating({ mutationKey: GITHUB_SIGN_OUT_KEY }) > 0;
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export function ToolsDirectory() {
 
   function shareTool(event: React.FormEvent) {
     event.preventDefault();
-    if (submit.isPending || !community.data || community.isError) return;
+    if (submit.isPending || !community.data || unavailable) return;
     const parsed = parseToolInput(input);
     if (parsed.ok === false) {
       setFormError({ message: parsed.error, field: parsed.field });
@@ -143,7 +145,7 @@ export function ToolsDirectory() {
             innerClassName="px-4"
             aria-expanded={sharing}
             aria-controls={`${formId}-form`}
-            disabled={submit.isPending || !community.data || community.isError}
+            disabled={submit.isPending || !community.data || unavailable}
             onClick={() => { setSharing(!sharing); setSentForReview(false); }}
           >
             <AddIcon aria-hidden="true" className={cn("size-3.5 transition-transform duration-300", sharing && "rotate-45")} />
@@ -193,7 +195,7 @@ export function ToolsDirectory() {
                     />
                   </div>
                   <div className="flex items-end sm:justify-end">
-                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" loading={submit.isPending} disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
+                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" loading={submit.isPending} disabled={submit.isPending || !community.data || unavailable}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
                   </div>
                 </fieldset>
               </form>
@@ -253,7 +255,7 @@ export function ToolsDirectory() {
               {pagination.items.map((tool) => {
                 const target = `tool:${tool.id}`;
                 return (
-                  <ToolRow key={tool.id} pendingValue={vote.isPending && vote.variables?.target === target ? vote.variables.value : null} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || community.isError || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
+                  <ToolRow key={tool.id} pendingValue={vote.isPending && vote.variables?.target === target ? vote.variables.value : null} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || unavailable || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
                 );
               })}
               </AnimatePresence>

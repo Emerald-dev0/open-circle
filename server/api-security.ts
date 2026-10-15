@@ -29,7 +29,11 @@ export function apiHandler(req: Request, run: () => Promise<Response>): Promise<
   return handle(async () => {
     validateApiRequest(req);
     const store = getStore();
-    if (!await store.rateLimit(`api:ip:${clientKey(req)}`, 240, 60))
+    const path = new URL(req.url).pathname.replace(/\/$/, "");
+    const authentication = ["/api/auth-start", "/api/auth-callback"].includes(path);
+    const reading = ["GET", "HEAD"].includes(req.method);
+    const bucket = authentication ? "auth" : reading ? "read" : "write";
+    if (!await store.rateLimit(`api:${bucket}:ip:${clientKey(req)}`, authentication ? 60 : 240, 60))
       throw new HttpError(429, "rate_limited", "Too many requests. Wait a minute and try again.", undefined, { "retry-after": "60" });
     return run();
   });

@@ -7,6 +7,8 @@ import { GET as boardGET } from "../api/board";
 import { GET as communityGET } from "../api/community";
 import { POST as registerPOST } from "../api/register";
 import { POST as previewPOST } from "../api/preview";
+import { GET as signInGET } from "../api/auth-start";
+import { POST as signOutPOST } from "../api/auth";
 import { GET as callbackGET } from "../api/auth-callback";
 import { MemoryCommunityStore } from "../server/community-memory";
 import { apiHandler } from "../server/api-security";
@@ -112,8 +114,28 @@ it("applies guards through real HTTP despite spoofed forwarding headers and reje
   const badOrigin = await fetch(`${base}/api/register`, { method: "POST", headers: { ...spoofed, origin: "https://evil.test", "content-type": "application/json" }, body: "{}" });
   expect(badOrigin.status).toBe(403);
   const key = clientKey(new Request(base, { headers: { "x-vercel-forwarded-for": "127.0.0.1" } }));
-  for (let index = 0; index < 240; index++) await store.rateLimit(`api:ip:${key}`, 240, 60);
+  for (let index = 0; index < 240; index++) await store.rateLimit(`api:read:ip:${key}`, 240, 60);
   const blocked = await fetch(`${base}/api/board`, { headers: spoofed });
   expect(blocked.status).toBe(429); expect(blocked.headers.get("retry-after")).toBe("60");
   expect(server.requestTimeout).toBe(30_000); expect(server.headersTimeout).toBe(10_000);
+});
+
+it("keeps sign-out available when browsing is limited and keeps write abuse separate from reading", async () => {
+  const url = "https://opencircle.test";
+  const headers = { "x-vercel-forwarded-for": "192.0.2.12" };
+  const key = clientKey(new Request(url, { headers }));
+  for (let index = 0; index < 240; index++) await store.rateLimit(`api:read:ip:${key}`, 240, 60);
+  expect((await boardGET(new Request(`${url}/api/board`, { headers }))).status).toBe(429);
+  vi.stubEnv("GITHUB_OAUTH_CLIENT_ID", "test-client");
+  vi.stubEnv("GITHUB_OAUTH_CLIENT_SECRET", "test-secret");
+  vi.stubEnv("GITHUB_OAUTH_REDIRECT_URI", `${url}/api/auth-callback`);
+  expect((await signInGET(new Request(`${url}/api/auth-start`, { headers }))).status).toBe(302);
+  const signedOut = await signOutPOST(new Request(`${url}/api/auth`, { method: "POST", headers: { ...headers, origin: url, "content-type": "application/json" }, body: "{}" }));
+  expect(signedOut.status).toBe(200); expect(signedOut.headers.get("set-cookie")).toContain("Max-Age=0");
+  const other = { "x-vercel-forwarded-for": "192.0.2.13" };
+  const otherKey = clientKey(new Request(url, { headers: other }));
+  for (let index = 0; index < 240; index++) await store.rateLimit(`api:write:ip:${otherKey}`, 240, 60);
+  const blocked = await apiHandler(new Request(`${url}/api/register`, { method: "POST", headers: { ...other, "content-type": "application/json" } }), async () => json({ ok: true }));
+  expect(blocked.status).toBe(429);
+  expect((await boardGET(new Request(`${url}/api/board`, { headers: other }))).status).toBe(200);
 });

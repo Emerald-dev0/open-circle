@@ -1,3 +1,4 @@
+import { pollApi } from "@/lib/query-policy";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -19,7 +20,7 @@ import { AnimatePresence, motion } from "motion/react";
 export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void }) {
   const key = ["admin", "tools"];
   const [status, setStatus] = useState("all");
-  const community = useQuery({ queryKey: key, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
+  const community = useQuery({ queryKey: key, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
   const queryClient = useQueryClient();
   const action = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) => approve ? api.approveTool(id) : api.removeTool(id),

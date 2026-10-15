@@ -18,25 +18,49 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly field?: string,
+    readonly retryAt?: number,
   ) {
     super(message);
   }
 }
 
+const readCooldowns = new Map<string, ApiError>();
+
+export function retryAt(headers: Headers, status: number, now = Date.now()): number | undefined {
+  const value = headers.get("retry-after")?.trim();
+  if (value && /^\d+$/.test(value)) return now + Math.min(Number(value), 86_400) * 1000;
+  if (value && /^[A-Za-z]{3}, /.test(value)) {
+    const date = Date.parse(value);
+    if (Number.isFinite(date)) return Math.max(now, Math.min(date, now + 86_400_000));
+  }
+  return status === 429 ? now + 60_000 : undefined;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  init?.signal?.throwIfAborted();
+  const reading = !init?.method || init.method === "GET";
+  const cooldown = reading ? readCooldowns.get(path) : undefined;
+  if (cooldown?.retryAt && cooldown.retryAt > Date.now()) throw cooldown;
+  if (reading) readCooldowns.delete(path);
+  const headers = new Headers(init?.headers);
+  if (init?.body !== undefined && !headers.has("content-type")) headers.set("content-type", "application/json");
   let res: Response;
   try {
     res = await fetch(path, {
       ...init,
-      headers: { "content-type": "application/json", ...init?.headers },
+      headers: Object.fromEntries(headers),
     });
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted || (error instanceof Error && error.name === "AbortError")) throw error;
     throw new ApiError(0, "network", "You look offline. Check your connection and try again.");
   }
   const body = (await res.json().catch(() => null)) as (T & Partial<ApiErrorBody>) | null;
+  init?.signal?.throwIfAborted();
   if (!res.ok || !body) {
     const error = body?.error;
-    throw new ApiError(res.status, error?.code ?? "unknown", error?.message ?? "Something went wrong. Try again.", error?.field);
+    const failure = new ApiError(res.status, error?.code ?? "unknown", error?.message ?? "Something went wrong. Try again.", error?.field, retryAt(res.headers, res.status));
+    if (reading && res.status === 429) readCooldowns.set(path, failure);
+    throw failure;
   }
   return body;
 }
@@ -46,7 +70,7 @@ export const api = {
   participation: (signal?: AbortSignal) => request<ParticipationState>("/api/participation", { signal }),
   linkWhatsapp: (phone: string) => request<LinkChallenge>("/api/participation", { method: "POST", body: JSON.stringify({ action: "link", phone }) }),
   participate: (input: ParticipationAction) => request<ParticipationState>("/api/participation", { method: "POST", body: JSON.stringify(input) }),
-  board: () => request<Board>("/api/board"),
+  board: (signal?: AbortSignal) => request<Board>("/api/board", { signal }),
   community: (signal?: AbortSignal) => request<CommunityState>("/api/community", { signal }),
   vote: (input: VoteInput) => request<VoteResult>("/api/vote", { method: "POST", body: JSON.stringify(input) }),
   toolVote: (input: ToolVoteInput) => request<ToolVoteResult>("/api/vote", { method: "POST", body: JSON.stringify(input) }),

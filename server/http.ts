@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ApiErrorBody } from "../shared/types.js";
 
 export class HttpError extends Error {
@@ -12,21 +13,28 @@ export class HttpError extends Error {
   }
 }
 
-export function json(
-  data: unknown,
-  status = 200,
-  headers: Record<string, string> = {},
-): Response {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "x-robots-tag": "noindex",
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "same-origin",
-      "cache-control": "no-store",
-      ...headers,
-    },
+const JSON_HEADERS = {
+  "content-type": "application/json; charset=utf-8",
+  "x-robots-tag": "noindex",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "same-origin",
+  "cache-control": "no-store",
+};
+
+export function json(data: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(data), { status, headers: { ...JSON_HEADERS, ...headers } });
+}
+
+export function conditionalJson(req: Request, data: unknown, headers: Record<string, string>): Response {
+  const body = JSON.stringify(data);
+  const tag = `"${createHash("sha256").update(body).digest("base64url")}"`;
+  const unchanged = req.headers.get("if-none-match")?.split(",").some((value) => {
+    const candidate = value.trim().replace(/^W\//, "");
+    return candidate === "*" || candidate === tag;
+  });
+  return new Response(unchanged ? null : body, {
+    status: unchanged ? 304 : 200,
+    headers: { ...JSON_HEADERS, ...headers, etag: `W/${tag}` },
   });
 }
 

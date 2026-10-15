@@ -58,7 +58,7 @@ Analytics counts distinct browsers using a separate HttpOnly cookie and stores o
 
 ## Shared request protection
 
-Every API handler uses `server/api-security.ts`. Handled API requests share a limit of 240 requests per client IP per minute across endpoints and cookies, alongside the narrower operation and account limits above. OAuth callbacks also allow 30 attempts per IP per minute; starting sign-in allows 20 per hour. Throttled responses include `Retry-After`, and storage failures do not bypass enforcement.
+Every API handler uses `server/api-security.ts`. Handled API requests have separate read and write allowances of 240 requests per client IP per minute across endpoints and cookies, alongside the narrower operation and account limits above. Polling cannot spend the allowance needed to sign up, vote or sign out. GitHub sign-in uses its own 60-request-per-IP minute allowance, so browsing limits do not block the redirect or callback. OAuth callbacks also allow 30 attempts per IP per minute; starting sign-in allows 20 per hour. Throttled responses include `Retry-After`, and storage failures do not bypass enforcement.
 
 Mutations require the appropriate content type and reject foreign origins, opaque origins and requests marked as coming from a sibling site. JSON is required except for the image upload endpoint, which accepts PNG, JPEG and WebP. Requests without browser origin metadata remain available to direct API clients; the normal authorization and rate limits still apply. CORS is not enabled. URLs are limited to 4,096 characters, and declared body sizes are checked before the Node and Vite adapters buffer them. Existing streaming byte limits also apply when Content-Length is absent or inaccurate.
 
@@ -67,3 +67,9 @@ API responses include `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-
 IP keys use the trusted adapter/platform client address, hash it before storage, normalize IPv4-mapped addresses and group IPv6 addresses by /64. Arbitrary `X-Forwarded-For` values are not trusted by handlers. On Node, only `TRUST_PROXY=1` enables the adapter's final forwarded address; enable it only when a trusted proxy appends or overwrites that header and direct access to the app is restricted.
 
 These controls limit abusive traffic; they do not establish ownership of anonymous registration details or turn repository browser votes into verified-person votes. The existing identity limits are described in the [app reference](reference.md#privacy-and-current-limits).
+
+## Efficient polling
+
+The public board sends a weak ETag. A matching `If-None-Match` returns 304 without a response body, while the usual board read and refresh checks still run. Browsers can revalidate their cached public snapshot; any snapshot change produces a new tag. The Node server also uses low-cost gzip for public JSON of at least 1 KiB when the client accepts it and compression reduces its size. Private, no-store and no-transform responses keep their existing behavior. Compressed and uncompressed board responses share the weak tag and vary by Accept-Encoding.
+
+Polling respects `Retry-After`, retains existing results while waiting and resumes automatically. Read requests made during a known 429 cooldown do not hit the network again. Permanent client errors are not retried immediately; transient failures retain bounded retries. Cancelling a board request aborts its fetch instead of reporting an offline error. Board responses compare against the latest cache after the request finishes, so a slow poll cannot overwrite a newer signup result. Cached directory data remains usable for voting and tool sharing during a read-only cooldown; each write still passes its server-side identity, origin, validation and operation limits.
