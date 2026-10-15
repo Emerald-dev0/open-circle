@@ -3,6 +3,7 @@ import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import type { Plugin } from "vite";
 import { handle, HttpError, MAX_REQUEST_BYTES } from "./http.js";
+import { MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
 
 export async function readBody(
   req: IncomingMessage,
@@ -71,7 +72,7 @@ export function devApi(): Plugin {
             const body =
               method === "GET" || method === "HEAD"
                 ? undefined
-                : await readBody(req);
+                : await readBody(req, match[1] === "portfolio-upload" ? MAX_IMAGE_BYTES : match[1] === "portfolio" ? MAX_PORTFOLIO_BYTES : undefined);
             return handler(
               new Request(
                 new URL(

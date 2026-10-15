@@ -64,7 +64,8 @@ export function beginGitHubSignIn(req: Request): Response {
   const state = randomBytes(32).toString("hex");
   const verifier = randomBytes(32).toString("base64url");
   const participation = new URL(req.url).searchParams.get("returnTo") === "/participation";
-  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation })).toString("base64url");
+  const portfolio = new URL(req.url).searchParams.get("returnTo") === "/portfolio";
+  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio })).toString("base64url");
   const signature = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
   const destination = new URL("https://github.com/login/oauth/authorize");
   destination.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirectUri, state, scope: "", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
@@ -95,10 +96,11 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     const [payload, signature, extra] = saved.split(".");
     const expected = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
     if (extra || signature?.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
-    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown };
+    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown; portfolio?: unknown };
     if (typeof savedState.state !== "string" || savedState.state.length !== state.length || !timingSafeEqual(Buffer.from(savedState.state), Buffer.from(state)) || typeof savedState.expiresAt !== "number" || savedState.expiresAt <= Date.now() || typeof savedState.verifier !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(savedState.verifier)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
     if (savedState.admin === true) returnTo = "/admin";
     else if (savedState.participation === true) returnTo = "/participation";
+    else if (savedState.portfolio === true) returnTo = "/portfolio";
     if (url.searchParams.has("error") || !code || code.length > 256) throw new HttpError(400, "github_denied", "GitHub sign-in was cancelled. Try again when you're ready.");
     const token = await githubJson("https://github.com/login/oauth/access_token", { method: "POST", headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, code, redirect_uri: config.redirectUri, code_verifier: savedState.verifier }) });
     if (typeof token.access_token !== "string" || token.token_type !== "bearer") throw new HttpError(502, "github_exchange", "GitHub sign-in couldn't finish. Try again.");

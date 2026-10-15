@@ -131,6 +131,7 @@ Thanks to [everyone who contributes](https://github.com/opencirclehq/open-circle
 | [App behaviour](docs/reference.md) | Registration, rankings, voting, refreshes, storage and current limits. |
 | [API](docs/api.md) | Endpoints, request formats and error responses. |
 | [Deployment](docs/deployment.md) | Running the built app and troubleshooting setup problems. |
+| [Portfolios](docs/portfolios.md) | Customization, publishing, contact privacy, uploads and subdomains. |
 
 ## Privacy
 
