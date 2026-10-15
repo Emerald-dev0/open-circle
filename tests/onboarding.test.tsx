@@ -138,7 +138,7 @@ describe("Username-first community onboarding", () => {
     render(<Providers client={clientFor(await rebuildBoard(store))}><RankHarness /></Providers>);
     const user = userEvent.setup();
     await previewOctocat(user);
-    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "0803 123 4567");
+    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
     const link = await screen.findByRole("link", { name: "Join the WhatsApp group" });
     expect(link.getAttribute("href")).toContain("chat.whatsapp.com/HanHO4T0w0kJGcipYZTB8q");
@@ -159,10 +159,10 @@ describe("Username-first community onboarding", () => {
     const user = userEvent.setup();
     await previewOctocat(user);
     const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
-    await user.type(phone, "0803 123 4567");
+    await user.type(phone, "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
     expect((await screen.findByRole("alert")).textContent).toContain("can't check");
-    expect((phone as HTMLInputElement).value).toBe("0803 123 4567");
+    expect((phone as HTMLInputElement).value).toBe("+234 803 123 4567");
     expect(screen.queryByRole("link", { name: "Join the WhatsApp group" })).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => url === "https://api.github.com/graphql")).toBe(false);
     expect(await store.listMembers()).toEqual([]);
@@ -177,7 +177,7 @@ describe("Username-first community onboarding", () => {
     const user = userEvent.setup();
     await previewOctocat(user);
     const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
-    await user.type(phone, "0803 123 4567");
+    await user.type(phone, "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
     await screen.findByText("Ask the organiser to add you.");
     expect(screen.queryByRole("link", { name: "Join the WhatsApp group" })).toBeNull();
@@ -202,7 +202,7 @@ describe("Username-first community onboarding", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     await user.clear(nickname);
     await user.type(nickname, "Octo");
-    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "0803 123 4567");
+    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
 
     await screen.findByText("You're in.");
@@ -219,6 +219,31 @@ describe("Username-first community onboarding", () => {
     expect(screen.getByText("You're in.")).toBeTruthy();
   });
 
+  it("shows a sample number and requires a country code before registration", async () => {
+    const store = new TestStore();
+    const fetchMock = networkFor(store);
+    render(<Providers client={clientFor(await rebuildBoard(store))}><RankHarness /></Providers>);
+    const user = userEvent.setup();
+    await previewOctocat(user);
+    const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
+    expect(phone.getAttribute("placeholder")).toBe("e.g. +234 803 123 4567");
+    expect(screen.getByText(/Use your WhatsApp group number with its country code/)).toBeTruthy();
+
+    await user.type(phone, "0803 123 4567");
+    await user.click(screen.getByRole("button", { name: "Join the board" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("country code");
+    expect(phone.getAttribute("aria-invalid")).toBe("true");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await store.listMembers()).toEqual([]);
+
+    await user.clear(phone);
+    await user.type(phone, "+234 803 123 4567");
+    expect(phone.hasAttribute("aria-invalid")).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Join the board" }));
+    await screen.findByText("You're in.");
+    expect(await store.getMember("octocat")).toMatchObject({ whatsapp: "+2348031234567" });
+  });
+
   it("validates nickname and phone before sending registration, while preserving entered details", async () => {
     const store = new TestStore();
     const fetchMock = networkFor(store);
@@ -232,7 +257,7 @@ describe("Username-first community onboarding", () => {
     await user.type(nickname, "cto");
     await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "bad-number");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("Digits only");
+    expect((await screen.findByRole("alert")).textContent).toContain("country code");
     expect(fetchMock.mock.calls.filter(([url]) => url === "/api/register")).toHaveLength(0);
     expect((nickname as HTMLInputElement).value).toBe("Octo");
   });
@@ -260,7 +285,7 @@ describe("Username-first community onboarding", () => {
     const user = userEvent.setup();
     await user.type(screen.getByRole("textbox", { name: /GitHub profile link or username/i }), "missing");
     await user.click(screen.getByRole("button", { name: "Rank me" }));
-    await user.type(await screen.findByRole("textbox", { name: /WhatsApp number used/i }), "0803 123 4567");
+    await user.type(await screen.findByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("no GitHub user called missing");
@@ -278,12 +303,12 @@ describe("Username-first community onboarding", () => {
     await user.clear(nickname);
     await user.type(nickname, "Octo");
     const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
-    await user.type(phone, "0803 123 4567");
+    await user.type(phone, "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("already registered to another member");
     expect((nickname as HTMLInputElement).value).toBe("Octo");
-    expect((phone as HTMLInputElement).value).toBe("0803 123 4567");
+    expect((phone as HTMLInputElement).value).toBe("+234 803 123 4567");
     expect(readMe()).toBeNull();
   });
 });
@@ -339,10 +364,13 @@ describe("Community leaderboard pages", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Paste your username.Take your place.");
     await user.clear(nickname);
     await user.type(nickname, "Octo");
-    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "0803 123 4567");
+    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
     await user.click(screen.getByRole("tab", { name: /Repositories/ }));
 
     expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/repositories");
+    expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Repositories" }).getAttribute("href")).toBe("/repositories");
+    await waitFor(() => expect(document.title).toBe("Repositories · OpenCircle"));
     const table = screen.getByRole("table", { name: "Repositories ranked by stars" });
     expect(within(table).getByRole("link", { name: /open-kit/ }).getAttribute("href")).toBe("https://github.com/Octocat/open-kit");
     expect(within(table).getAllByRole("row")).toHaveLength(2);
@@ -352,9 +380,15 @@ describe("Community leaderboard pages", () => {
     expect(podium.textContent).not.toContain("contributions");
     expect(screen.getByRole("searchbox", { name: "Search repositories" })).toBeTruthy();
     expect((screen.getByRole("textbox", { name: "Nickname" }) as HTMLInputElement).value).toBe("Octo");
-    expect((screen.getByRole("textbox", { name: /WhatsApp number used/i }) as HTMLInputElement).value).toBe("0803 123 4567");
+    expect((screen.getByRole("textbox", { name: /WhatsApp number used/i }) as HTMLInputElement).value).toBe("+234 803 123 4567");
     await user.click(screen.getByRole("tab", { name: /Developers/ }));
     expect(screen.getByRole("list", { name: "Top three" })).toBeTruthy();
+  });
+
+  it("sends a legacy tab query to the repository route", async () => {
+    render(<Providers client={clientFor(boardFixture())} path="/?tab=repositories"><Index /><LocationMarker /></Providers>);
+    await waitFor(() => expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/repositories"));
+    expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
   });
 
   it("joins from the repository view and reveals a member placed past the table's first 50 rows", async () => {
@@ -369,7 +403,7 @@ describe("Community leaderboard pages", () => {
     const nickname = await previewOctocat(user);
     await user.clear(nickname);
     await user.type(nickname, "Octo");
-    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "0803 123 4567");
+    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
     await user.click(screen.getByRole("button", { name: "Join the board" }));
 
     await screen.findByText("You're in.");

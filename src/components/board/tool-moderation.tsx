@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useErrorToast } from "@/hooks/use-error-toast";
-import { CheckReadIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
+import { CheckIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
 import { COMMUNITY_KEY } from "@/hooks/use-community";
 import { ApiError, api } from "@/lib/api";
 import { SharedSelect } from "@/components/ui/select";
+import { AdminToolsSkeleton } from "@/components/admin-skeleton";
 import { ToolFavicon } from "@/components/board/tool-favicon";
 import { Chip, Panel } from "@/components/panel";
 import { formatFull } from "@/lib/format";
@@ -56,7 +57,7 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
           </div>
         }
       >
-        {community.isPending ? <p role="status" className="py-8 text-center text-sm text-t3">Loading tools…</p> : community.isError ? (
+        {community.isPending ? <AdminToolsSkeleton /> : community.isError ? (
           <div className="flex justify-center py-8">
             <TextureButton size="sm" variant="minimal" className="w-auto" onClick={() => community.refetch()}>Try again</TextureButton>
           </div>
@@ -87,8 +88,8 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">
-                    {tool.status !== "approved" && <MetalButton className="h-10 w-auto" innerClassName="px-4" disabled={action.isPending} aria-label={`Approve ${tool.name}`} onClick={() => action.mutate({ id: tool.id, approve: true })}>
-                      <CheckReadIcon aria-hidden="true" className="size-4" /> Approve
+                    {tool.status !== "approved" && <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-4" disabled={action.isPending} aria-label={`Approve ${tool.name}`} onClick={() => action.mutate({ id: tool.id, approve: true })}>
+                      <CheckIcon aria-hidden="true" className="size-4" /> Approve
                     </MetalButton>}
                     <TextureButton variant="minimal" className="h-10 w-auto" innerClassName="px-4" disabled={action.isPending} aria-label={`${tool.status === "approved" ? "Remove" : "Reject"} ${tool.name}`} onClick={() => {
                       if (window.confirm(`${tool.status === "approved" ? "Remove" : "Reject"} ${tool.name}? Its votes will also be removed.`)) action.mutate({ id: tool.id, approve: false });

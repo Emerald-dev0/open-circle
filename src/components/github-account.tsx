@@ -1,9 +1,10 @@
 import { useEffect } from "react";
-import { LogoutIcon } from "@solar-icons/react/linear";
 import { useIsMutating } from "@tanstack/react-query";
+import { Logout2Icon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import { GitHubIcon } from "@/components/brand-icons";
 import { TextureButton } from "@/components/ui/texture-button";
+import { AccountSkeleton } from "@/components/site-skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { TOOL_VOTE_KEY, useCommunity, useGitHubSignOut } from "@/hooks/use-community";
 
@@ -24,12 +25,12 @@ export function GitHubAccount() {
 
   return (
     <div className="flex min-w-0 flex-col items-end gap-2">
-      {profile ? (
+      {community.isPending ? <AccountSkeleton /> : profile ? (
         <div role="group" aria-label="GitHub account" className="flex min-w-0 max-w-full items-center gap-2 text-base text-t2">
           <span className="min-w-0 max-w-40 truncate sm:max-w-56" title={`@${profile.login}`}>@{profile.login}</span>
           <img src={profile.avatarUrl} alt="" className="size-10 shrink-0 rounded-full" width={40} height={40} />
           <TextureButton variant="icon" size="icon" className="size-10" aria-label="Sign out of GitHub" disabled={signOut.isPending || voting} onClick={() => signOut.mutate()}>
-            <LogoutIcon className="size-4" aria-hidden="true" />
+            <Logout2Icon className="size-4" aria-hidden="true" />
           </TextureButton>
         </div>
       ) : community.data?.signInAvailable ? (

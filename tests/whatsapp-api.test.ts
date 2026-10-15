@@ -15,7 +15,7 @@ afterEach(() => {
 it("runs the public handlers through a real HTTP membership service before contacting GitHub", async () => {
   store = new TestStore();
   const token = "local-http-membership-test-token-32-characters";
-  const signup = { github: "Octocat", nickname: "Octo", whatsapp: "0803 123 4567" };
+  const signup = { github: "Octocat", nickname: "Octo", whatsapp: "+234 803 123 4567" };
   let member = false;
   let available = true;
   const membershipCalls: unknown[] = [];
@@ -47,6 +47,15 @@ it("runs the public handlers through a real HTTP membership service before conta
     expect(legacy.status).toBe(400);
     expect(legacy.headers.get("cache-control")).toBe("no-store");
     expect(membershipCalls).toEqual([]);
+    for (const [index, whatsapp] of ["0803 123 4567", "2348031234567", "002348031234567"].entries()) {
+      for (const [path, handler] of [["preview", previewPost], ["register", registerPost]] as const) {
+        const response = await handler(request(path, { ...signup, github: `invalid-phone-${index}`, whatsapp }));
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ error: { code: "invalid_whatsapp", field: "whatsapp", message: expect.stringContaining("country code") } });
+      }
+    }
+    expect(membershipCalls).toEqual([]);
+    expect(github).not.toHaveBeenCalled();
     expect((await previewPost(request("preview", signup))).status).toBe(403);
     const rejected = await registerPost(request("register", signup));
     expect(rejected.status).toBe(403);

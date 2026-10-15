@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useCommunity, useCommunityVote } from "@/hooks/use-community";
 import { formatFull } from "@/lib/format";
 import { RepositoryTable } from "./repository-table";
+import { CommunityVotesSkeleton } from "@/components/site-skeleton";
 
 const SAVED_KEY = "opencircle:saved-repositories:v1";
 const EMPTY_COUNTS: Record<string, number> = {};
@@ -148,7 +149,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
         </div>
 
         <p className="text-xs text-t3">Community upvotes are separate from GitHub stars. One vote per repository in this browser.</p>
-        {community.isPending && <p className="text-xs text-t3" role="status">Loading community upvotes…</p>}
+        {community.isPending && <CommunityVotesSkeleton />}
 
         {visible.length > 0 ? (
           <RepositoryTable

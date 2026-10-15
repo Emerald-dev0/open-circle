@@ -8,6 +8,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyIcon, EyeClosedIcon, EyeIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/bold-duotone";
 import { BRAND_NAME } from "@shared/brand";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import type { AdminAction, AdminConfig, AdminMember, AdminSession, AdminState, Weights } from "@shared/types";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader, Row } from "@/components/panel";
@@ -22,30 +23,19 @@ import { ApiError, api } from "@/lib/api";
 import { formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
+import { AdminAnalytics } from "@/components/admin-analytics";
+import { AdminDashboardSkeleton } from "@/components/admin-skeleton";
 
 const SESSION_KEY = ["admin", "session"];
 const STATE_KEY = ["admin", "state"];
 const TOOLS_KEY = ["admin", "tools"];
 const isPrivateQuery = (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === "admin" && query.queryKey[1] !== "session";
 
-function useNoIndex() {
-  useEffect(() => {
-    const meta = document.createElement("meta");
-    meta.name = "robots";
-    meta.content = "noindex, nofollow";
-    document.head.appendChild(meta);
-    const title = document.title;
-    document.title = `Admin · ${BRAND_NAME}`;
-    try { sessionStorage.removeItem("devechleon:admin"); } catch { return () => { meta.remove(); document.title = title; }; }
-    return () => {
-      meta.remove();
-      document.title = title;
-    };
-  }, []);
-}
-
 const Admin = () => {
-  useNoIndex();
+  usePageMeta();
+  useEffect(() => {
+    try { sessionStorage.removeItem("devechleon:admin"); } catch { return; }
+  }, []);
   const queryClient = useQueryClient();
   const session = useQuery({ queryKey: SESSION_KEY, queryFn: ({ signal }) => api.adminSession(signal), retry: false, gcTime: 0, refetchInterval: 30_000, refetchIntervalInBackground: false });
   const clearPrivate = useCallback(() => {
@@ -82,7 +72,7 @@ const Admin = () => {
           </div>}
         </header>
         <main className="mt-8 min-w-0">
-          {session.isPending ? <p role="status" className="text-sm text-t3">Checking admin access…</p> : session.isError ? <div className="space-y-3">
+          {session.isPending ? <AdminDashboardSkeleton label="Checking admin access…" /> : session.isError ? <div className="space-y-3">
             <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
           </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
         </main>
@@ -106,6 +96,7 @@ function SignIn({ configured }: { configured: boolean }) {
 }
 
 function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
+  const [section, setSection] = useState("overview");
   const queryClient = useQueryClient();
   const state = useQuery({ queryKey: STATE_KEY, queryFn: ({ signal }) => api.adminState(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
   const tools = useQuery({ queryKey: TOOLS_KEY, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
@@ -129,7 +120,7 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
     }
   }, [state.error, tools.error, onUnauthorized]);
   useErrorToast(state.error, "Couldn't load admin data.", { id: "admin-load" });
-  if (state.isPending) return <p role="status" className="text-sm text-t3">Loading admin data…</p>;
+  if (state.isPending) return <AdminDashboardSkeleton label="Loading admin data…" />;
   if (state.isError || !state.data) return <div className="space-y-3">
     <TextureButton className="w-auto" onClick={() => state.refetch()}>Try again</TextureButton>
   </div>;
@@ -140,12 +131,14 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
       <h1 className="text-3xl font-medium tracking-tight">Manage OpenCircle</h1>
       <p className="text-sm text-t3">{formatFull(state.data.members.length - hidden)} visible members · {formatFull(hidden)} hidden{pending !== undefined ? ` · ${formatFull(pending)} tools awaiting review` : ""}</p>
     </div>
-    <Tabs defaultValue="members">
-      <TabsList aria-label="Admin sections" className="mb-6 h-auto w-full justify-start rounded-full sm:w-auto">
-        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="members">Members</TabsTrigger>
-        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
-        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="settings">Settings</TabsTrigger>
+    <Tabs value={section} onValueChange={setSection}>
+      <TabsList aria-label="Admin sections" className="mb-6 grid h-auto w-full grid-cols-2 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="overview">Overview</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="members">Members</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-white/40 data-[state=active]:bg-white/[0.1]" value="settings">Settings</TabsTrigger>
       </TabsList>
+      <TabsContent value="overview"><AdminAnalytics onUnauthorized={onUnauthorized} onReviewTools={() => setSection("tools")} /></TabsContent>
       <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
       <TabsContent value="tools"><FadeIn><ToolModeration onUnauthorized={onUnauthorized} /></FadeIn></TabsContent>
       <TabsContent value="settings"><FadeIn><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /></FadeIn></TabsContent>

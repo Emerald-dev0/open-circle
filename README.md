@@ -122,6 +122,10 @@ tests/        Server and UI tests
 docs/         Public setup and reference guides
 ```
 
+## Open-source credits
+
+OpenCircle's skeleton loaders use [Skelo](https://github.com/appdever01/skelo), created by [Naheem Adisa (@appdever01)](https://github.com/appdever01). Thank you for building it and sharing it with the open-source community.
+
 ## Contributing
 
 Bug reports, code, tests and documentation improvements are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, project conventions and the pull request process.

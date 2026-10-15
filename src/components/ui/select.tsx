@@ -1,6 +1,6 @@
 import * as React from "react";
-import { AltArrowDownIcon, AltArrowUpIcon, CheckReadIcon } from "@solar-icons/react/linear";
 import * as SelectPrimitive from "@radix-ui/react-select";
+import { AltArrowDownIcon, AltArrowUpIcon, CheckIcon } from "@solar-icons/react/linear";
 import { cn } from "@/lib/utils";
 
 interface SharedSelectProps extends Pick<React.ComponentPropsWithoutRef<"button">,
@@ -25,7 +25,7 @@ export const SharedSelect = React.forwardRef<HTMLButtonElement, SharedSelectProp
             {options.map((option) => (
               <SelectPrimitive.Item key={option.value} value={option.value} className="relative flex min-h-11 cursor-pointer select-none items-center rounded-xl py-2 pl-3 pr-9 text-sm text-t2 outline-none data-[highlighted]:bg-white/[0.08] data-[highlighted]:text-foreground data-[state=checked]:text-foreground [&>span]:break-words [&>span]:[overflow-wrap:anywhere]">
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
-                <SelectPrimitive.ItemIndicator className="absolute right-3 inline-flex items-center"><CheckReadIcon className="size-4" aria-hidden="true" /></SelectPrimitive.ItemIndicator>
+                <SelectPrimitive.ItemIndicator className="absolute right-3 inline-flex items-center"><CheckIcon className="size-4" aria-hidden="true" /></SelectPrimitive.ItemIndicator>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>

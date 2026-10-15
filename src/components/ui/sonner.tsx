@@ -1,4 +1,5 @@
 import { Toaster as Sonner, toast } from "sonner"
+import { CheckCircleIcon, CloseCircleIcon, DangerTriangleIcon, InfoCircleIcon, RefreshIcon } from "@solar-icons/react/linear"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
@@ -13,6 +14,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       gap={8}
       visibleToasts={3}
       className="toaster group"
+      icons={{
+        success: <CheckCircleIcon size={20} aria-hidden="true" />,
+        info: <InfoCircleIcon size={20} aria-hidden="true" />,
+        warning: <DangerTriangleIcon size={20} aria-hidden="true" />,
+        error: <CloseCircleIcon size={20} aria-hidden="true" />,
+        loading: <RefreshIcon size={20} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />,
+        close: <CloseCircleIcon size={16} aria-hidden="true" />,
+      }}
       toastOptions={{
         classNames: {
           toast:

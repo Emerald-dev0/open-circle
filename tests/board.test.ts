@@ -12,7 +12,7 @@ vi.mock("../server/whatsapp", () => ({ requireWhatsappMembership: vi.fn().mockRe
 const community = vi.hoisted(() => ({ counts: {} as Record<string, number> }));
 vi.mock("../server/community-store", () => ({ getCommunityStore: () => ({ readVotes: async () => ({ counts: community.counts, voted: [] }) }) }));
 
-const input = { github: "Octocat", nickname: "Octo", whatsapp: "0803 123 4567" };
+const input = { github: "Octocat", nickname: "Octo", whatsapp: "+234 803 123 4567" };
 
 function githubProfiles() {
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {

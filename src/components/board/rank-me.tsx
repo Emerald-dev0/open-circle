@@ -318,7 +318,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
           type="tel"
           inputMode="tel"
           autoComplete="tel"
-          placeholder="WhatsApp number"
+          placeholder="e.g. +234 803 123 4567"
           value={whatsapp}
           disabled={register.isPending}
           aria-invalid={errorField === "whatsapp" || undefined}
@@ -333,7 +333,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
           }}
         />
       </div>
-      <p id={ids.hint} className="px-4 text-xs leading-relaxed text-t3">Use your number in the WhatsApp group. We check membership before ranking. Your number stays private. <Link to="/participation" className="text-foreground underline underline-offset-4">Connect your account and give feedback.</Link></p>
+      <p id={ids.hint} className="px-4 text-xs leading-relaxed text-t3">Use your WhatsApp group number with its country code (e.g. +234). We check membership before ranking. Your number stays private. <Link to="/participation" className="text-foreground underline underline-offset-4">Connect your account and give feedback.</Link></p>
 
 
       {needsJoin && (

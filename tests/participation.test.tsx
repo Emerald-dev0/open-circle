@@ -28,7 +28,15 @@ afterEach(()=>clients.splice(0).forEach(client=>client.clear()));
 it('links the group number with a short-lived sender verification code',async()=>{
   const user=userEvent.setup();mount({...initial,activity:{...initial.activity,linked:false,login:null}});
   vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000});
-  await user.type(await screen.findByLabelText('Your WhatsApp group number'),'+2348031234567');
+  const phone=await screen.findByLabelText('Your WhatsApp group number');
+  expect(phone.getAttribute('placeholder')).toBe('e.g. +234 803 123 4567');
+  await user.type(phone,'0803 123 4567');
+  await user.click(screen.getByRole('button',{name:'Get linking code'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('country code');
+  expect(api.linkWhatsapp).not.toHaveBeenCalled();
+  expect((phone as HTMLInputElement).value).toBe('0803 123 4567');
+  await user.clear(phone);
+  await user.type(phone,'+234 803 123 4567');
   await user.click(screen.getByRole('button',{name:'Get linking code'}));
   await screen.findByText('/link ABC123');expect(api.linkWhatsapp).toHaveBeenCalledWith('+2348031234567',expect.anything());
   await user.type(screen.getByLabelText('Your WhatsApp group number'),'8');expect(screen.queryByText('/link ABC123')).toBeNull();

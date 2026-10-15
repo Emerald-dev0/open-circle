@@ -1,3 +1,5 @@
 allowBuilds:
   '@swc/core': true
   esbuild: true
+minimumReleaseAgeExclude:
+  - skelo@0.2.1

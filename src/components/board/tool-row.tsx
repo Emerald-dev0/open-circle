@@ -1,6 +1,6 @@
+import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
+import { ArrowDownIcon, ArrowUpIcon, BookmarkIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
 import type { CommunityTool, VoteValue } from "@shared/community";
-import { ArrowDownIcon, ArrowUpIcon, BookmarkIcon, SquareArrowRightUpIcon } from "@solar-icons/react/linear";
-import { BookmarkIcon as BookmarkFilledIcon } from "@solar-icons/react/bold";
 import { ToolFavicon } from "@/components/board/tool-favicon";
 import { TextureButton } from "@/components/ui/texture-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export function ToolRow({ tool, count, value, saved, disabled, onVote, onSave }: Props) {
+  const SaveIcon = saved ? SavedBookmarkIcon : BookmarkIcon;
   return (
     <motion.li
       layout="position"
@@ -33,7 +34,7 @@ export function ToolRow({ tool, count, value, saved, disabled, onVote, onSave }:
           <a href={tool.url} target="_blank" rel="noopener noreferrer" className="touch-target group inline-flex min-h-8 max-w-full items-center gap-2 rounded text-sm font-medium text-foreground">
             <ToolFavicon url={tool.url} />
             <span className="min-w-0 break-words [overflow-wrap:anywhere]">{tool.name}</span>
-            <SquareArrowRightUpIcon className="size-3 shrink-0 text-t3 group-hover:text-foreground" aria-hidden="true" />
+            <SquareTopDownIcon className="size-3 shrink-0 text-t3 group-hover:text-foreground" aria-hidden="true" />
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
           <span className="text-[11px] text-t4">{tool.category}</span>
@@ -41,12 +42,12 @@ export function ToolRow({ tool, count, value, saved, disabled, onVote, onSave }:
         <p className="mt-1 max-w-[65ch] break-words text-xs leading-relaxed text-t2 [overflow-wrap:anywhere]">{tool.description}</p>
         <div className="mt-1.5 flex items-center gap-3 text-xs text-t3">
           {tool.source === "curated" && tool.sourceUrl ? (
-            <a href={tool.sourceUrl} target="_blank" rel="noopener noreferrer" className="touch-target inline-flex min-h-8 items-center gap-1.5 rounded hover:text-foreground">Source<SquareArrowRightUpIcon className="size-3" aria-hidden="true" /><span className="sr-only"> for {tool.name} (opens in a new tab)</span></a>
+            <a href={tool.sourceUrl} target="_blank" rel="noopener noreferrer" className="touch-target inline-flex min-h-8 items-center gap-1.5 rounded hover:text-foreground">Source<SquareTopDownIcon className="size-3" aria-hidden="true" /><span className="sr-only"> for {tool.name} (opens in a new tab)</span></a>
           ) : <span>{tool.source === "curated" ? "Curated" : "Community"}</span>}
           <Tooltip>
             <TooltipTrigger asChild>
               <button type="button" aria-label={`${saved ? "Unsave" : "Save"} ${tool.name}`} aria-pressed={saved} onClick={onSave} className="touch-target inline-flex min-h-8 items-center gap-1.5 rounded hover:text-foreground">
-                {saved ? <BookmarkFilledIcon className="size-3.5 text-foreground" aria-hidden="true" /> : <BookmarkIcon className="size-3.5" aria-hidden="true" />}
+                <SaveIcon className={cn("size-3.5", saved && "text-foreground")} aria-hidden="true" />
                 <span aria-hidden="true">{saved ? "Saved" : "Save"}</span>
               </button>
             </TooltipTrigger>

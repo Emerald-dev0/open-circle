@@ -1,0 +1,5 @@
+.loading-skeleton .lr-skeleton {
+  --lr-base: hsl(var(--foreground) / 0.08);
+  --lr-highlight: hsl(var(--foreground) / 0.04);
+  --lr-radius: 12px;
+}

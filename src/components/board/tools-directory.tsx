@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { TOOL_CATEGORIES, type ToolInput } from "@shared/community";
 import { parseToolInput } from "@shared/tool-validation";
 import { ToolRow } from "@/components/board/tool-row";
+import { ToolsSkeleton } from "@/components/site-skeleton";
 import { MetalButton } from "@/components/metal-button";
 import { SharedSelect } from "@/components/ui/select";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -234,7 +235,7 @@ export function ToolsDirectory() {
       </div>
 
       {community.isLoading && !community.data ? (
-        <p role="status" className="py-12 text-center text-sm text-t3">Loading tools…</p>
+        <ToolsSkeleton />
       ) : community.isError && !community.data ? (
         <div className="py-10 text-center">
           <TextureButton variant="minimal" className="h-11 w-auto" onClick={() => void community.refetch()}>Retry tools</TextureButton>

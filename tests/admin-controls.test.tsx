@@ -7,10 +7,11 @@ import type { AdminState } from "../shared/types";
 import Admin from "../src/pages/Admin";
 import { api, ApiError } from "../src/lib/api";
 import { boardFixture, publicMember } from "./helpers/fixtures";
+import { emptyTraffic } from "../server/analytics-store";
 
 vi.mock("../src/lib/api", async (original) => ({
   ...await original<typeof import("../src/lib/api")>(),
-  api: { adminSession: vi.fn(), adminSignOut: vi.fn(), adminState: vi.fn(), adminAction: vi.fn(), adminTools: vi.fn() },
+  api: { adminSession: vi.fn(), adminSignOut: vi.fn(), adminState: vi.fn(), adminAction: vi.fn(), adminTools: vi.fn(), adminAnalytics: vi.fn() },
 }));
 vi.mock("../src/components/board/tool-moderation", () => ({ ToolModeration: () => <p>Tool review queue</p> }));
 
@@ -33,6 +34,7 @@ beforeEach(() => {
   vi.mocked(api.adminState).mockReset().mockResolvedValue(state);
   vi.mocked(api.adminAction).mockReset();
   vi.mocked(api.adminTools).mockReset().mockResolvedValue([]);
+  vi.mocked(api.adminAnalytics).mockReset().mockResolvedValue({ days: 30, generatedAt: Date.now(), startedAt: null, current: { ...emptyTraffic(), daily: [{ date: "2026-10-15", visitors: 0, pageViews: 0 }] }, previous: null, growth: { members: 0, previousMembers: 0, toolSubmissions: 0, previousToolSubmissions: 0, pendingTools: 0 } });
 });
 
 afterEach(() => {
@@ -56,6 +58,7 @@ describe("Admin access and management", () => {
     expect(screen.getByRole("alert").textContent).toContain("doesn't have admin access");
     expect(api.adminState).not.toHaveBeenCalled();
     expect(api.adminTools).not.toHaveBeenCalled();
+    expect(api.adminAnalytics).not.toHaveBeenCalled();
     expect(sessionStorage.getItem("devechleon:admin")).toBeNull();
   });
 
@@ -73,6 +76,7 @@ describe("Admin access and management", () => {
     const { client } = renderAdmin();
     const user = userEvent.setup();
     const name = state.members[0].nickname;
+    await user.click(await screen.findByRole("tab", { name: "Members" }));
     const hide = await screen.findByRole("button", { name: `Hide ${name}` });
     const row = hide.closest("li")!;
     expect(within(row).getByText("+447700900123")).toBeTruthy();
@@ -95,6 +99,7 @@ describe("Admin access and management", () => {
   it("searches members and requires confirmation before removing one", async () => {
     renderAdmin();
     const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: "Members" }));
     const search = await screen.findByRole("searchbox", { name: "Search members" });
     await user.type(search, "missing person");
     await screen.findByText("No members match these filters.");
@@ -137,9 +142,20 @@ describe("Admin access and management", () => {
   it("removes private data when a session expires during a change", async () => {
     const { client } = renderAdmin();
     vi.mocked(api.adminAction).mockRejectedValue(new ApiError(401, "unauthorized", "Sign in again."));
+    await userEvent.click(await screen.findByRole("tab", { name: "Members" }));
     await userEvent.click(await screen.findByRole("button", { name: `Hide ${state.members[0].nickname}` }));
     await screen.findByRole("link", { name: "Continue with GitHub" });
     expect(screen.queryByText("+447700900123")).toBeNull();
     expect(client.getQueryData(["admin", "state"])).toBeUndefined();
+  });
+
+  it("clears private analytics when the admin signs out", async () => {
+    const { client } = renderAdmin();
+    await screen.findByRole("img", { name: /Daily unique visitors/ });
+    expect(client.getQueryData(["admin", "analytics", 30])).toBeDefined();
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await screen.findByRole("link", { name: "Continue with GitHub" });
+    expect(client.getQueryData(["admin", "analytics", 30])).toBeUndefined();
+    expect(screen.queryByRole("img", { name: /Daily unique visitors/ })).toBeNull();
   });
 });

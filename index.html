@@ -7,10 +7,7 @@
     <meta name="color-scheme" content="dark" />
 
     <title>OpenCircle · Live GitHub ranking for Open Source Circle</title>
-    <meta
-      name="description"
-      content="The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work."
-    />
+    <meta name="description" content="The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work." />
     <meta name="author" content="Open Source Circle" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <link rel="canonical" href="%SITE_URL%/" />
@@ -25,11 +22,8 @@
     <meta property="og:site_name" content="OpenCircle" />
     <meta property="og:locale" content="en_NG" />
     <meta property="og:url" content="%SITE_URL%/" />
-    <meta property="og:title" content="Paste your username. Take your place." />
-    <meta
-      property="og:description"
-      content="The live GitHub ranking for Open Source Circle. Stars, followers and repos, ranked in real time."
-    />
+    <meta property="og:title" content="OpenCircle · Live GitHub ranking for Open Source Circle" />
+    <meta property="og:description" content="The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work." />
     <meta property="og:image" content="%SITE_URL%/og.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
@@ -39,28 +33,53 @@
     <!-- X / Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@_Cybersmith" />
-    <meta name="twitter:title" content="Paste your username. Take your place." />
-    <meta
-      name="twitter:description"
-      content="The live GitHub ranking for Open Source Circle. Stars, followers and repos, ranked in real time."
-    />
+    <meta name="twitter:title" content="OpenCircle · Live GitHub ranking for Open Source Circle" />
+    <meta name="twitter:description" content="The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work." />
     <meta name="twitter:image" content="%SITE_URL%/og.png" />
     <meta name="twitter:image:alt" content="OpenCircle: a white podium with a gold crown over first place, inside an open chrome ring." />
 
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "OpenCircle",
-        "alternateName": "Open Source Circle",
-        "url": "%SITE_URL%/",
-        "description": "The live GitHub leaderboard for the Open Source Circle developer community.",
-        "inLanguage": "en"
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "%SITE_URL%/#organization",
+            "name": "Open Source Circle",
+            "alternateName": "OpenCircle",
+            "url": "%SITE_URL%/",
+            "logo": "%SITE_URL%/apple-touch-icon.png",
+            "sameAs": ["https://github.com/opencirclehq/open-circle", "https://x.com/_Cybersmith"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "%SITE_URL%/#website",
+            "name": "OpenCircle",
+            "alternateName": "Open Source Circle",
+            "url": "%SITE_URL%/",
+            "description": "The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work.",
+            "inLanguage": "en",
+            "publisher": { "@id": "%SITE_URL%/#organization" }
+          }
+        ]
       }
     </script>
   </head>
 
   <body>
+    <noscript>
+      <main>
+        <h1 id="seo-title">Paste your username. Take your place.</h1>
+        <p id="seo-summary">The live GitHub leaderboard for Open Source Circle.</p>
+        <nav aria-label="Site">
+          <a href="/">Developer leaderboard</a>
+          <a href="/repositories">Repositories</a>
+          <a href="/tools">Developer tools</a>
+          <a href="/how-it-works">How ranking works</a>
+          <a href="/participation">Group participation</a>
+        </nav>
+      </main>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

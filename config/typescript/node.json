@@ -16,5 +16,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["../../vite.config.ts", "../../server/vite-dev-api.ts", "../../server/vite-seo.ts", "../../shared/brand.ts", "../../scripts", "../../neon.ts"]
+  "include": ["../../vite.config.ts", "../../server/vite-dev-api.ts", "../../server/vite-seo.ts", "../../shared/brand.ts", "../../shared/seo.ts", "../../scripts", "../../neon.ts"]
 }

@@ -1,6 +1,6 @@
 import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
+import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
 import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
-import { BookmarkIcon as BookmarkFilledIcon } from "@solar-icons/react/bold";
 import { motion, useReducedMotion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -164,7 +164,7 @@ export function RepositoryTable({
                             className="size-11"
                             innerClassName="p-3"
                           >
-                            {saved.has(repo.id) ? <BookmarkFilledIcon className="size-4" aria-hidden="true" /> : <BookmarkIcon className="size-4" aria-hidden="true" />}
+                            {saved.has(repo.id) ? <SavedBookmarkIcon className="size-4" aria-hidden="true" /> : <BookmarkIcon className="size-4" aria-hidden="true" />}
                           </TextureButton>
                         </TooltipTrigger>
                         <TooltipContent>

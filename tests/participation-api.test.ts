@@ -35,7 +35,12 @@ it('uses the signed-in GitHub identity through HTTP and protects personal respon
     expect((await GET(new Request('https://opencircle.test/api/participation'))).status).toBe(401);
     const own=await GET(request()); expect(own.status).toBe(200);expect(own.headers.get('cache-control')).toBe('private, no-store');
     payload={id:'link_1',code:'ABC123',expiresAt:Date.now()+600_000};
-    expect((await POST(request({action:'link',phone:'0803 123 4567',login:'Other'}))).status).toBe(201);
+    const callsBeforeInvalidPhone=calls.length;
+    const invalidPhone=await POST(request({action:'link',phone:'0803 123 4567'}));
+    expect(invalidPhone.status).toBe(400);
+    expect(await invalidPhone.json()).toMatchObject({error:{code:'invalid_whatsapp',message:expect.stringContaining('country code')}});
+    expect(calls).toHaveLength(callsBeforeInvalidPhone);
+    expect((await POST(request({action:'link',phone:'+234 803 123 4567',login:'Other'}))).status).toBe(201);
     expect(calls.at(-1)).toEqual({path:'/api/v1/coordination/link',body:{login:'Alice',phone:'+2348031234567'}});
     expect((await POST(request({action:'link',phone:'bad'}))).status).toBe(400);
     expect((await POST(request({action:'help',question:'A question'},'https://foreign.test'))).status).toBe(403);

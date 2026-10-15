@@ -87,7 +87,7 @@ export interface CoordinationAdminState {
   tracking: boolean;
   botAdmin: boolean;
   announced: boolean;
-  members: (ActivitySummary & { id: string; name: string; contact: string; active: boolean; warnings: number[] })[];
+  members: (ActivitySummary & { id: string; name: string; contact: string; active: boolean; welcomePending: boolean; warnings: number[] })[];
   projects: CoordinationProject[];
   help: CoordinationHelp[];
   contributions: CoordinationContribution[];

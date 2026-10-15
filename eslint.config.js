@@ -24,6 +24,17 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
       "@typescript-eslint/no-unused-vars": "off",
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["react-icons", "react-icons/*", "lucide-*", "lucide-*/**", "@heroicons/*", "@phosphor-icons/*", "@tabler/icons*", "@hugeicons/*", "@iconjar/*", "@iconify/*", "@radix-ui/react-icons", "react-feather"],
+              message: "Use @solar-icons/react for UI icons and @/components/brand-icons for brand logos.",
+            },
+          ],
+        },
+      ],
     },
   }
 );

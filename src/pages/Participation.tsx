@@ -5,12 +5,16 @@ import { MetalText } from "metal-fx";
 import { toast } from "sonner";
 import { AltArrowLeftIcon, CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
+import { parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
 import { GitHubAccount } from "@/components/github-account";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
+import { ParticipationSkeleton } from "@/components/site-skeleton";
 import { useCommunity } from "@/hooks/use-community";
+import { usePageMeta } from "@/hooks/use-page-meta";
+import { pageFor } from "@shared/seo";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -72,6 +76,8 @@ function FormFooter({ children }: { children: React.ReactNode }) {
 const statusTone = (status: string) => (status === "approved" || status === "open" || status === "confirmed" ? "ok" : status === "pending" ? "warn" : "muted") as "ok" | "warn" | "muted";
 
 export default function Participation() {
+  usePageMeta();
+  const page = pageFor("/participation");
   const community = useCommunity();
   const profile = community.data?.profile;
   const key = ["participation", profile?.id ?? null];
@@ -108,7 +114,9 @@ export default function Participation() {
   }
   async function linkPhone(form: FormData) {
     setError(null); setNotice(null);
-    try { await link.mutateAsync(String(form.get("phone"))); return true; }
+    const phone = parseWhatsappNumber(String(form.get("phone") ?? ""));
+    if (!phone.ok) { setError(phone.error); return false; }
+    try { await link.mutateAsync(phone.value); return true; }
     catch (failure) { setError(failure instanceof ApiError ? failure.message : "Couldn't create your linking code. Try again."); return false; }
   }
 
@@ -132,10 +140,11 @@ export default function Participation() {
             <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">Open Source Circle</MetalText>
           </span>
           <h1 className="text-gradient mt-3 text-[34px] font-[350] leading-[1.05] tracking-[-0.035em] sm:text-5xl">Group participation</h1>
+          {page && <p className="mt-3 max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
         </div>
 
 
-        {!profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
+        {community.isPending ? <ParticipationSkeleton checkingSignIn /> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
           <div className="flex justify-center py-6">
             {community.data?.signInAvailable
               ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href="/api/auth-start?returnTo=%2Fparticipation"><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
@@ -143,15 +152,15 @@ export default function Participation() {
           </div>
         </Panel>
 
-        : state.isPending ? <p role="status" className="py-10 text-center text-sm text-t3">Loading your participation…</p>
+        : state.isPending ? <ParticipationSkeleton />
 
         : state.isError ? <div className="flex flex-col items-center gap-3 py-10 text-center">
           <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Try again</MetalButton>
         </div>
 
-        : data && (!data.activity.linked ? <Panel header={<PanelHeader title="Connect your WhatsApp account" subtitle="Use your number in Open Source Circle, then send the code from that account." chip={<Chip tone="muted">Step {challenge ? 2 : 1} of 2</Chip>} />}>
+        : data && (!data.activity.linked ? <Panel header={<PanelHeader title="Connect your WhatsApp account" subtitle="Use your number in Open Source Circle with its country code (e.g. +234), then send the code from that account." chip={<Chip tone="muted">Step {challenge ? 2 : 1} of 2</Chip>} />}>
           <div className="py-4">
-            <ParticipationForm inline button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel", placeholder: "+234 803 123 4567" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
+            <ParticipationForm inline button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel", placeholder: "e.g. +234 803 123 4567" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
           </div>
           {challenge && <div className="space-y-3 border-t border-white/[0.06] py-4" role="status">
             <p className="text-sm text-t3">Send this in the WhatsApp group from your number:</p>

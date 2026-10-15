@@ -6,7 +6,7 @@ import { githubJson, githubOwner } from "./helpers/fixtures";
 import { TestStore } from "./helpers/test-store";
 
 const endpoint = "https://bot.opencircle.test/api/v1/membership";
-const input = { github: "Octocat", nickname: "Octo", whatsapp: "0803 123 4567" };
+const input = { github: "Octocat", nickname: "Octo", whatsapp: "+234 803 123 4567" };
 
 beforeEach(() => {
   vi.stubEnv("GITHUB_TOKEN", "test-github-token");

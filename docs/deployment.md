@@ -19,6 +19,8 @@ Keep `/api/` requests out of any client-route fallback, and allow API handlers u
 
 A static upload of `dist/` only serves the UI. It does not provide registration, GitHub queries or storage. Use the included Node server and configure durable storage before accepting sign-ups.
 
+The admin Overview uses the same configured PostgreSQL or Redis storage as the app. Apply migration `004_analytics.sql` through `pnpm db:migrate` before releasing analytics against PostgreSQL. Redis needs no migration. Traffic history starts with the first recorded public visit after release; old traffic cannot be backfilled. No additional analytics service or credentials are required.
+
 ## Troubleshooting
 
 | Problem | Check |

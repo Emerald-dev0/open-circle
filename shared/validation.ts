@@ -76,11 +76,14 @@ export function formatNigerianNumber(e164: string): string {
 }
 
 export function parseWhatsappNumber(raw: string): Parsed<string> {
-  const value = raw.trim().replace(/[\s\-().]/g, "").replace(/^00/, "+");
-  if (!value.startsWith("+")) return parseNigerianNumber(value);
-  if (value.startsWith("+234")) return parseNigerianNumber(value);
+  const value = raw.trim().replace(/[\s\-().]/g, "");
+  if (!value) return fail("Add the WhatsApp number you use in the group.");
   if (!/^\+[1-9]\d{6,14}$/.test(value)) {
     return fail("Use your WhatsApp number with its country code, like +234 803 123 4567.");
+  }
+  if (value.startsWith("+234")) {
+    const phone = parseNigerianNumber(value);
+    return phone.ok ? phone : fail("That doesn't look like a Nigerian mobile number. Try +234 803 123 4567.");
   }
   return { ok: true, value };
 }

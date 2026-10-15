@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { BrandMark } from "@/components/site-header";
 import { TextureButton } from "@/components/ui/texture-button";
 
 const NotFound = () => {
   const location = useLocation();
+  usePageMeta();
 
   useEffect(() => {
     console.error("404: no route for", location.pathname);

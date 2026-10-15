@@ -70,7 +70,7 @@ Put browser-safe types and validation in `shared/`, and keep secrets, GitHub req
 
 Keep the dark theme, Aspekta font and existing UI primitives. Reuse `MetalButton`, `TextureButton`, field styles and Radix components before adding alternatives. A feature should not change global colours, typography or design tokens as a side effect. Keep copy short and name the action directly.
 
-Make controls work with keyboard and touch, label inputs, and provide readable loading and error states. Respect reduced motion and check narrow layouts and long names. Use the existing icon packages.
+Make controls work with keyboard and touch, label inputs, and provide readable loading and error states. Respect reduced motion and check narrow layouts and long names. Use `@solar-icons/react` for UI icons: linear for controls and fields, bold for filled states, and bold-duotone for ranking and decorative icons. Reuse `src/components/brand-icons.tsx` for GitHub and WhatsApp logos.
 
 If you change ranking, update its explanation and tests together. Storage changes must preserve unique identities, deletion behaviour and newer snapshots. Public responses must keep private member details out.
 

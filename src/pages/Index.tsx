@@ -1,4 +1,5 @@
 import * as React from "react";
+import GitHubButton from "react-github-btn";
 import { MetalText } from "metal-fx";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,11 +18,13 @@ import { ToolsDirectory } from "@/components/board/tools-directory";
 import { GitHubAccount } from "@/components/github-account";
 import { SiteFooter } from "@/components/site-footer";
 import { Dock } from "@/components/dock";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BoardSkeleton } from "@/components/site-skeleton";
 import { TextureButton } from "@/components/ui/texture-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBoard } from "@/hooks/use-board";
 import { useCommunity } from "@/hooks/use-community";
+import { usePageMeta } from "@/hooks/use-page-meta";
+import { pageFor } from "@shared/seo";
 import { formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
 
@@ -67,24 +70,6 @@ function EmptyState({ icon, title, body }: { icon: React.ReactNode; title: strin
   );
 }
 
-function TableSkeleton() {
-  return (
-    <div className="space-y-1" aria-hidden>
-      {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-3 rounded-xl px-2.5 py-2.5"
-        >
-          <Skeleton className="h-4 w-5 bg-white/[0.06]" />
-          <Skeleton className="size-8 rounded-full bg-white/[0.06]" />
-          <Skeleton className="h-4 flex-1 bg-white/[0.06]" />
-          <Skeleton className="h-4 w-12 bg-white/[0.06]" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /** The active tab's background; slides between triggers via a shared layoutId. */
 function TabPill() {
   return (
@@ -113,6 +98,8 @@ TabPanel.displayName = "TabPanel";
 const Index = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  usePageMeta();
+  const page = pageFor(location.pathname);
   const howItWorks = useMatch("/how-it-works") !== null;
   const repositoriesOpen =
     useMatch("/repositories") !== null ||
@@ -172,6 +159,11 @@ const Index = () => {
     [navigate],
   );
 
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+    const tab = new URLSearchParams(location.search).get("tab");
+    if (tab === "repositories" || tab === "tools") navigate(`/${tab}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10_000);
@@ -183,13 +175,34 @@ const Index = () => {
       <div className="app-backdrop" aria-hidden />
 
       <div className="relative z-10">
-        <header className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-20 sm:right-[max(1.5rem,env(safe-area-inset-right))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
-          <GitHubAccount />
+        <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(1rem+env(safe-area-inset-top))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
+          <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-2">
+            <GitHubButton
+              href="https://github.com/opencirclehq/open-circle"
+              data-color-scheme="dark"
+              data-icon="octicon-star"
+              data-size="large"
+              data-show-count="true"
+              aria-label="Star OpenCircle on GitHub"
+            >
+              Star
+            </GitHubButton>
+            <GitHubButton
+              href="https://github.com/opencirclehq"
+              data-color-scheme="dark"
+              data-size="large"
+              data-show-count="true"
+              aria-label="Follow @opencirclehq on GitHub"
+            >
+              Follow @opencirclehq
+            </GitHubButton>
+          </div>
+          <div className="ml-auto min-w-0 max-w-full"><GitHubAccount /></div>
         </header>
 
         <main className="page-container pb-6">
           <section
-            className="flex flex-col items-center pt-[calc(5rem+env(safe-area-inset-top))] text-center sm:pt-[calc(7rem+env(safe-area-inset-top))]"
+            className="flex flex-col items-center pt-6 text-center sm:pt-12"
             aria-labelledby="pitch"
           >
             <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
@@ -205,6 +218,7 @@ const Index = () => {
               <br />
               {currentMember ? `Ranked #${formatFull(currentMember.rank)}.` : "Take your place."}
             </h1>
+            {page && <p className="mx-auto mt-3 max-w-md text-balance text-sm leading-relaxed text-t3 sm:mt-4">{page.summary}</p>}
 
             <div className="mt-6 w-full max-w-xl sm:mt-10">
               <RankMe
@@ -226,7 +240,7 @@ const Index = () => {
             aria-labelledby="board-title"
           >
             <h2 id="board-title" className="sr-only">
-              Community leaderboard
+              {activeTab === "tools" ? "Developer tools" : activeTab === "repositories" ? "Repository ranking" : "Developer leaderboard"}
             </h2>
             <Tabs
               value={activeTab}
@@ -300,12 +314,11 @@ const Index = () => {
               ) : (
                 <TabsContent value="developers" asChild>
                 <TabPanel>
-                  <LeaderboardPodium
+                  {isPending ? <BoardSkeleton /> : <LeaderboardPodium
                     entries={podium}
                     currentUserId={me}
                     flashId={flashId}
-                    className={isPending ? "animate-pulse" : undefined}
-                  />
+                  />}
 
                   {!isPending && members.length === 0 && (
                     <EmptyState
@@ -315,28 +328,22 @@ const Index = () => {
                     />
                   )}
 
-                  <div className="mt-4 sm:mt-6">
-                    {isPending ? (
-                      <TableSkeleton />
-                    ) : (
-                      members.length > 0 && (
-                        <RankTable
-                          members={rest}
-                          meId={me}
-                          flashId={flashId}
-                          limit={showAll ? undefined : TABLE_LIMIT}
-                          onShowAll={() => setShowAll(true)}
-                        />
-                      )
-                    )}
-                  </div>
+                  {!isPending && members.length > 0 && <div className="mt-4 sm:mt-6">
+                    <RankTable
+                      members={rest}
+                      meId={me}
+                      flashId={flashId}
+                      limit={showAll ? undefined : TABLE_LIMIT}
+                      onShowAll={() => setShowAll(true)}
+                    />
+                  </div>}
                 </TabPanel>
                 </TabsContent>
               )}
               <TabsContent value="repositories" asChild>
                 <TabPanel>
                 {isPending ? (
-                  <TableSkeleton />
+                  <BoardSkeleton repositories />
                 ) : repositories.length > 0 ? (
                   <>
                     <LeaderboardPodium entries={repoPodium} unit="stars" ariaLabel="Top three repositories" />

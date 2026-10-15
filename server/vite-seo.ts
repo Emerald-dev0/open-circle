@@ -1,37 +1,39 @@
 import type { Plugin } from "vite";
+import { DEFAULT_SITE_URL } from "../shared/brand";
+import { applySeo, llmsTxt, robotsTxt, seoDocument, siteOrigin, sitemapXml } from "../shared/seo";
 
 /**
- * Link previews (WhatsApp, X, LinkedIn…) need absolute URLs, so index.html
- * carries %SITE_URL% placeholders filled from the SITE_URL env at build time.
- * Also emits robots.txt and, when SITE_URL is known, sitemap.xml.
+ * Link previews need absolute URLs, so index.html carries %SITE_URL%
+ * placeholders filled from the public site origin. Each known route then gets
+ * its own title, description, canonical and robots tags. The build also emits
+ * robots.txt, sitemap.xml and llms.txt.
  */
 export function seo(siteUrl: string | undefined): Plugin {
-  const base = (siteUrl ?? "").trim().replace(/\/+$/, "");
+  const origin = siteOrigin(siteUrl || DEFAULT_SITE_URL);
   return {
     name: "opencircle:seo",
-    transformIndexHtml(html) {
-      return html.replaceAll("%SITE_URL%", base);
+    transformIndexHtml: {
+      order: "pre",
+      handler(html, ctx) {
+        const ready = html.replaceAll("%SITE_URL%", origin);
+        const pathname = new URL(ctx.originalUrl ?? "/", origin).pathname;
+        return applySeo(ready, seoDocument(pathname, origin));
+      },
+    },
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathname = req.url?.split("?")[0];
+        const file = pathname === "/robots.txt" ? robotsTxt(origin) : pathname === "/sitemap.xml" ? sitemapXml(origin) : pathname === "/llms.txt" ? llmsTxt(origin) : "";
+        if (!file) return next();
+        res.setHeader("content-type", pathname === "/sitemap.xml" ? "application/xml; charset=utf-8" : "text/plain; charset=utf-8");
+        res.end(file);
+      });
     },
     generateBundle() {
-      const robots = ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /api/"];
-      if (base) robots.push("", `Sitemap: ${base}/sitemap.xml`);
-      this.emitFile({ type: "asset", fileName: "robots.txt", source: `${robots.join("\n")}\n` });
-
-      if (!base) {
-        this.warn("SITE_URL is not set: link previews get relative image URLs and no sitemap is written.");
-        return;
-      }
-      const today = new Date().toISOString().slice(0, 10);
-      // One entry: the SPA serves every tab from the same canonical page.
-      const pages = ["/"];
-      const urls = pages
-        .map((p) => `  <url><loc>${base}${p}</loc><lastmod>${today}</lastmod><changefreq>hourly</changefreq></url>`)
-        .join("\n");
-      this.emitFile({
-        type: "asset",
-        fileName: "sitemap.xml",
-        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
-      });
+      const lastmod = new Date().toISOString().slice(0, 10);
+      this.emitFile({ type: "asset", fileName: "robots.txt", source: robotsTxt(origin) });
+      this.emitFile({ type: "asset", fileName: "sitemap.xml", source: sitemapXml(origin, lastmod) });
+      this.emitFile({ type: "asset", fileName: "llms.txt", source: llmsTxt(origin) });
     },
   };
 }

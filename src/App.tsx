@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Participation from "./pages/Participation";
+import { TrafficTracker } from "./components/traffic-tracker";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ const App = () => (
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>
+          <TrafficTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/repositories" element={<Index />} />

@@ -10,6 +10,7 @@ import type {
 } from "@shared/types";
 import type { CommunityState, CommunityTool, ToolInput, ToolVoteInput, ToolVoteResult, VoteInput, VoteResult } from "@shared/community";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
+import type { AdminAnalytics, AnalyticsDays } from "@shared/analytics";
 
 export class ApiError extends Error {
   constructor(
@@ -41,6 +42,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  adminAnalytics: (days: AnalyticsDays, signal?: AbortSignal) => request<AdminAnalytics>(`/api/analytics?days=${days}`, { signal, cache: "no-store" }),
   participation: (signal?: AbortSignal) => request<ParticipationState>("/api/participation", { signal }),
   linkWhatsapp: (phone: string) => request<LinkChallenge>("/api/participation", { method: "POST", body: JSON.stringify({ action: "link", phone }) }),
   participate: (input: ParticipationAction) => request<ParticipationState>("/api/participation", { method: "POST", body: JSON.stringify(input) }),

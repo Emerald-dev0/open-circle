@@ -5,11 +5,12 @@
  *
  *   pnpm build && pnpm build:server && pnpm start
  */
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import * as admin from "../api/admin.js";
+import * as analytics from "../api/analytics.js";
 import * as adminSession from "../api/admin-session.js";
 import * as auth from "../api/auth.js";
 import * as authStart from "../api/auth-start.js";
@@ -21,11 +22,14 @@ import * as board from "../api/board.js";
 import * as preview from "../api/preview.js";
 import * as register from "../api/register.js";
 import * as participation from "../api/participation.js";
+import { DEFAULT_SITE_URL } from "../shared/brand.js";
+import { applySeo, originFromHtml, seoDocument } from "../shared/seo.js";
 import { readBody } from "./vite-dev-api.js";
 import { handle } from "./http.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
+  analytics: analytics as Record<string, Handler>,
   admin: admin as Record<string, Handler>,
   "admin-session": adminSession as Record<string, Handler>,
   auth: auth as Record<string, Handler>,
@@ -102,6 +106,11 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
     }
 
     // Static files, falling back to index.html for client-side routes.
+    if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+      const destination = url.pathname.replace(/^\/+/, "/").replace(/\/+$/, "") || "/";
+      res.writeHead(301, { location: `${destination}${url.search}`, "cache-control": "no-cache" }).end();
+      return;
+    }
     let pathname: string;
     try { pathname = decodeURIComponent(url.pathname); } catch { res.writeHead(400).end(); return; }
     const file = path.join(DIST, path.normalize(pathname).replace(/^(\.\.[/\\])+/, ""));
@@ -112,13 +121,22 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       res.setHeader("cache-control", "public, max-age=31536000, immutable");
     } else if (target === INDEX) {
       res.setHeader("cache-control", "no-cache");
-      if (url.pathname.startsWith("/admin")) {
-        res.setHeader("x-robots-tag", "noindex, nofollow");
+      if (pathname === "/admin" || pathname.startsWith("/admin/")) {
         res.setHeader("cache-control", "no-store");
         res.setHeader("x-frame-options", "DENY");
         res.setHeader("referrer-policy", "same-origin");
         res.setHeader("content-security-policy", "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
       }
+      if (!existsSync(INDEX)) {
+        res.writeHead(503, { "content-type": "text/plain; charset=utf-8" }).end("The app is temporarily unavailable.");
+        return;
+      }
+      const raw = readFileSync(INDEX, "utf8");
+      const origin = originFromHtml(raw, process.env.SITE_URL || DEFAULT_SITE_URL);
+      const document = seoDocument(pathname, origin);
+      if (!document.index) res.setHeader("x-robots-tag", "noindex, nofollow");
+      res.writeHead(document.status).end(applySeo(raw.replaceAll("%SITE_URL%", origin), document));
+      return;
     }
     createReadStream(target).on("error", () => {
       if (!res.headersSent) res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
