@@ -26,10 +26,31 @@ function mount(data=initial){
 beforeEach(()=>{vi.mocked(api.community).mockReset().mockResolvedValue(community);vi.mocked(api.participation).mockReset();vi.mocked(api.linkWhatsapp).mockReset();vi.mocked(api.participate).mockReset();});
 afterEach(()=>clients.splice(0).forEach(client=>client.clear()));
 
+it('collapses completed onboarding into instructions that can be reopened, and restores the guide after sign-out',async()=>{
+  const user=userEvent.setup();
+  const client=mount();
+  await screen.findByText('Your activity');
+  expect(screen.queryByText('Start here')).toBeNull();
+  const summary=screen.getByText('Instructions');
+  const disclosure=summary.closest('details')!;
+  expect(disclosure.open).toBe(false);
+  await user.click(summary);
+  expect(disclosure.open).toBe(true);
+  expect(within(disclosure).getByRole('link',{name:'Join the developer board'})).toBeTruthy();
+  await user.click(summary);
+  expect(disclosure.open).toBe(false);
+  await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
+  await screen.findByRole('link',{name:'Sign in with GitHub'});
+  expect(screen.getByText('Start here')).toBeTruthy();
+  expect(screen.queryByText('Instructions')).toBeNull();
+});
+
 it('directs linking to the bot DM with a short-lived sender verification code',async()=>{
   const user=userEvent.setup();mount({...initial,activity:{...initial.activity,linked:false,login:null}});
   vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000,botChatUrl:'https://wa.me/15550000000?text=%2Flink%20ABC123'});
   const phone=await screen.findByLabelText('Your WhatsApp group number');
+  expect(screen.getByText('Start here')).toBeTruthy();
+  expect(screen.queryByText('Instructions')).toBeNull();
   expect(phone.getAttribute('placeholder')).toBe('e.g. +234 803 123 4567');
   await user.type(phone,'0803 123 4567');
   await user.click(screen.getByRole('button',{name:'Get linking code'}));
@@ -150,6 +171,8 @@ it('keeps the phone draft and issued code through failed background checks, then
   await user.click(screen.getByRole('button',{name:'Check link'}));
   await screen.findByText('Your activity');
   expect(screen.queryByText('/link ABC123')).toBeNull();
+  expect(screen.queryByText('Start here')).toBeNull();
+  expect(screen.getByText('Instructions').closest('details')!.open).toBe(false);
   expect(api.linkWhatsapp).toHaveBeenCalledTimes(1);
 });
 

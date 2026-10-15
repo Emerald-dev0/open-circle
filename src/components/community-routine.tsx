@@ -3,16 +3,20 @@ import { PaginatedList } from "@/components/pagination";
 import { MetalButton } from "@/components/metal-button";
 import { Panel, PanelHeader } from "@/components/panel";
 
-export function CommunityGuide() {
-  return <section id="start" className="scroll-mt-24">
-    <Panel header={<PanelHeader title="Start here" />}>
+export function CommunityGuide({ completed = false }: { completed?: boolean }) {
+  const instructions = <>
       <ol className="list-decimal space-y-3 py-4 pl-5 text-sm leading-relaxed text-t2">
         <li><a href="/" className="underline underline-offset-4">Join the developer board</a> using Rank me and your WhatsApp group number.</li>
         <li>Sign in below and connect that WhatsApp account through a private message to the bot.</li>
         <li>Try a member’s project and offer useful feedback, or ask a clear question. Read the catch-up archive for decisions and resources.</li>
       </ol>
       <p className="pb-4 text-xs text-t3">Read the group description for the rules. You can ask the bot for /start, /catchup or /sessions in a private chat.</p>
-    </Panel>
+  </>;
+  return <section id="start" className="scroll-mt-24">
+    {completed ? <details className="border-b border-foreground/[0.06]">
+      <summary className="cursor-pointer py-3 text-sm font-medium">Instructions</summary>
+      {instructions}
+    </details> : <Panel header={<PanelHeader title="Start here" />}>{instructions}</Panel>}
   </section>;
 }
 

@@ -147,7 +147,7 @@ export default function Participation() {
         {page && <p className="max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
 
 
-        <CommunityGuide />
+        <CommunityGuide key={profile?.id ?? "signed-out"} completed={!!profile && !!data?.activity.linked} />
 
         {community.isPending ? <ParticipationSkeleton checkingSignIn /> : communityUnavailable ? <div className="flex flex-col items-center gap-3 py-10 text-center">
           <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => community.refetch()} disabled={community.isFetching}>Try again</MetalButton>
