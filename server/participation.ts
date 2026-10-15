@@ -1,4 +1,5 @@
 import { HttpError } from "./http.js";
+import { isMemberCommunityState } from "../shared/coordination.js";
 
 export async function coordinationRequest<T>(action: "profile" | "link" | "action", body: unknown): Promise<T> {
   const configured = process.env.WHATSAPP_MEMBERSHIP_URL?.trim();
@@ -33,5 +34,6 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
       } catch { throw unavailable(); }
     }
   } else if (!("activity" in result) || !("projects" in result) || !("help" in result) || !("contributions" in result) || !result.activity || typeof result.activity !== "object" || !Array.isArray(result.projects) || !Array.isArray(result.help) || !Array.isArray(result.contributions)) throw unavailable();
+  if (action !== "link" && "community" in result && !isMemberCommunityState(result.community)) throw unavailable();
   return result as T;
 }

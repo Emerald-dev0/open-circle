@@ -5,6 +5,7 @@ import { CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import { parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
+import { CommunityGuide, CommunityRoutine } from "@/components/community-routine";
 import { AccountCorner } from "@/components/account-corner";
 import { Dock } from "@/components/dock";
 import { MetalButton } from "@/components/metal-button";
@@ -18,7 +19,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
 
-type Field = { name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder?: string };
+type Field = { required?: boolean; name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder?: string };
 
 /**
  * Compact form. `inline` puts the fields and button on one line from sm up
@@ -35,8 +36,8 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
     {fields.map((field) => <label key={field.name} htmlFor={`${prefix}-${field.name}`} className={cn("block", inline ? "min-w-0 sm:flex-1" : "space-y-1.5")}>
       <span className={inline ? "sr-only" : "block text-xs text-t3"}>{field.label}</span>
       {field.type === "textarea"
-        ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required minLength={field.min} maxLength={field.max} disabled={busy} />
-        : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
+        ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required={field.required ?? true} minLength={field.min} maxLength={field.max} disabled={busy} />
+        : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required={field.required ?? true} min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={field.type !== "number" ? field.min : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
     <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
   </form>;
@@ -107,6 +108,8 @@ export default function Participation() {
       else if (input.action === "project") setNotice("Your project is waiting for admin approval.");
       else if (input.action === "away") setNotice("Your break request is waiting for admin approval.");
       else if (input.action === "help") setNotice("Your help request is open.");
+      else if (input.action === "mentor") setNotice("Your mentor preferences are saved.");
+      else if (input.action === "decline-help") setNotice("The help request has been returned to the queue.");
       else setNotice("Saved.");
       return true;
     } catch (failure) { setError(failure instanceof ApiError ? failure.message : "Couldn't save that. Try again."); return false; }
@@ -132,6 +135,8 @@ export default function Participation() {
         <h1 className="text-2xl font-medium tracking-[-0.03em]">Participation</h1>
         {page && <p className="max-w-md text-balance text-sm leading-relaxed text-t3">{page.summary}</p>}
 
+
+        <CommunityGuide />
 
         {community.isPending ? <ParticipationSkeleton checkingSignIn /> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
           <div className="flex justify-center py-6">
@@ -169,6 +174,7 @@ export default function Participation() {
         </Panel>
 
         : <>
+          {data.community && <CommunityRoutine data={data.community} busy={busy} submit={submit} />}
           <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
             <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
             <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
@@ -197,24 +203,27 @@ export default function Participation() {
                 <a href={project.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium hover:underline hover:underline-offset-4">{project.title}</a>
                 <Chip tone={statusTone(project.status)}>{project.status}</Chip>
               </div>
-              <p className="text-xs text-t4">@{project.owner} · {project.reviews} confirmed reviews</p>
+              <p className="text-xs text-t3">@{project.owner} · {project.reviews} confirmed reviews{project.skills?.length ? ` · ${project.skills.join(", ")}` : ""}</p>
+              {project.feedbackWanted && <p className="break-words text-sm text-t3">Feedback wanted: {project.feedbackWanted}</p>}
               {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
             </Item>)}</ul> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
             <FormFooter>
-              <ParticipationForm inline button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")) })} />
+              <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
           <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
             {data.help.length ? <ul>{data.help.map((help) => <Item key={help.id} action={<>
               {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "answer", id: help.id, title: help.owner })}>Help with this</MetalButton>}
+              {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
               {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
             </>}>
               <p className="break-words text-sm text-foreground">{help.question}</p>
-              <p className="text-xs text-t4">@{help.owner} · {help.status}</p>
+              <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
+              {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
             </Item>)}</ul> : <Empty>No open help requests.</Empty>}
             <FormFooter>
-              <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500 }]} submit={(form) => submit({ action: "help", question: String(form.get("question")) })} />
+              <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500 }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
