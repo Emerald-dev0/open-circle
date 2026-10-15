@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import Markdown, { defaultUrlTransform } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { ArrowRightUpIcon, CodeSquareIcon, MapPointIcon, StarIcon } from "@solar-icons/react/linear";
+import { ArrowRightUpIcon, CodeSquareIcon, MapPointIcon, SquareArrowRightUpIcon, StarIcon } from "@solar-icons/react/linear";
 import { GitHubIcon } from "@/components/brand-icons";
 import { TextureButton } from "@/components/ui/texture-button";
 import { CONTACT_LABELS, PORTFOLIO_ACCENTS, contactHref, type PublicPortfolio } from "@shared/portfolio";
@@ -33,7 +33,7 @@ export function PortfolioView({ portfolio, preview = false }: { portfolio: Publi
       <div className="pf-container">
         <nav className="pf-nav" aria-label="Portfolio">
           <a href="https://opencircle.cc" className="pf-brand"><img src="/favicon.svg" alt="" width={22} height={22} />OpenCircle</a>
-          <a href={`https://github.com/${portfolio.githubLogin}`} className="pf-github" target="_blank" rel="noopener noreferrer"><GitHubIcon className="size-4" /><span>@{portfolio.githubLogin}</span><ArrowRightUpIcon className="size-3.5" aria-hidden /></a>
+          <a href={`https://github.com/${portfolio.githubLogin}`} className="pf-github" target="_blank" rel="noopener noreferrer"><GitHubIcon className="size-4" /><span>@{portfolio.githubLogin}</span><SquareArrowRightUpIcon className="size-3.5" aria-hidden /></a>
         </nav>
         <div className={`pf-cover pf-cover-${portfolio.coverStyle}`}>
           <div className="pf-cover-art" aria-hidden><span /><span /><span /></div>
@@ -67,7 +67,7 @@ export function PortfolioView({ portfolio, preview = false }: { portfolio: Publi
                 <div className="pf-project-meta">{project.repository.language && <span>{project.repository.language}</span>}{project.repository.stars > 0 && <span><StarIcon className="size-3.5" aria-hidden />{project.repository.stars.toLocaleString("en-US")}</span>}</div>
                 <h3><a href={project.repository.homepage || project.repository.url || `https://github.com/${project.repository.fullName}`} target="_blank" rel="noopener noreferrer">{project.title || project.repository.name}</a></h3>
                 {(project.summary || project.repository.description) && <p>{project.summary || project.repository.description}</p>}
-                <div className="pf-project-links"><a href={project.repository.url || `https://github.com/${project.repository.fullName}`} target="_blank" rel="noopener noreferrer"><GitHubIcon className="size-3.5" />Source<ArrowRightUpIcon className="size-3" aria-hidden /></a>{project.repository.homepage && <a href={project.repository.homepage} target="_blank" rel="noopener noreferrer">Visit project<ArrowRightUpIcon className="size-3.5" aria-hidden /></a>}</div>
+                <div className="pf-project-links"><a href={project.repository.url || `https://github.com/${project.repository.fullName}`} target="_blank" rel="noopener noreferrer"><GitHubIcon className="size-3.5" />Source<SquareArrowRightUpIcon className="size-3" aria-hidden /></a>{project.repository.homepage && <a href={project.repository.homepage} target="_blank" rel="noopener noreferrer">Visit project<SquareArrowRightUpIcon className="size-3.5" aria-hidden /></a>}</div>
               </div>
             </article>)}
           </div>
