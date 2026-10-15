@@ -131,7 +131,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
               id="repository-filters"
               className={cn(
                 "col-span-2 grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out sm:contents",
-                filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0",
+                filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0 sm:visible sm:opacity-100",
               )}
             >
               <div className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden sm:contents">
@@ -170,6 +170,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             voted={voted}
             saved={saved}
             votingDisabled={!community.data || vote.isPending || Boolean(community.error)}
+            pendingTarget={vote.isPending ? vote.variables?.target ?? null : null}
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}
           />

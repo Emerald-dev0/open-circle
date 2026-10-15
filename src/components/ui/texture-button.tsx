@@ -5,6 +5,7 @@ import { Slot } from "@radix-ui/react-slot"
 import { cva } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { Spinner } from "@/components/ui/spinner"
 
 // cult-ui Texture Button (https://www.cult-ui.com/docs/components/texture-button).
 // Borders are removed to keep the page border-free; the 1px gradient rim
@@ -84,6 +85,8 @@ export interface UnifiedButtonProps
   size?: "default" | "sm" | "lg" | "icon"
   /** Render the single child element (e.g. an `<a>`) as the button. */
   asChild?: boolean
+  /** Shows the spinner and disables the button. Icon buttons swap their icon for it. */
+  loading?: boolean
   innerClassName?: string
 }
 
@@ -94,8 +97,10 @@ const TextureButton = React.forwardRef<HTMLButtonElement, UnifiedButtonProps>(
       variant = "primary",
       size = "default",
       asChild = false,
+      loading = false,
       className,
       innerClassName,
+      disabled,
       ...props
     },
     ref
@@ -107,15 +112,19 @@ const TextureButton = React.forwardRef<HTMLButtonElement, UnifiedButtonProps>(
     // child rather than around it; otherwise an <a> would end up nested in a div.
     if (asChild && React.isValidElement<{ children?: React.ReactNode }>(children)) {
       return (
-        <Slot className={outer} ref={ref} {...props}>
+        <Slot className={outer} ref={ref} aria-disabled={disabled || undefined} {...props}>
           {React.cloneElement(children, undefined, <span className={inner}>{children.props.children}</span>)}
         </Slot>
       )
     }
 
+    const content = loading
+      ? size === "icon" ? <Spinner /> : <><Spinner size={14} />{children}</>
+      : children
+
     return (
-      <button className={outer} ref={ref} {...props}>
-        <span className={inner}>{children}</span>
+      <button className={outer} ref={ref} disabled={disabled || loading} aria-busy={loading || undefined} {...props}>
+        <span className={inner}>{content}</span>
       </button>
     )
   }

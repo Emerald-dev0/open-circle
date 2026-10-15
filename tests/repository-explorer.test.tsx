@@ -78,7 +78,7 @@ describe("Repository discovery", () => {
     await waitFor(() => expect(displayedRepositories()).toEqual([repositories[2].url, repositories[1].url, repositories[0].url]));
     const cliRow = screen.getByRole("button", { name: "Upvote spark/circle-cli" }).closest<HTMLElement>("li")!;
     expect(within(cliRow).getByText("40")).toBeTruthy();
-    expect(within(cliRow).getByRole("button", { name: "Upvote spark/circle-cli" }).textContent).toBe("2");
+    expect(within(cliRow).getByLabelText("2 upvotes for spark/circle-cli").textContent).toBe("2");
     expect(screen.getByRole("list", { name: "Repositories ranked by community upvotes" })).toBeTruthy();
     await selectOption(user, "Sort repositories", "Recently updated");
     expect(displayedRepositories()[0]).toBe(repositories[2].url);
@@ -112,7 +112,7 @@ describe("Repository discovery", () => {
     view.rerender(explorer());
     const remove = screen.getByRole("button", { name: "Remove upvote from sage/docs" });
     expect(remove.getAttribute("aria-pressed")).toBe("true");
-    expect(remove.textContent).toBe("21");
+    expect(screen.getByLabelText("21 upvotes for sage/docs").textContent).toBe("21");
     await user.click(remove);
     expect(mutate).toHaveBeenLastCalledWith({ target: "repo:R_docs", active: false });
   });

@@ -45,7 +45,7 @@ export function RepositoryPicker({ ownerId, selected, onSelect }: { ownerId: num
           </button>;
         })}
       </div>
-      {repositories.hasNextPage && <TextureButton type="button" variant="secondary" className="w-auto justify-self-center" onClick={() => void repositories.fetchNextPage()} disabled={repositories.isFetchingNextPage}>{repositories.isFetchingNextPage ? "Loading…" : "Load more repositories"}</TextureButton>}
+      {repositories.hasNextPage && <TextureButton type="button" variant="secondary" className="w-auto justify-self-center" onClick={() => void repositories.fetchNextPage()} loading={repositories.isFetchingNextPage}>{repositories.isFetchingNextPage ? "Loading…" : "Load more repositories"}</TextureButton>}
       <TextureButton type="button" className="w-full" onClick={() => setOpen(false)}>Done{selected.length > 0 ? ` · ${selected.length} selected` : ""}</TextureButton>
     </DialogContent></Dialog>
   </>;

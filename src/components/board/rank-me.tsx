@@ -349,7 +349,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         </div>
       )}
 
-      <MetalButton type="submit" disabled={register.isPending} wrapperClassName="w-full" className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
+      <MetalButton type="submit" loading={register.isPending} wrapperClassName="w-full" className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
         {register.isPending ? "Checking membership and ranking…" : needsJoin ? "Check again" : "Join the board"}
       </MetalButton>
     </form>

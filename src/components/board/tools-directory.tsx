@@ -188,7 +188,7 @@ export function ToolsDirectory() {
                     />
                   </div>
                   <div className="flex items-end sm:justify-end">
-                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
+                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" loading={submit.isPending} disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
                   </div>
                 </fieldset>
               </form>
@@ -223,7 +223,7 @@ export function ToolsDirectory() {
           id={`${formId}-filters`}
           className={cn(
             "col-span-2 grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out sm:contents",
-            filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0",
+            filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0 sm:visible sm:opacity-100",
           )}
         >
           <div className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden sm:contents">
@@ -247,7 +247,7 @@ export function ToolsDirectory() {
               {tools.map((tool) => {
                 const target = `tool:${tool.id}`;
                 return (
-                  <ToolRow key={tool.id} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || community.isError || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
+                  <ToolRow key={tool.id} pendingValue={vote.isPending && vote.variables?.target === target ? vote.variables.value : null} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || community.isError || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
                 );
               })}
               </AnimatePresence>

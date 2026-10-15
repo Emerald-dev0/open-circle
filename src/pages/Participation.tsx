@@ -34,7 +34,7 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
         ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required minLength={field.min} maxLength={field.max} disabled={busy} />
         : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
-    <MetalButton type="submit" disabled={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+    <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
   </form>;
 }
 

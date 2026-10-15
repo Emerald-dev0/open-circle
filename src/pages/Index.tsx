@@ -268,9 +268,9 @@ const Index = () => {
                     size="sm"
                     className="w-auto"
                     onClick={() => refetch()}
-                    disabled={isRefetching}
+                    loading={isRefetching}
                   >
-                    <RefreshIcon size={14} aria-hidden />
+                    {!isRefetching && <RefreshIcon size={14} aria-hidden />}
                     {isRefetching ? "Retrying…" : "Try again"}
                   </TextureButton>
                 </div>
@@ -354,7 +354,6 @@ const Index = () => {
             400,
           );
         }}
-        onRules={() => setHowOpen(true)}
       />
 
       <HowItWorks

@@ -247,7 +247,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
             Cancel
           </MetalButton>
         )}
-        <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-6" disabled={saving || !dirty} type="submit" aria-label="Save settings">
+        <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-6" loading={saving} disabled={!dirty} type="submit" aria-label="Save settings">
           {saving ? "Saving…" : "Save"}
         </MetalButton>
       </div>
