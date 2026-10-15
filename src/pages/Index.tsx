@@ -26,7 +26,7 @@ import { useBoard } from "@/hooks/use-board";
 import { useCommunity } from "@/hooks/use-community";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { pageFor } from "@shared/seo";
-import { formatFull, githubUrl, timeAgo } from "@/lib/format";
+import { formatCount, formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
 
 const TABLE_LIMIT = 50;
@@ -80,6 +80,14 @@ function TabPill() {
       transition={{ type: "spring", stiffness: 420, damping: 36 }}
     />
   );
+}
+
+function TabCount({ count }: { count: number }) {
+  return <span className="relative text-[10px] leading-4 tabular text-t3 min-[480px]:ml-2 min-[480px]:text-xs" title={formatFull(count)}>
+    <span className="min-[480px]:hidden" aria-hidden="true">{formatCount(count)}</span>
+    <span className="hidden min-[480px]:inline" aria-hidden="true">{formatFull(count)}</span>
+    <span className="sr-only">{formatFull(count)}</span>
+  </span>;
 }
 
 /** Fades and lifts a tab's content in as it becomes active. */
@@ -252,26 +260,20 @@ const Index = () => {
             >
               <div className="mb-5 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
                 <TabsList aria-label="Leaderboard type" className="grid h-auto w-full grid-cols-[1fr_1.15fr_0.7fr] min-[480px]:inline-flex min-[480px]:w-auto">
-                  <TabsTrigger value="developers" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                  <TabsTrigger value="developers" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "developers" && <TabPill />}
                     <span className="relative">Developers</span>{" "}
-                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
-                      {formatFull(members.length)}
-                    </span>
+                    <TabCount count={members.length} />
                   </TabsTrigger>
-                  <TabsTrigger value="repositories" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                  <TabsTrigger value="repositories" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "repositories" && <TabPill />}
                     <span className="relative">Repositories</span>{" "}
-                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
-                      {formatFull(repositories.length)}
-                    </span>
+                    <TabCount count={repositories.length} />
                   </TabsTrigger>
-                  <TabsTrigger value="tools" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                  <TabsTrigger value="tools" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "tools" && <TabPill />}
                     <span className="relative">Tools</span>{" "}
-                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
-                      {formatFull(toolCount)}
-                    </span>
+                    <TabCount count={toolCount} />
                   </TabsTrigger>
                 </TabsList>
               </div>
