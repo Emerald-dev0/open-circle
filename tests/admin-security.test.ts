@@ -107,8 +107,10 @@ describe("Admin security boundary", () => {
     await signIn();
     expect((await postAdmin(request("admin", "POST", { action: "hide", login: "octocat" }, headers))).status).toBeGreaterThanOrEqual(400);
     expect((await approveTool(request("tools", "PATCH", { id: "pending", action: "approve" }, headers))).status).toBeGreaterThanOrEqual(400);
+    expect((await approveTool(request("tools", "PATCH", { action: "create", name: "Admin Kit", url: "https://admin-kit.example/", description: "A useful admin tool.", category: "Development" }, headers))).status).toBeGreaterThanOrEqual(400);
     expect((await removeTool(request("tools", "DELETE", { id: "pending" }, headers))).status).toBeGreaterThanOrEqual(400);
     expect((await store.getMember("octocat"))?.hidden).toBe(false);
+    expect(await community.listTools()).toEqual([]);
   });
 
   it("protects every private endpoint and returns no member details on denied reads", async () => {

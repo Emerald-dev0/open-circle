@@ -79,6 +79,11 @@ export const api = {
   adminSession: (signal?: AbortSignal) => request<AdminSession>("/api/admin-session", { signal, cache: "no-store" }),
   adminSignOut: () => request<{ ok: boolean }>("/api/admin-session", { method: "DELETE", headers: { "x-opencircle-admin": "1" }, body: "{}" }),
   adminTools: (signal?: AbortSignal) => request<CommunityTool[]>("/api/tools", { signal, cache: "no-store" }),
+  addTool: (input: ToolInput) => request<CommunityTool>("/api/tools", {
+    method: "PATCH",
+    headers: { "x-opencircle-admin": "1" },
+    body: JSON.stringify({ ...input, action: "create" }),
+  }),
   approveTool: (id: string) => request<{ ok: boolean }>("/api/tools", {
     method: "PATCH",
     headers: { "x-opencircle-admin": "1" },

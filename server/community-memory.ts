@@ -5,16 +5,17 @@ import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValu
 import { CURATED_TOOLS } from "../shared/tools.js";
 import type { CommunityStore } from "./community-contract.js";
 import { HttpError } from "./http.js";
+import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
 interface Snapshot {
-  tools: CommunityTool[];
+  tools: StoredTool[];
   votes: [string, string[]][];
   profileVotes?: [string, [string, VoteValue][]][];
   sessions?: [string, { profile: GitHubProfile; expiresAt: number }][];
 }
 
 interface LocalState {
-  tools: Map<string, CommunityTool>;
+  tools: Map<string, StoredTool>;
   votes: Map<string, Set<string>>;
   profileVotes: Map<string, Map<string, VoteValue>>;
   sessions: Map<string, { profile: GitHubProfile; expiresAt: number }>;
@@ -84,7 +85,16 @@ export class MemoryCommunityStore implements CommunityStore {
   }
 
   async listTools(): Promise<CommunityTool[]> {
-    return [...this.data.tools.values()].map((tool) => ({ ...tool }));
+    return [...this.data.tools.values()].filter((tool) => !tool.removed).map((tool) => ({ ...tool }));
+  }
+
+  async listToolCatalog(): Promise<CommunityTool[]> {
+    return toolCatalog([...this.data.tools.values()]);
+  }
+
+  private availableTool(id: string): boolean {
+    const tool: StoredTool | undefined = this.data.tools.get(id) ?? CURATED_TOOLS.find((tool) => tool.id === id);
+    return tool?.status === "approved" && !tool.removed;
   }
 
   async readVotes(actor: string) {
@@ -100,8 +110,7 @@ export class MemoryCommunityStore implements CommunityStore {
   async setVote(target: string, actor: string, active: boolean): Promise<VoteResult> {
     if (
       target.startsWith("tool:") &&
-      this.data.tools.get(target.slice(5))?.status !== "approved" &&
-      !CURATED_TOOLS.some((tool) => target === `tool:${tool.id}`)
+      !this.availableTool(target.slice(5))
     ) {
       throw new HttpError(404, "not_found", "That tool is no longer available.");
     }
@@ -116,13 +125,15 @@ export class MemoryCommunityStore implements CommunityStore {
   }
 
   async createTool(tool: CommunityTool): Promise<boolean> {
+    const removed = this.data.tools.get(tool.id)?.removed;
+    const curated = CURATED_TOOLS.find((existing) => existing.id === tool.id || existing.url === tool.url);
+    if (curated && (!removed || curated.id !== tool.id || curated.url !== tool.url)) return false;
     if (
-      this.data.tools.has(tool.id) ||
-      [...this.data.tools.values(), ...CURATED_TOOLS].some(
-        (existing) => existing.id === tool.id || existing.url === tool.url,
+      [...this.data.tools.values()].some(
+        (existing) => !existing.removed && (existing.id === tool.id || existing.url === tool.url),
       )
     ) return false;
-    if (this.data.tools.size >= 1_000) {
+    if ([...this.data.tools.values()].filter((tool) => !tool.removed).length >= 1_000) {
       throw new HttpError(409, "tools_full", "The tools directory is full.");
     }
     const tools = new Map(this.data.tools);
@@ -132,11 +143,13 @@ export class MemoryCommunityStore implements CommunityStore {
   }
 
   async removeTool(id: string): Promise<void> {
-    if (!this.data.tools.has(id)) return;
+    const curated = CURATED_TOOLS.find((tool) => tool.id === id);
+    if (!this.data.tools.has(id) && !curated) return;
     const tools = new Map(this.data.tools);
     const votes = new Map(this.data.votes);
     const profileVotes = new Map(this.data.profileVotes);
     tools.delete(id);
+    if (curated) tools.set(id, { ...curated, removed: true });
     votes.delete(`tool:${id}`);
     profileVotes.delete(`tool:${id}`);
     this.save({ tools, votes, profileVotes });
@@ -144,7 +157,7 @@ export class MemoryCommunityStore implements CommunityStore {
 
   async approveTool(id: string): Promise<boolean> {
     const tool = this.data.tools.get(id);
-    if (!tool) return false;
+    if (!tool || tool.removed) return false;
     const tools = new Map(this.data.tools);
     tools.set(id, { ...tool, status: "approved" });
     this.save({ tools, votes: this.data.votes });
@@ -162,7 +175,7 @@ export class MemoryCommunityStore implements CommunityStore {
   }
 
   async setProfileVote(target: string, actor: string, value: VoteValue): Promise<ToolVoteResult> {
-    if (!CURATED_TOOLS.some((tool) => target === `tool:${tool.id}`) && this.data.tools.get(target.slice(5))?.status !== "approved")
+    if (!this.availableTool(target.slice(5)))
       throw new HttpError(404, "not_found", "That tool is no longer available.");
     const voters = new Map(this.data.profileVotes.get(target));
     if (value === 0) voters.delete(actor);

@@ -121,7 +121,7 @@ describe("Community API workflow", () => {
     const adminHeaders = { cookie: `${cookie}; ${adminCookie}` };
     const queue = await getAdminTools(request("tools", "GET", undefined, adminHeaders));
     expect(queue.headers.get("cache-control")).toBe("private, no-store");
-    expect(await queue.json()).toEqual([created]);
+    expect(await queue.json()).toEqual([...CURATED_TOOLS, created]);
     expect((await approveTool(request("tools", "PATCH", { id: created.id, action: "approve" }))).status).toBe(401);
     expect((await approveTool(request("tools", "PATCH", { id: created.id, action: "approve" }, adminHeaders))).status).toBe(200);
     const approved = await (await getCommunity(request("community"))).json() as CommunityState;
@@ -144,6 +144,44 @@ describe("Community API workflow", () => {
     expect(await community.listTools()).toEqual([]);
     expect((await approveTool(request("tools", "PATCH", { id: created.id, action: "approve" }, headers))).status).toBe(404);
     expect((await (await getCommunity(request("community"))).json() as CommunityState).tools).toEqual(CURATED_TOOLS);
+  });
+
+  it("lets only an admin publish a validated tool immediately without a visitor cookie", async () => {
+    const input = { ...tool, action: "create", status: "pending", source: "curated" };
+    expect((await approveTool(request("tools", "PATCH", input))).status).toBe(401);
+    const headers = { cookie: adminCookie };
+    const invalid = await approveTool(request("tools", "PATCH", { ...input, url: "javascript:alert(1)" }, headers));
+    expect(invalid.status).toBe(400);
+    expect((await invalid.json()).error.field).toBe("url");
+    const response = await approveTool(request("tools", "PATCH", input, headers));
+    expect(response.status).toBe(201);
+    const created = await response.json() as CommunityTool;
+    expect(created).toMatchObject({ ...tool, status: "approved", source: "community" });
+    expect((await (await getAdminTools(request("tools", "GET", undefined, headers))).json())).toEqual([...CURATED_TOOLS, created]);
+    expect((await (await getCommunity(request("community"))).json() as CommunityState).tools).toContainEqual(created);
+    expect((await approveTool(request("tools", "PATCH", { ...input, url: `${tool.url}#duplicate` }, headers))).status).toBe(409);
+    const publicSubmission = await postTool(request("tools", "POST", { ...input, url: "https://another-kit.dev/" }));
+    expect((await publicSubmission.json()).status).toBe("pending");
+  });
+
+  it("lists and removes built-in tools consistently, clears votes and permits adding them again", async () => {
+    const headers = { cookie: `${cookie}; ${adminCookie}` };
+    const tool = CURATED_TOOLS[0];
+    expect(await (await getAdminTools(request("tools", "GET", undefined, headers))).json()).toEqual(CURATED_TOOLS);
+    expect((await postVote(request("vote", "POST", { target: `tool:${tool.id}`, value: -1 }))).status).toBe(200);
+    expect((await deleteTool(request("tools", "DELETE", { id: tool.id }, headers))).status).toBe(200);
+    const publicState = await (await getCommunity(request("community"))).json() as CommunityState;
+    expect(publicState.tools).toEqual(CURATED_TOOLS.slice(1));
+    expect(publicState.counts).not.toHaveProperty(`tool:${tool.id}`);
+    expect(publicState.toolVotes).not.toHaveProperty(`tool:${tool.id}`);
+    expect(await (await getAdminTools(request("tools", "GET", undefined, headers))).json()).toEqual(CURATED_TOOLS.slice(1));
+    expect((await postVote(request("vote", "POST", { target: `tool:${tool.id}`, value: 1 }))).status).toBe(404);
+    expect((await approveTool(request("tools", "PATCH", { id: tool.id, action: "approve" }, headers))).status).toBe(404);
+    const restored = await approveTool(request("tools", "PATCH", { ...tool, action: "create" }, headers));
+    expect(restored.status).toBe(201);
+    const state = await (await getCommunity(request("community"))).json() as CommunityState;
+    expect(state.tools.filter((entry) => entry.id === tool.id)).toHaveLength(1);
+    expect(state.counts).not.toHaveProperty(`tool:${tool.id}`);
   });
 
   it("upvotes curated tools with a signed-in GitHub account without requiring board membership", async () => {

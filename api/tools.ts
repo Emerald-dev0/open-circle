@@ -8,7 +8,7 @@ import { HttpError, json, readJson } from "../server/http.js";
 export function GET(req: Request): Promise<Response> {
   return apiHandler(req, async () => {
     await authorize(req);
-    return json(await getCommunityStore().listTools(), 200, { "cache-control": "private, no-store" });
+    return json(await getCommunityStore().listToolCatalog(), 200, { "cache-control": "private, no-store" });
   });
 }
 
@@ -17,7 +17,10 @@ export function PATCH(req: Request): Promise<Response> {
     await authorize(req);
     requireSameOriginJson(req);
     const body = await readJson(req) as { id?: unknown; action?: unknown } | null;
-    if (typeof body?.id !== "string" || body.id.length > 100 || body.action !== "approve")
+    if (body?.action === "create") {
+      return json(await submitTool(getCommunityStore(), body, "approved"), 201, { "cache-control": "private, no-store" });
+    }
+    if (typeof body?.id !== "string" || !body.id || body.id.length > 100 || body.action !== "approve")
       throw new HttpError(400, "invalid_tool", "Choose a pending tool to approve.");
     if (!await getCommunityStore().approveTool(body.id))
       throw new HttpError(404, "not_found", "That tool is no longer awaiting review.");
@@ -39,8 +42,8 @@ export function DELETE(req: Request): Promise<Response> {
     await authorize(req);
     requireSameOriginJson(req);
     const body = await readJson(req) as { id?: unknown } | null;
-    if (typeof body?.id !== "string" || body.id.length > 100)
-      throw new HttpError(400, "invalid_tool", "Choose a community tool to remove.");
+    if (typeof body?.id !== "string" || !body.id || body.id.length > 100)
+      throw new HttpError(400, "invalid_tool", "Choose a tool to remove.");
     await getCommunityStore().removeTool(body.id);
     return json({ ok: true }, 200, { "cache-control": "no-store" });
   });

@@ -45,14 +45,14 @@ export async function communityRateLimit(req: Request, store: Store, actor: stri
 }
 
 export async function readCommunity(store: CommunityStore, actor: string, profile: GitHubProfile | null = null, signInAvailable = false, profileKey: string | null = null): Promise<CommunityState> {
-  const [tools, votes, profileVotes] = await Promise.all([store.listTools(), store.readVotes(actor), signInAvailable ? store.readProfileVotes(profileKey) : Promise.resolve({ counts: {} as Record<string, number>, votes: {} as Record<string, VoteValue> })]);
-  const visibleTools = [...CURATED_TOOLS, ...tools.filter((tool) => tool.status === "approved")];
-  const hiddenTargets = new Set(tools.filter((tool) => tool.status !== "approved").map((tool) => `tool:${tool.id}`));
+  const [tools, votes, profileVotes] = await Promise.all([store.listToolCatalog(), store.readVotes(actor), signInAvailable ? store.readProfileVotes(profileKey) : Promise.resolve({ counts: {} as Record<string, number>, votes: {} as Record<string, VoteValue> })]);
+  const visibleTools = tools.filter((tool) => tool.status === "approved");
+  const visibleTargets = new Set(visibleTools.map((tool) => `tool:${tool.id}`));
   return {
     tools: visibleTools,
-    counts: Object.fromEntries([...Object.entries(votes.counts).filter(([target]) => target.startsWith("repo:")), ...Object.entries(profileVotes.counts).filter(([target]) => !hiddenTargets.has(target))]),
+    counts: Object.fromEntries([...Object.entries(votes.counts).filter(([target]) => target.startsWith("repo:")), ...Object.entries(profileVotes.counts).filter(([target]) => visibleTargets.has(target))]),
     voted: votes.voted.filter((target) => target.startsWith("repo:")),
-    toolVotes: Object.fromEntries(Object.entries(profileVotes.votes).filter(([target]) => !hiddenTargets.has(target))),
+    toolVotes: Object.fromEntries(Object.entries(profileVotes.votes).filter(([target]) => visibleTargets.has(target))),
     profile,
     signInAvailable,
   };
@@ -63,7 +63,7 @@ export async function profileVote(store: CommunityStore, actor: string, input: u
   if (typeof body?.target !== "string" || body.target.length > 256 || !/^tool:[^:]+$/.test(body.target) || ![-1, 0, 1].includes(Number(body.value)) || typeof body.value !== "number")
     throw new HttpError(400, "invalid_vote", "Choose an upvote or downvote for a tool.");
   const id = body.target.slice(5);
-  const exists = [...CURATED_TOOLS, ...await store.listTools()].some((tool) => tool.id === id && tool.status === "approved");
+  const exists = (await store.listToolCatalog()).some((tool) => tool.id === id && tool.status === "approved");
   if (!exists) throw new HttpError(404, "not_found", "That tool is no longer listed.");
   return store.setProfileVote(body.target, actor, body.value as VoteValue);
 }
@@ -79,7 +79,7 @@ export async function vote(store: CommunityStore, boardStore: Store, actor: stri
     throw new HttpError(400, "invalid_vote", "Choose a repository or tool to upvote.");
   const exists = kind === "repo"
     ? (await readBoard(boardStore)).repositories.some((repo) => repo.id === id)
-    : [...CURATED_TOOLS, ...await store.listTools()].some((tool) => tool.id === id && tool.status === "approved");
+    : (await store.listToolCatalog()).some((tool) => tool.id === id && tool.status === "approved");
   if (!exists) throw new HttpError(404, "not_found", "That project or tool is no longer listed.");
   const result = await store.setVote(target, actor, active);
   if (kind === "repo") {
@@ -89,12 +89,11 @@ export async function vote(store: CommunityStore, boardStore: Store, actor: stri
   return result;
 }
 
-export async function submitTool(store: CommunityStore, input: unknown): Promise<CommunityTool> {
+export async function submitTool(store: CommunityStore, input: unknown, status: CommunityTool["status"] = "pending"): Promise<CommunityTool> {
   const parsed = parseToolInput(input);
   if (!parsed.ok) throw new HttpError(400, "invalid_tool", parsed.error, parsed.field);
-  if (CURATED_TOOLS.some((tool) => tool.url === parsed.value.url))
-    throw new HttpError(409, "tool_exists", "That tool is already in the directory.", "url");
-  const tool: CommunityTool = { ...parsed.value, id: randomUUID(), source: "community", status: "pending", createdAt: Date.now() };
+  const curated = CURATED_TOOLS.find((tool) => tool.url === parsed.value.url);
+  const tool: CommunityTool = { ...parsed.value, id: curated?.id ?? randomUUID(), source: "community", status, createdAt: Date.now() };
   if (!await store.createTool(tool))
     throw new HttpError(409, "tool_exists", "That tool is already in the directory.", "url");
   return tool;

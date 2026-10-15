@@ -296,6 +296,32 @@ for (const adapter of adapters) {
       expect((await store.readVotes(visitor)).voted).not.toContain(target);
     }, 20_000);
 
+    it("removes built-ins atomically with votes and restores them without duplicating the catalog", async () => {
+      const store = fixture.store;
+      const curated = CURATED_TOOLS[1];
+      const target = `tool:${curated.id}`;
+      const voter = actor("removed-curated");
+      expect(await store.listToolCatalog()).toContainEqual(curated);
+      await store.setVote(target, voter, true);
+      await store.setProfileVote(target, voter, -1);
+      await Promise.allSettled([store.setVote(target, actor("late-curated"), true), store.setProfileVote(target, actor("late-profile"), 1), store.removeTool(curated.id)]);
+      await store.removeTool(curated.id);
+      expect((await store.listToolCatalog()).some((tool) => tool.id === curated.id)).toBe(false);
+      expect((await store.readVotes(voter)).counts).not.toHaveProperty(target);
+      expect((await store.readVotes(voter)).voted).not.toContain(target);
+      expect((await store.readProfileVotes(voter)).votes).not.toHaveProperty(target);
+      expect((await store.readProfileVotes(actor("late-profile"))).votes).not.toHaveProperty(target);
+      expect((await store.readProfileVotes(null)).counts).not.toHaveProperty(target);
+      await expect(store.setVote(target, voter, true)).rejects.toMatchObject({ status: 404 });
+      await expect(store.setProfileVote(target, voter, 1)).rejects.toMatchObject({ status: 404 });
+      expect(await store.approveTool(curated.id)).toBe(false);
+      expect(await store.createTool({ ...curated, source: "community", status: "pending" })).toBe(true);
+      expect((await store.listToolCatalog()).filter((tool) => tool.id === curated.id)).toHaveLength(1);
+      await expect(store.setProfileVote(target, voter, 1)).rejects.toMatchObject({ status: 404 });
+      expect(await store.approveTool(curated.id)).toBe(true);
+      expect(await store.setProfileVote(target, voter, 1)).toMatchObject({ count: 1 });
+    }, 20_000);
+
     it("requires review for legacy records without a status", async () => {
       const store = fixture.store;
       const legacy = tool("legacy-review");

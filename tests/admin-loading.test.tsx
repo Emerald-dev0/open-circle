@@ -149,7 +149,7 @@ describe("Admin loading", () => {
     expect(screen.getByRole("combobox", { name: "Tool status" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Approve/ })).toBeNull();
     await act(async () => tools.resolve([]));
-    await screen.findByText("No community submissions yet.");
+    await screen.findByText("No tools yet. Add a tool to get started.");
     expect(screen.queryByRole("status", { name: "Loading tools…" })).toBeNull();
   });
 
@@ -159,8 +159,8 @@ describe("Admin loading", () => {
     renderWithQueries(<ToolModeration />);
     expect(screen.getByRole("status", { name: "Loading tools…" })).toBeTruthy();
     await act(async () => tools.reject(new Error("Unavailable")));
-    await userEvent.click(await within(screen.getByRole("region", { name: "Tool review" })).findByRole("button", { name: "Try again" }));
-    await screen.findByText("No community submissions yet.");
+    await userEvent.click(await within(screen.getByRole("region", { name: "Tools" })).findByRole("button", { name: "Try again" }));
+    await screen.findByText("No tools yet. Add a tool to get started.");
     expect(screen.queryByRole("status", { name: "Loading tools…" })).toBeNull();
   });
 });

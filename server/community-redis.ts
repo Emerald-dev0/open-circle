@@ -3,6 +3,7 @@ import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValu
 import { CURATED_TOOLS } from "../shared/tools.js";
 import type { CommunityStore } from "./community-contract.js";
 import { HttpError } from "./http.js";
+import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
 const P = "oc:community:";
 const keys = {
@@ -21,9 +22,12 @@ const READ_VOTES = `
 return {redis.call('HGETALL', KEYS[1]), redis.call('SMEMBERS', KEYS[2])}`;
 
 const SET_VOTE = `
-if ARGV[4] ~= '' and ARGV[5] ~= '1' then
+if ARGV[4] ~= '' then
   local raw = redis.call('HGET', KEYS[4], ARGV[4])
-  if not raw or cjson.decode(raw).status ~= 'approved' then return -1 end
+  if raw then
+    local tool = cjson.decode(raw)
+    if tool.removed or tool.status ~= 'approved' then return -1 end
+  elseif ARGV[5] ~= '1' then return -1 end
 end
 if ARGV[3] == '1' then
   redis.call('SADD', KEYS[1], ARGV[2])
@@ -38,19 +42,26 @@ else redis.call('HDEL', KEYS[3], ARGV[1]) end
 return count`;
 
 const CREATE_TOOL = `
-if redis.call('HEXISTS', KEYS[1], ARGV[1]) == 1 or redis.call('HEXISTS', KEYS[2], ARGV[2]) == 1 then
-  return 0
+local raw = redis.call('HGET', KEYS[1], ARGV[1])
+if ARGV[4] == '1' then
+  if not raw or not cjson.decode(raw).removed then return 0 end
+elseif raw then return 0 end
+if redis.call('HEXISTS', KEYS[2], ARGV[2]) == 1 then return 0 end
+local count = 0
+for _, record in ipairs(redis.call('HVALS', KEYS[1])) do
+  if not cjson.decode(record).removed then count = count + 1 end
 end
-if redis.call('HLEN', KEYS[1]) >= 1000 then return -1 end
+if count >= 1000 then return -1 end
 redis.call('HSET', KEYS[1], ARGV[1], ARGV[3])
 redis.call('HSET', KEYS[2], ARGV[2], ARGV[1])
 return 1`;
 
 const SET_PROFILE_VOTE = `
-if ARGV[5] ~= '1' then
-  local raw = redis.call('HGET', KEYS[4], ARGV[4])
-  if not raw or cjson.decode(raw).status ~= 'approved' then return {0, 0} end
-end
+local raw = redis.call('HGET', KEYS[4], ARGV[4])
+if raw then
+  local tool = cjson.decode(raw)
+  if tool.removed or tool.status ~= 'approved' then return {0, 0} end
+elseif ARGV[5] ~= '1' then return {0, 0} end
 local previous = tonumber(redis.call('HGET', KEYS[1], ARGV[2]) or '0')
 local value = tonumber(ARGV[3])
 if value == 0 then
@@ -68,12 +79,14 @@ const APPROVE_TOOL = `
 local raw = redis.call('HGET', KEYS[1], ARGV[1])
 if not raw then return 0 end
 local tool = cjson.decode(raw)
+if tool.removed then return 0 end
 tool.status = 'approved'
 redis.call('HSET', KEYS[1], ARGV[1], cjson.encode(tool))
 return 1`;
 
 const REMOVE_TOOL = `
 local raw = redis.call('HGET', KEYS[1], ARGV[1])
+if not raw and ARGV[5] ~= '' then raw = ARGV[5] end
 if not raw then return 0 end
 local tool = cjson.decode(raw)
 for _, actor in ipairs(redis.call('SMEMBERS', KEYS[3])) do
@@ -83,6 +96,7 @@ for _, actor in ipairs(redis.call('HKEYS', KEYS[5])) do
   redis.call('HDEL', ARGV[4] .. actor, ARGV[2])
 end
 redis.call('HDEL', KEYS[1], ARGV[1])
+if ARGV[5] ~= '' then redis.call('HSET', KEYS[1], ARGV[1], ARGV[5]) end
 redis.call('HDEL', KEYS[2], tool.url)
 redis.call('DEL', KEYS[3])
 redis.call('HDEL', KEYS[4], ARGV[2])
@@ -98,8 +112,15 @@ export class RedisCommunityStore implements CommunityStore {
   }
 
   async listTools(): Promise<CommunityTool[]> {
-    const records = (await this.redis.hvals(keys.tools)) as string[];
-    return records.map((record) => JSON.parse(record) as CommunityTool);
+    return (await this.records()).filter((tool) => !tool.removed);
+  }
+
+  private async records(): Promise<StoredTool[]> {
+    return (await this.redis.hvals(keys.tools) as string[]).map((record) => JSON.parse(record) as StoredTool);
+  }
+
+  async listToolCatalog(): Promise<CommunityTool[]> {
+    return toolCatalog(await this.records());
   }
 
   async readVotes(actor: string) {
@@ -128,11 +149,12 @@ export class RedisCommunityStore implements CommunityStore {
   }
 
   async createTool(tool: CommunityTool): Promise<boolean> {
-    if (CURATED_TOOLS.some((existing) => existing.id === tool.id || existing.url === tool.url)) return false;
+    const curated = CURATED_TOOLS.find((existing) => existing.id === tool.id || existing.url === tool.url);
+    if (curated && (curated.id !== tool.id || curated.url !== tool.url)) return false;
     const result = Number(await this.redis.eval(
       CREATE_TOOL,
       [keys.tools, keys.urls],
-      [tool.id, tool.url, JSON.stringify(tool)],
+      [tool.id, tool.url, JSON.stringify(tool), curated ? "1" : "0"],
     ));
     if (result < 0) throw new HttpError(409, "tools_full", "The tools directory is full.");
     return result === 1;
@@ -140,10 +162,11 @@ export class RedisCommunityStore implements CommunityStore {
 
   async removeTool(id: string): Promise<void> {
     const target = `tool:${id}`;
+    const curated = CURATED_TOOLS.find((tool) => tool.id === id);
     await this.redis.eval(
       REMOVE_TOOL,
       [keys.tools, keys.urls, keys.voters(target), keys.counts, keys.profileVoters(target), keys.profileCounts],
-      [id, target, `${P}actor:`, `${P}profile-actor:`],
+      [id, target, `${P}actor:`, `${P}profile-actor:`, curated ? JSON.stringify({ ...curated, removed: true }) : ""],
     );
   }
 

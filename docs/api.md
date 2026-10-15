@@ -17,9 +17,10 @@ The frontend calls same-origin API routes. Vite serves these during development;
 | `POST /api/participation` | Same-origin JSON with a signed-in GitHub session; a linking request uses `{ "action": "link", "phone": "+2348000000000" }`. | A linking code or the updated private participation state. |
 | `POST /api/auth` | Same-origin JSON request with GitHub session cookie. | Revokes the session and clears its cookie. |
 | `POST /api/tools` | JSON with `name`, `url`, `description` and `category`. | Pending tool, not included in the public directory. |
-| `GET /api/tools` | Approved admin session cookie. | Private tool review queue and approved community tools. |
+| `GET /api/tools` | Approved admin session cookie. | Full managed catalog: built-in tools, approved tools and private pending submissions. |
 | `PATCH /api/tools` | Approved admin session cookie, same-origin JSON and `X-OpenCircle-Admin: 1`; body `{ "id": "TOOL_ID", "action": "approve" }`. | Approves a submitted tool for public listing and voting. |
-| `DELETE /api/tools` | Approved admin session cookie, same-origin JSON and `X-OpenCircle-Admin: 1`; body `{ "id": "TOOL_ID" }`. | Removes a community tool and its votes. |
+| `PATCH /api/tools` | Same admin credentials and headers; JSON with `action: "create"`, `name`, `url`, `description` and `category`. | Validates and publishes a tool immediately. Duplicate links return 409. |
+| `DELETE /api/tools` | Approved admin session cookie, same-origin JSON and `X-OpenCircle-Admin: 1`; body `{ "id": "TOOL_ID" }`. | Removes a built-in or submitted tool and its votes. |
 | `GET /api/admin` | Approved admin session cookie. | Members including WhatsApp numbers, plus settings. |
 | `POST /api/admin` | Approved admin session cookie, same-origin JSON and `X-OpenCircle-Admin: 1`; body is an admin action. | Updated admin state. |
 | `GET /api/admin-session` | No credentials required. | Whether admin access is configured, and the current approved admin profile if signed in. |

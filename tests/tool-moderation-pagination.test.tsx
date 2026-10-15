@@ -31,6 +31,6 @@ it("paginates the review queue, updates a later-page item and resets after statu
   expect(screen.queryByRole("navigation", { name: "Tool review pagination" })).toBeNull();
   expect(screen.getByText("No tools match this filter.")).toBeTruthy();
   await user.click(screen.getByRole("combobox", { name: "Tool status" }));
-  await user.click(screen.getByRole("option", { name: "All submissions" }));
+  await user.click(screen.getByRole("option", { name: "All tools" }));
   expect(screen.getByRole("button", { name: "Approve Tool 00" })).toBeTruthy();
 });

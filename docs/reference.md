@@ -78,7 +78,7 @@ Tool voting requires a verified GitHub account. Browsing and saving tools do not
 
 The repository view defaults to GitHub stars. Visitors can sort by community upvotes or last GitHub update, search by project or builder, filter by language and show only saved repositories. Repository upvotes boost the owner's developer score without changing GitHub stars. Removing an upvote removes its points, and tool votes do not affect developer scores.
 
-The tools directory starts with six curated open-source tools. Each curated entry links to its source repository. Visitors can submit another tool with a name, public HTTPS URL, description and category. The server validates submissions, normalizes URLs and rejects duplicate links; it never fetches submitted URLs. Submissions stay private and cannot receive votes until an organiser approves them in `/admin`. Organisers can approve, reject or remove tools. Removing a tool also removes its votes. The directory allows up to 1,000 community submissions, including pending reviews.
+The tools directory starts with six curated open-source tools. Each curated entry links to its source repository. Visitors can submit another tool with a name, public HTTPS URL, description and category. The server validates submissions, normalizes URLs and rejects duplicate links; it never fetches submitted URLs. Submissions stay private and cannot receive votes until an organiser approves them in `/admin`. Organisers can also add tools directly for immediate publication. The admin catalog includes built-in tools and all submissions. Removing any tool also removes its votes, and built-in removals persist across restarts. Removed tools can be added again; visitor submissions still need approval. The directory allows up to 1,000 saved tools, including pending reviews.
 
 Tools use one vote per signed-in GitHub account. An upvote adds one and a downvote subtracts one; selecting the same direction removes the vote, and switching direction replaces it. Top rated sorts by the net score. The server identifies the voter by GitHub's durable user ID, so a renamed profile or another browser does not create a second vote. This is one vote per GitHub account, not one vote per person. Old anonymous tool votes are retained in storage but are excluded from the account-based scores because their owner cannot be verified.
 
@@ -135,7 +135,7 @@ Organisers can:
 - Remove a member and release their GitHub login, phone number and nickname. Removal allows them to register again; it is not a permanent ban.
 - Replace the group invite, pause it, or edit the message shown when the invite is unavailable.
 - Change ranking weights and caps. The board is rebuilt after a settings change.
-- Review pending tool submissions, approve them for the public directory, or reject them. Remove approved tools and their votes. Curated entries are maintained in `shared/tools.ts`.
+- Search the full tools catalog, review pending submissions, approve or reject them, and add tools directly for immediate publication. Remove built-in or submitted tools and their votes. The initial built-in catalog is defined in `shared/tools.ts`; saved removals take precedence.
 
 The admin route asks search engines not to index it, but this is not an access control. The server checks the approved GitHub ID and admin session before returning private data or applying changes.
 

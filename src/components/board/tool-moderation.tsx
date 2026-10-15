@@ -1,5 +1,5 @@
 import { pollApi } from "@/lib/query-policy";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { CheckIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
@@ -16,10 +16,20 @@ import { ToolFavicon } from "@/components/board/tool-favicon";
 import { Chip, Panel } from "@/components/panel";
 import { formatFull } from "@/lib/format";
 import { AnimatePresence, motion } from "motion/react";
+import { AdminToolForm } from "@/components/board/admin-tool-form";
 
 export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void }) {
   const key = ["admin", "tools"];
   const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState(false);
+  const formId = useId();
+  const addButton = useRef<HTMLButtonElement>(null);
+  const wasAdding = useRef(false);
+  useEffect(() => {
+    if (!adding && wasAdding.current) addButton.current?.focus();
+    wasAdding.current = adding;
+  }, [adding]);
   const community = useQuery({ queryKey: key, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
   const queryClient = useQueryClient();
   const action = useMutation({
@@ -29,6 +39,7 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: key }),
         queryClient.invalidateQueries({ queryKey: COMMUNITY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ["admin", "analytics"] }),
       ]);
     },
   });
@@ -37,14 +48,15 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
       if (error instanceof ApiError && ["unauthorized", "admin_disabled"].includes(error.code)) onUnauthorized?.();
     }
   }, [community.error, action.error, onUnauthorized]);
-  const tools = [...community.data ?? []].filter((tool) => status === "all" || tool.status === status).sort((a, b) => Number(a.status === "approved") - Number(b.status === "approved") || a.name.localeCompare(b.name));
+  const tools = [...community.data ?? []].filter((tool) => (status === "all" || (tool.status ?? "pending") === status) && `${tool.name} ${tool.description} ${tool.category} ${tool.url}`.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => Number(a.status === "approved") - Number(b.status === "approved") || a.name.localeCompare(b.name));
 
   useErrorToast(community.isError || null, "Couldn't load shared tools.", { id: "tools-moderation-load", retry: () => community.refetch() });
   useErrorToast(action.error, "That didn't work. Try again.");
 
-  const pagination = usePagination(tools, 20, status);
+  const pagination = usePagination(tools, 20, JSON.stringify([status, search]));
   const all = community.data ?? [];
   const pendingCount = all.filter((tool) => tool.status !== "approved").length;
+  const closeForm = () => setAdding(false);
 
   return (
     <section ref={pagination.regionRef} tabIndex={-1} className="scroll-mt-6" aria-labelledby="moderate-tools-title">
@@ -52,21 +64,35 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
         header={
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 id="moderate-tools-title" className="text-lg font-medium tracking-tight sm:text-xl">Tool review</h2>
+              <h2 id="moderate-tools-title" className="text-lg font-medium tracking-tight sm:text-xl">Tools</h2>
               <p className="mt-0.5 text-sm text-t3">
-                {community.data ? `${formatFull(pendingCount)} pending · ${formatFull(all.length - pendingCount)} approved` : "Community submissions"}
+                {community.data ? `${formatFull(pendingCount)} pending · ${formatFull(all.length - pendingCount)} approved` : "Tool directory"}
               </p>
             </div>
-            <SharedSelect aria-label="Tool status" className="w-full text-sm sm:w-48" value={status} onValueChange={setStatus} options={[{ value: "all", label: "All submissions" }, { value: "pending", label: "Pending review" }, { value: "approved", label: "Approved" }]} />
+            <TextureButton ref={addButton} variant="minimal" className="h-11 w-auto" aria-expanded={adding} aria-controls={formId} disabled={adding} onClick={() => setAdding(true)}>Add tool</TextureButton>
           </div>
         }
       >
+        {adding && <AdminToolForm id={formId} onCancel={closeForm} onUnauthorized={onUnauthorized} onAdded={async (tool) => {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: key }),
+            queryClient.invalidateQueries({ queryKey: COMMUNITY_KEY }),
+            queryClient.invalidateQueries({ queryKey: ["admin", "analytics"] }),
+          ]);
+          setStatus("all");
+          setSearch(tool.name);
+          closeForm();
+        }} />}
+        <div className="flex flex-col gap-3 py-4 sm:flex-row">
+          <input type="search" aria-label="Search tools" placeholder="Search tools" className="field min-w-0 flex-1 text-base" value={search} onChange={(event) => setSearch(event.target.value)} />
+          <SharedSelect aria-label="Tool status" className="w-full text-sm sm:w-48" value={status} onValueChange={setStatus} options={[{ value: "all", label: "All tools" }, { value: "pending", label: "Pending review" }, { value: "approved", label: "Approved" }]} />
+        </div>
         {community.isPending ? <AdminToolsSkeleton /> : community.isError ? (
           <div className="flex justify-center py-8">
             <TextureButton size="sm" variant="minimal" className="w-auto" onClick={() => community.refetch()}>Try again</TextureButton>
           </div>
         ) : tools.length === 0 ? (
-          <p className="py-8 text-center text-sm text-t3">{all.length ? "No tools match this filter." : "No community submissions yet."}</p>
+          <p className="py-8 text-center text-sm text-t3">{all.length ? "No tools match this filter." : "No tools yet. Add a tool to get started."}</p>
         ) : (
           <ul key={`${status}:${pagination.page}`} aria-label="Tool review">
             <AnimatePresence initial={false}>
@@ -88,7 +114,7 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
                         <Chip tone={tool.status === "approved" ? "ok" : "warn"}>{tool.status === "approved" ? "Approved" : "Pending review"}</Chip>
                       </div>
                       <p className="break-words text-xs leading-relaxed text-t2 [overflow-wrap:anywhere]">{tool.description}</p>
-                      <p className="text-[11px] text-t4">{tool.category}</p>
+                      <p className="text-xs text-t3">{tool.category} · {tool.source === "curated" ? "Built-in" : "Community"}</p>
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:pl-4">

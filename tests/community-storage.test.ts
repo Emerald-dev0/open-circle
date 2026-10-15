@@ -118,6 +118,32 @@ describe("community persistence", () => {
     expect(await store.readVotes("actor-b")).toEqual({ counts: { "repo:1": 1 }, voted: [] });
   });
 
+  it("persists built-in removals, blocks late votes and restores one reviewed entry", async () => {
+    const { store, file } = temporaryStore();
+    const curated = CURATED_TOOLS[0];
+    const target = `tool:${curated.id}`;
+    expect(await store.listToolCatalog()).toEqual(CURATED_TOOLS);
+    await store.setVote(target, "actor-a", true);
+    await store.setProfileVote(target, "profile-a", -1);
+    await store.removeTool(curated.id);
+    await store.removeTool(curated.id);
+    const globalStore = globalThis as typeof globalThis & { __openCircleCommunityStores?: Map<string, unknown> };
+    globalStore.__openCircleCommunityStores?.delete(file);
+    const restored = new MemoryCommunityStore(file);
+    expect(await restored.listToolCatalog()).toEqual(CURATED_TOOLS.slice(1));
+    expect(await restored.listTools()).toEqual([]);
+    expect(await restored.approveTool(curated.id)).toBe(false);
+    await expect(restored.setVote(target, "actor-a", true)).rejects.toMatchObject({ status: 404 });
+    await expect(restored.setProfileVote(target, "profile-a", 1)).rejects.toMatchObject({ status: 404 });
+    expect((await restored.readVotes("actor-a")).counts).not.toHaveProperty(target);
+    expect((await restored.readProfileVotes("profile-a")).votes).not.toHaveProperty(target);
+    expect(await restored.createTool({ ...curated, status: "pending", source: "community" })).toBe(true);
+    await expect(restored.setProfileVote(target, "profile-a", 1)).rejects.toMatchObject({ status: 404 });
+    expect((await restored.listToolCatalog()).filter((tool) => tool.id === curated.id)).toHaveLength(1);
+    await restored.approveTool(curated.id);
+    expect(await restored.setProfileVote(target, "profile-a", 1)).toMatchObject({ count: 1 });
+  });
+
   it("enforces directory capacity without losing existing tools", async () => {
     const store = new MemoryCommunityStore(null);
     await Promise.all(Array.from({ length: 1_000 }, (_, index) => store.createTool(tool(`tool-${index}`))));

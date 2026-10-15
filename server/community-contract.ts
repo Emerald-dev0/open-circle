@@ -2,6 +2,7 @@ import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValu
 
 export interface CommunityStore {
   listTools(): Promise<CommunityTool[]>;
+  listToolCatalog(): Promise<CommunityTool[]>;
   readVotes(actor: string): Promise<{ counts: Record<string, number>; voted: string[] }>;
   setVote(target: string, actor: string, active: boolean): Promise<VoteResult>;
   readProfileVotes(actor: string | null): Promise<{ counts: Record<string, number>; votes: Record<string, VoteValue> }>;

@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET as getCommunity } from "../api/community";
 import { POST as postVote } from "../api/vote";
-import { GET as getAdminTools, PATCH as approveTool, POST as postTool } from "../api/tools";
+import { DELETE as removeTool, GET as getAdminTools, PATCH as approveTool, POST as postTool } from "../api/tools";
 import { createAdminSession } from "../server/admin-session";
 import { readBoard, rebuildBoard } from "../server/board";
 import { MemoryCommunityStore } from "../server/community-memory";
@@ -60,7 +60,7 @@ beforeEach(async () => {
     const response = path === "/api/board" ? json(await readBoard(board))
       : path === "/api/community" ? await getCommunity(request)
         : path === "/api/vote" ? await postVote(request)
-          : path === "/api/tools" ? init?.method === "PATCH" ? await approveTool(request) : init?.method === "POST" ? await postTool(request) : await getAdminTools(request)
+          : path === "/api/tools" ? init?.method === "PATCH" ? await approveTool(request) : init?.method === "DELETE" ? await removeTool(request) : init?.method === "POST" ? await postTool(request) : await getAdminTools(request)
             : (() => { throw new Error(`Unexpected request ${path}`); })();
     if (response.headers.has("set-cookie")) cookie += `; ${response.headers.get("set-cookie")!.split(";", 1)[0]}`;
     return response;
@@ -113,6 +113,68 @@ describe("Community interface through real API handlers", () => {
     await screen.findByRole("button", { name: "Upvote Octocat/open-kit" });
     expect((await community.readVotes("not-this-visitor")).counts["repo:R_open-kit"]).toBeUndefined();
     expect((await board.getBoard())?.repositories[0].stars).toBe(10);
+  });
+
+  it("manages the complete catalog, publishes admin additions and updates the public directory", async () => {
+    const user = userEvent.setup();
+    const page = await renderPage("/tools");
+    const admin = render(<QueryClientProvider client={page.client}><ToolModeration /></QueryClientProvider>);
+    const controls = within(admin.container);
+    await controls.findByRole("button", { name: "Remove Excalidraw" });
+    for (const tool of CURATED_TOOLS) expect(controls.getByRole("link", { name: tool.name })).toBeTruthy();
+    await user.click(controls.getByRole("button", { name: "Add tool" }));
+    const form = within(controls.getByRole("form", { name: "Add tool" }));
+    await user.click(form.getByRole("button", { name: "Add tool" }));
+    expect(form.getByRole("textbox", { name: "Name" }).getAttribute("aria-invalid")).toBe("true");
+    await user.type(form.getByRole("textbox", { name: "Name" }), "Admin Kit");
+    await user.type(form.getByRole("textbox", { name: "URL" }), "https://excalidraw.com/#duplicate");
+    await user.type(form.getByRole("textbox", { name: "Description" }), "A useful kit added by the admin.");
+    await user.click(form.getByRole("button", { name: "Add tool" }));
+    await waitFor(() => expect(form.getByRole("textbox", { name: "URL" }).getAttribute("aria-invalid")).toBe("true"));
+    expect((form.getByRole("textbox", { name: "Name" }) as HTMLInputElement).value).toBe("Admin Kit");
+    await user.clear(form.getByRole("textbox", { name: "URL" }));
+    await user.type(form.getByRole("textbox", { name: "URL" }), "https://admin-kit.example/");
+    await user.click(form.getByRole("combobox", { name: "Category" }));
+    await user.click(screen.getByRole("option", { name: "Productivity" }));
+    await user.click(form.getByRole("button", { name: "Add tool" }));
+    await waitFor(() => expect(controls.queryByRole("form", { name: "Add tool" })).toBeNull());
+    expect(controls.getByRole("button", { name: "Remove Admin Kit" })).toBeTruthy();
+    expect((await community.listTools())[0]).toMatchObject({ name: "Admin Kit", status: "approved", category: "Productivity" });
+    const publicTools = within(within(page.container).getByRole("list", { name: "Tools" }));
+    await waitFor(() => expect(publicTools.getByRole("link", { name: /^Admin Kit / })).toBeTruthy());
+    await user.clear(controls.getByRole("searchbox", { name: "Search tools" }));
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValue(true);
+    await user.click(controls.getByRole("button", { name: "Remove Excalidraw" }));
+    expect(controls.getByRole("button", { name: "Remove Excalidraw" })).toBeTruthy();
+    await user.click(controls.getByRole("button", { name: "Remove Excalidraw" }));
+    await waitFor(() => expect(controls.queryByRole("button", { name: "Remove Excalidraw" })).toBeNull());
+    await waitFor(() => expect(publicTools.queryByRole("link", { name: /^Excalidraw / })).toBeNull());
+    expect(confirm).toHaveBeenCalledTimes(2);
+    admin.unmount();
+  });
+
+  it("preserves an admin draft after a failed save and supports retrying and cancelling", async () => {
+    const user = userEvent.setup();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    clients.push(client);
+    render(<QueryClientProvider client={client}><ToolModeration /></QueryClientProvider>);
+    await screen.findByRole("button", { name: "Remove Excalidraw" });
+    await user.click(screen.getByRole("button", { name: "Add tool" }));
+    const form = within(screen.getByRole("form", { name: "Add tool" }));
+    await user.type(form.getByRole("textbox", { name: "Name" }), "Retry Kit");
+    await user.type(form.getByRole("textbox", { name: "URL" }), "https://retry-kit.example/");
+    await user.type(form.getByRole("textbox", { name: "Description" }), "A useful kit for retries.");
+    vi.spyOn(community, "createTool").mockRejectedValueOnce(new HttpError(503, "storage_unavailable", "Tools cannot be saved right now."));
+    await user.click(form.getByRole("button", { name: "Add tool" }));
+    await screen.findByText("Tools cannot be saved right now.");
+    expect((form.getByRole("textbox", { name: "Name" }) as HTMLInputElement).value).toBe("Retry Kit");
+    expect(await community.listTools()).toEqual([]);
+    await user.click(form.getByRole("button", { name: "Add tool" }));
+    await screen.findByRole("button", { name: "Remove Retry Kit" });
+    await user.click(screen.getByRole("button", { name: "Add tool" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("form", { name: "Add tool" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add tool" }));
   });
 
   it("shows a storage failure without inventing an upvote and permits retrying", async () => {

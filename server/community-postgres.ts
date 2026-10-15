@@ -3,6 +3,7 @@ import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValu
 import { CURATED_TOOLS } from "../shared/tools.js";
 import type { CommunityStore } from "./community-contract.js";
 import { HttpError } from "./http.js";
+import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
 export class PostgresCommunityStore implements CommunityStore {
   constructor(private readonly pool: Pool) {}
@@ -24,9 +25,20 @@ export class PostgresCommunityStore implements CommunityStore {
 
   async listTools(): Promise<CommunityTool[]> {
     const { rows } = await this.pool.query<{ record: CommunityTool }>(
-      "SELECT record FROM opencircle_tools ORDER BY id",
+      "SELECT record FROM opencircle_tools WHERE record ->> 'removed' IS DISTINCT FROM 'true' ORDER BY id",
     );
     return rows.map((row) => row.record);
+  }
+
+  async listToolCatalog(): Promise<CommunityTool[]> {
+    const { rows } = await this.pool.query<{ record: StoredTool }>("SELECT record FROM opencircle_tools ORDER BY id");
+    return toolCatalog(rows.map((row) => row.record));
+  }
+
+  private async requireAvailableTool(client: PoolClient, id: string): Promise<void> {
+    const { rows } = await client.query<{ record: StoredTool }>("SELECT record FROM opencircle_tools WHERE id = $1 FOR UPDATE", [id]);
+    const tool: StoredTool | undefined = rows[0]?.record ?? CURATED_TOOLS.find((tool) => tool.id === id);
+    if (tool?.status !== "approved" || tool.removed) throw new HttpError(404, "not_found", "That tool is no longer available.");
   }
 
   async readVotes(actor: string) {
@@ -47,13 +59,7 @@ export class PostgresCommunityStore implements CommunityStore {
   async setVote(target: string, actor: string, active: boolean): Promise<VoteResult> {
     return this.transaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 1868784501))", [target]);
-      if (target.startsWith("tool:") && !CURATED_TOOLS.some((tool) => target === `tool:${tool.id}`)) {
-        const { rowCount } = await client.query(
-          "SELECT id FROM opencircle_tools WHERE id = $1 AND record ->> 'status' = 'approved' FOR UPDATE",
-          [target.slice(5)],
-        );
-        if (rowCount !== 1) throw new HttpError(404, "not_found", "That tool is no longer available.");
-      }
+      if (target.startsWith("tool:")) await this.requireAvailableTool(client, target.slice(5));
       if (active) {
         await client.query(
           "INSERT INTO opencircle_votes (target, actor) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -71,13 +77,16 @@ export class PostgresCommunityStore implements CommunityStore {
   }
 
   async createTool(tool: CommunityTool): Promise<boolean> {
-    if (CURATED_TOOLS.some((existing) => existing.id === tool.id || existing.url === tool.url)) return false;
+    const curated = CURATED_TOOLS.find((existing) => existing.id === tool.id || existing.url === tool.url);
+    if (curated && (curated.id !== tool.id || curated.url !== tool.url)) return false;
     return this.transaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock(1868784502)");
-      const existing = await client.query("SELECT id FROM opencircle_tools WHERE id = $1 OR url = $2", [tool.id, tool.url]);
-      if (existing.rowCount) return false;
-      const { rows } = await client.query<{ count: number }>("SELECT COUNT(*)::integer AS count FROM opencircle_tools");
+      if (curated) await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 1868784501))", [`tool:${tool.id}`]);
+      const existing = await client.query<{ record: StoredTool }>("SELECT record FROM opencircle_tools WHERE id = $1 OR url = $2", [tool.id, tool.url]);
+      if (curated ? !existing.rows[0]?.record.removed : existing.rowCount) return false;
+      const { rows } = await client.query<{ count: number }>("SELECT COUNT(*)::integer AS count FROM opencircle_tools WHERE record ->> 'removed' IS DISTINCT FROM 'true'");
       if (rows[0].count >= 1_000) throw new HttpError(409, "tools_full", "The tools directory is full.");
+      if (curated) await client.query("DELETE FROM opencircle_tools WHERE id = $1", [tool.id]);
       const { rowCount } = await client.query(
         "INSERT INTO opencircle_tools (id, url, record) VALUES ($1, $2, $3::jsonb) ON CONFLICT DO NOTHING",
         [tool.id, tool.url, JSON.stringify(tool)],
@@ -91,17 +100,19 @@ export class PostgresCommunityStore implements CommunityStore {
       const target = `tool:${id}`;
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 1868784501))", [target]);
       const { rowCount } = await client.query("SELECT id FROM opencircle_tools WHERE id = $1 FOR UPDATE", [id]);
-      if (!rowCount) return;
+      const curated = CURATED_TOOLS.find((tool) => tool.id === id);
+      if (!rowCount && !curated) return;
       await client.query("DELETE FROM opencircle_votes WHERE target = $1", [target]);
       await client.query("DELETE FROM opencircle_profile_votes WHERE target = $1", [target]);
       await client.query("DELETE FROM opencircle_tools WHERE id = $1", [id]);
+      if (curated) await client.query("INSERT INTO opencircle_tools (id, url, record) VALUES ($1, $2, $3::jsonb)", [id, curated.url, JSON.stringify({ ...curated, removed: true })]);
     });
   }
 
   async approveTool(id: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(
       `UPDATE opencircle_tools SET record = jsonb_set(record, '{status}', '"approved"'::jsonb)
-       WHERE id = $1 RETURNING id`,
+       WHERE id = $1 AND record ->> 'removed' IS DISTINCT FROM 'true' RETURNING id`,
       [id],
     );
     return rowCount === 1;
@@ -125,10 +136,7 @@ export class PostgresCommunityStore implements CommunityStore {
   async setProfileVote(target: string, actor: string, value: VoteValue): Promise<ToolVoteResult> {
     return this.transaction(async (client) => {
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 1868784501))", [target]);
-      if (!CURATED_TOOLS.some((tool) => target === `tool:${tool.id}`)) {
-        const { rowCount } = await client.query("SELECT id FROM opencircle_tools WHERE id = $1 AND record ->> 'status' = 'approved' FOR UPDATE", [target.slice(5)]);
-        if (rowCount !== 1) throw new HttpError(404, "not_found", "That tool is no longer available.");
-      }
+      await this.requireAvailableTool(client, target.slice(5));
       if (value === 0) await client.query("DELETE FROM opencircle_profile_votes WHERE target = $1 AND actor = $2", [target, actor]);
       else await client.query("INSERT INTO opencircle_profile_votes (target, actor, value) VALUES ($1, $2, $3) ON CONFLICT (target, actor) DO UPDATE SET value = EXCLUDED.value", [target, actor, value]);
       const { rows } = await client.query<{ count: number }>("SELECT COALESCE(SUM(value), 0)::integer AS count FROM opencircle_profile_votes WHERE target = $1", [target]);

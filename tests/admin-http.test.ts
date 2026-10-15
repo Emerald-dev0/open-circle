@@ -8,6 +8,7 @@ import { MemoryCommunityStore } from "../server/community-memory";
 import { rebuildBoard } from "../server/board";
 import { memberRecord } from "./helpers/fixtures";
 import { TestStore } from "./helpers/test-store";
+import { CURATED_TOOLS } from "../shared/tools";
 
 const context = vi.hoisted(() => ({ board: null as unknown, community: null as unknown }));
 vi.mock("../server/db", () => ({ getStore: () => context.board }));
@@ -73,7 +74,18 @@ it("serves admin sign-in, separate callback cookies, moderation and revocation t
   const admin = await fetch(`${base}/api/admin`, { headers });
   expect(admin.status).toBe(200);
   expect((await admin.json()).members[0].login).toBe("Octocat");
-  expect((await fetch(`${base}/api/tools`, { headers })).status).toBe(200);
+  const catalog = await fetch(`${base}/api/tools`, { headers });
+  expect(catalog.status).toBe(200);
+  expect(await catalog.json()).toEqual(CURATED_TOOLS);
+  const added = await fetch(`${base}/api/tools`, { method: "PATCH", headers, body: JSON.stringify({ action: "create", name: "HTTP Kit", url: "https://http-kit.example/", description: "A useful kit added through admin.", category: "Development" }) });
+  expect(added.status).toBe(201);
+  const tool = await added.json();
+  expect(tool.status).toBe("approved");
+  expect((await (await fetch(`${base}/api/community`)).json()).tools).toContainEqual(tool);
+  expect((await fetch(`${base}/api/tools`, { method: "DELETE", headers, body: JSON.stringify({ id: CURATED_TOOLS[0].id }) })).status).toBe(200);
+  expect((await (await fetch(`${base}/api/community`)).json()).tools.some((entry: { id: string }) => entry.id === CURATED_TOOLS[0].id)).toBe(false);
+  expect((await fetch(`${base}/api/tools`, { method: "DELETE", headers, body: JSON.stringify({ id: tool.id }) })).status).toBe(200);
+  expect((await (await fetch(`${base}/api/tools`, { headers })).json()).some((entry: { id: string }) => entry.id === tool.id)).toBe(false);
   const change = { action: "hide", login: "octocat" };
   expect((await fetch(`${base}/api/admin`, { method: "POST", headers: { ...headers, origin: "https://evil.test" }, body: JSON.stringify(change) })).status).toBe(403);
   expect((await fetch(`${base}/api/admin`, { method: "POST", headers, body: JSON.stringify(change) })).status).toBe(200);
