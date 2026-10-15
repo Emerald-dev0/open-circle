@@ -1,18 +1,18 @@
 # Contributing to OpenCircle
 
-You can help with bug reports, code, tests, accessibility or documentation. Check [open issues](https://github.com/Psybah/open-circle/issues) before starting so you can see what others are working on.
+You can help with bug reports, code, tests, accessibility or documentation. Check [open issues](https://github.com/opencirclehq/open-circle/issues) before starting so you can see what others are working on.
 
 For a larger feature or a change to the design, open an issue or discuss it with an organiser first. Describe the problem and agree on the scope before several people start editing the same files.
 
 ## Your first contribution
 
-1. Fork [Psybah/open-circle](https://github.com/Psybah/open-circle) on GitHub.
+1. Fork [opencirclehq/open-circle](https://github.com/opencirclehq/open-circle) on GitHub.
 2. Clone your fork and add the original repository as `upstream`:
 
    ```bash
    git clone https://github.com/YOUR_USERNAME/open-circle.git
    cd open-circle
-   git remote add upstream https://github.com/Psybah/open-circle.git
+   git remote add upstream https://github.com/opencirclehq/open-circle.git
    git switch -c fix/describe-your-change
    ```
 
@@ -26,7 +26,7 @@ For a larger feature or a change to the design, open an issue or discuss it with
 
    See [Run locally](README.md#run-locally) for service requirements and use your own development credentials.
 4. Make a focused change and run the relevant checks below.
-5. Push your branch to your fork and open a pull request against `Psybah/open-circle:main`.
+5. Push your branch to your fork and open a pull request against `opencirclehq/open-circle:main`.
 
 Members with repository access can create a branch here instead of using a fork. Leave unrelated changes out of the pull request.
 
@@ -84,6 +84,6 @@ Keep the change small enough to review. Call out changes to setup, storage or AP
 
 ## Report a problem
 
-Use the [bug report form](https://github.com/Psybah/open-circle/issues/new?template=bug_report.yml) and include the steps, expected result and actual result. Feature ideas belong in the [feature request form](https://github.com/Psybah/open-circle/issues/new?template=feature_request.yml).
+Use the [bug report form](https://github.com/opencirclehq/open-circle/issues/new?template=bug_report.yml) and include the steps, expected result and actual result. Feature ideas belong in the [feature request form](https://github.com/opencirclehq/open-circle/issues/new?template=feature_request.yml).
 
 For a security or privacy problem, contact a group organiser privately through [Open Source Circle](https://chat.whatsapp.com/HanHO4T0w0kJGcipYZTB8q?mode=gi_t) before posting details publicly. Never include tokens, real phone numbers, private admin responses or database exports in an issue or pull request.

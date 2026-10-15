@@ -69,5 +69,13 @@
   },
   "packageManager": "pnpm@11.7.0",
   "license": "MIT",
-  "description": "Community GitHub profiles and repository rankings for Open Source Circle."
+  "description": "Community GitHub profiles and repository rankings for Open Source Circle.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opencirclehq/open-circle.git"
+  },
+  "bugs": {
+    "url": "https://github.com/opencirclehq/open-circle/issues"
+  },
+  "homepage": "https://opencircle.cc"
 }

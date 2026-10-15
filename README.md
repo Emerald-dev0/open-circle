@@ -13,17 +13,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Psybah/open-circle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Psybah/open-circle/ci.yml?branch=main&amp;style=flat-square&amp;logo=githubactions&amp;logoColor=white&amp;label=checks" alt="Project checks on main"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/Psybah/open-circle?style=flat-square&amp;color=97a3b6" alt="MIT license"></a>
-  <a href="https://github.com/Psybah/open-circle"><img src="https://img.shields.io/github/stars/Psybah/open-circle?style=flat-square&amp;logo=github&amp;label=stars&amp;color=f5c542" alt="GitHub stars"></a>
-  <a href="https://github.com/Psybah/open-circle/forks"><img src="https://img.shields.io/github/forks/Psybah/open-circle?style=flat-square&amp;logo=github&amp;label=forks&amp;color=8b949e" alt="GitHub forks"></a>
+  <a href="https://github.com/opencirclehq/open-circle/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/opencirclehq/open-circle/ci.yml?branch=main&amp;style=flat-square&amp;logo=githubactions&amp;logoColor=white&amp;label=checks" alt="Project checks on main"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/opencirclehq/open-circle?style=flat-square&amp;color=97a3b6" alt="MIT license"></a>
+  <a href="https://github.com/opencirclehq/open-circle"><img src="https://img.shields.io/github/stars/opencirclehq/open-circle?style=flat-square&amp;logo=github&amp;label=stars&amp;color=f5c542" alt="GitHub stars"></a>
+  <a href="https://github.com/opencirclehq/open-circle/forks"><img src="https://img.shields.io/github/forks/opencirclehq/open-circle?style=flat-square&amp;logo=github&amp;label=forks&amp;color=8b949e" alt="GitHub forks"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Psybah/open-circle/issues"><img src="https://img.shields.io/github/issues/Psybah/open-circle?style=flat-square&amp;logo=github&amp;label=issues&amp;color=58a6ff" alt="Open GitHub issues"></a>
-  <a href="https://github.com/Psybah/open-circle/pulls"><img src="https://img.shields.io/github/issues-pr/Psybah/open-circle?style=flat-square&amp;logo=github&amp;label=pull%20requests&amp;color=a371f7" alt="Open pull requests"></a>
-  <a href="https://github.com/Psybah/open-circle/graphs/contributors"><img src="https://img.shields.io/github/contributors/Psybah/open-circle?style=flat-square&amp;logo=github&amp;color=3fb950" alt="GitHub contributors"></a>
-  <a href="https://github.com/Psybah/open-circle/commits/main"><img src="https://img.shields.io/github/last-commit/Psybah/open-circle/main?style=flat-square&amp;logo=github&amp;label=last%20commit&amp;color=8b949e" alt="Latest commit on main"></a>
+  <a href="https://github.com/opencirclehq/open-circle/issues"><img src="https://img.shields.io/github/issues/opencirclehq/open-circle?style=flat-square&amp;logo=github&amp;label=issues&amp;color=58a6ff" alt="Open GitHub issues"></a>
+  <a href="https://github.com/opencirclehq/open-circle/pulls"><img src="https://img.shields.io/github/issues-pr/opencirclehq/open-circle?style=flat-square&amp;logo=github&amp;label=pull%20requests&amp;color=a371f7" alt="Open pull requests"></a>
+  <a href="https://github.com/opencirclehq/open-circle/graphs/contributors"><img src="https://img.shields.io/github/contributors/opencirclehq/open-circle?style=flat-square&amp;logo=github&amp;color=3fb950" alt="GitHub contributors"></a>
+  <a href="https://github.com/opencirclehq/open-circle/commits/main"><img src="https://img.shields.io/github/last-commit/opencirclehq/open-circle/main?style=flat-square&amp;logo=github&amp;label=last%20commit&amp;color=8b949e" alt="Latest commit on main"></a>
 </p>
 
 OpenCircle brings the group's GitHub profiles and public projects into one place. Members join a shared leaderboard, find each other's work and share useful open-source tools. This repository is where we build the app together.
@@ -43,7 +43,7 @@ GitHub sign-in is required for tool voting, group participation and admin access
 Use Node.js **22.13+** and pnpm **11.7.0**. If needed, install pnpm with `npm install --global pnpm@11.7.0`.
 
 ```bash
-git clone https://github.com/Psybah/open-circle.git
+git clone https://github.com/opencirclehq/open-circle.git
 cd open-circle
 pnpm install --frozen-lockfile
 cp .env.example .env.local
@@ -92,7 +92,7 @@ Repository rankings use GitHub stars, then forks and repository name. Tool votes
   <a href="https://neon.com"><img src="https://img.shields.io/badge/Neon_Postgres-00E599?style=for-the-badge&amp;logo=postgresql&amp;logoColor=0B1221" alt="Neon Postgres"></a>
   <a href="https://upstash.com"><img src="https://img.shields.io/badge/Upstash_Redis-00E9A3?style=for-the-badge&amp;logo=redis&amp;logoColor=0B1221" alt="Upstash Redis"></a>
   <a href="https://vitest.dev"><img src="https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&amp;logo=vitest&amp;logoColor=white" alt="Vitest"></a>
-  <a href="https://github.com/Psybah/open-circle/actions"><img src="https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&amp;logo=githubactions&amp;logoColor=white" alt="GitHub Actions"></a>
+  <a href="https://github.com/opencirclehq/open-circle/actions"><img src="https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&amp;logo=githubactions&amp;logoColor=white" alt="GitHub Actions"></a>
 </p>
 
 React 19, TypeScript, Vite and Tailwind CSS, with Radix UI and TanStack Query. The Node.js API uses GitHub GraphQL and supports Neon Postgres or Upstash Redis.
@@ -112,13 +112,13 @@ docs/         Public setup and reference guides
 
 Bug reports, code, tests and documentation improvements are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, project conventions and the pull request process.
 
-Check [open issues](https://github.com/Psybah/open-circle/issues) before starting, or [open an issue](https://github.com/Psybah/open-circle/issues/new/choose) to describe a problem or suggest a change. For larger changes, agree on the scope with an organiser first.
+Check [open issues](https://github.com/opencirclehq/open-circle/issues) before starting, or [open an issue](https://github.com/opencirclehq/open-circle/issues/new/choose) to describe a problem or suggest a change. For larger changes, agree on the scope with an organiser first.
 
-Thanks to [everyone who contributes](https://github.com/Psybah/open-circle/graphs/contributors) to OpenCircle.
+Thanks to [everyone who contributes](https://github.com/opencirclehq/open-circle/graphs/contributors) to OpenCircle.
 
 <p align="center">
-  <a href="https://github.com/Psybah/open-circle/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=Psybah/open-circle&amp;max=30&amp;columns=10" alt="OpenCircle contributors' GitHub avatars">
+  <a href="https://github.com/opencirclehq/open-circle/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=opencirclehq/open-circle&amp;max=30&amp;columns=10" alt="OpenCircle contributors' GitHub avatars">
   </a>
 </p>
 
