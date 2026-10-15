@@ -10,6 +10,7 @@ import { COMMUNITY_KEY } from '../src/hooks/use-community';
 import { api, ApiError } from '../src/lib/api';
 import type { ParticipationState } from '../shared/coordination';
 import type { CommunityState } from '../shared/community';
+import type { MemberCommunityState } from '../shared/coordination';
 
 vi.mock('../src/lib/api',async original=>({...await original<typeof import('../src/lib/api')>(),api:{community:vi.fn(),participation:vi.fn(),linkWhatsapp:vi.fn(),participate:vi.fn(),signOut:vi.fn()}}));
 const community:CommunityState={profile:{id:1,login:'Alice',avatarUrl:'https://avatars.githubusercontent.com/u/1'},signInAvailable:true,tools:[],counts:{},voted:[],toolVotes:{}};
@@ -77,4 +78,29 @@ it('shows owner confirmation and clears private participation after sign-out',as
   await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
   await screen.findByRole('link',{name:'Sign in with GitHub'});
   expect(client.getQueriesData({queryKey:['participation']}).every(([,data])=>data===undefined)).toBe(true);expect(screen.queryByText('Projects to review')).toBeNull();
+});
+
+it('shows catch-up and sessions, saves mentor preferences and keeps failed drafts',async()=>{
+  const user=userEvent.setup();
+  const routine:MemberCommunityState={timezone:'Africa/Lagos',quietStart:22,quietEnd:8,groupSchedule:true,updates:[{id:'update_1',date:'2026-10-15',title:'First community task',text:'Try the search form and suggest one improvement. <img src=x>',createdAt:Date.parse('2026-10-15T09:00:00Z'),groupSentAt:null}],sessions:[{id:'help_1',title:'Community help session',startsAt:Date.parse('2026-10-16T17:00:00Z'),endsAt:Date.parse('2026-10-16T18:00:00Z')}],mentor:{available:false,skills:[],weeklyLimit:2},assignedHelp:['help_1']};
+  const client=mount({...initial,community:routine,help:[{id:'help_1',owner:'Bob',question:'How do I improve this React form?',createdAt:1,status:'open',skills:['react']}]});
+  expect(await screen.findByText('First community task')).toBeTruthy();
+  expect(screen.getByText('Community help session')).toBeTruthy();
+  expect(document.querySelector('#catch-up img')).toBeNull();
+  await user.click(screen.getByLabelText('Available for help requests'));
+  const skills=screen.getByLabelText(/Your mentoring skills, separated by commas/);
+  await user.type(skills,'react, typescript');
+  vi.mocked(api.participate).mockRejectedValueOnce(new ApiError(503,'offline','The bot is unavailable.'));
+  await user.click(screen.getByRole('button',{name:'Save mentor preferences'}));
+  await screen.findByText('The bot is unavailable.');
+  expect((skills as HTMLInputElement).value).toBe('react, typescript');
+  vi.mocked(api.participate).mockResolvedValue({...initial,community:{...routine,mentor:{available:true,skills:['react','typescript'],weeklyLimit:2}}});
+  await user.click(screen.getByRole('button',{name:'Save mentor preferences'}));
+  await waitFor(()=>expect(api.participate).toHaveBeenLastCalledWith({action:'mentor',available:true,skills:['react','typescript'],weeklyLimit:2},expect.anything()));
+  await user.click(screen.getByRole('button',{name:'Decline request'}));
+  await waitFor(()=>expect(api.participate).toHaveBeenLastCalledWith({action:'decline-help',id:'help_1'},expect.anything()));
+  await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
+  await screen.findByRole('link',{name:'Sign in with GitHub'});
+  expect(screen.queryByText('First community task')).toBeNull();
+  expect(screen.getByText('Start here')).toBeTruthy();
 });

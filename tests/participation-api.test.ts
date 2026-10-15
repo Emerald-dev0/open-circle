@@ -67,6 +67,10 @@ it('uses the signed-in GitHub identity through HTTP and protects personal respon
     await expect(coordinationRequest('action',{})).rejects.toMatchObject({status:409,message:'Already reviewed.'});
     status=401;payload={error:'private service token detail'};
     const unavailable=await GET(request());expect(unavailable.status).toBe(503);expect(await unavailable.text()).not.toContain('private service token');
+    status=200;payload={activity:{linked:true},projects:[],help:[],contributions:[],community:{updates:'invalid'}};
+    await expect(coordinationRequest('profile',{})).rejects.toMatchObject({status:503});
+    payload={activity:{linked:true},projects:[],help:[],contributions:[],community:{timezone:'invalid',quietStart:22,quietEnd:8,groupSchedule:false,updates:[],sessions:[],mentor:{available:false,skills:[],weeklyLimit:2},assignedHelp:[]}};
+    await expect(coordinationRequest('profile',{})).rejects.toMatchObject({status:503});
     status=200;payload={unexpected:true};
     await expect(coordinationRequest('profile',{})).rejects.toMatchObject({status:503});
     vi.stubEnv('NODE_ENV','production');
