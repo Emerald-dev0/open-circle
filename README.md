@@ -4,7 +4,7 @@
 
 <h1 align="center">OpenCircle</h1>
 
-<p align="center">GitHub rankings, community projects and developer tools for Open Source Circle.</p>
+<p align="center">GitHub rankings, personal portfolios, community projects and developer tools for Open Source Circle.</p>
 
 <p align="center">
   <a href="https://opencircle.cc"><img src="https://img.shields.io/badge/Open_the_app-04060A?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Open the app"></a>
@@ -26,24 +26,37 @@
   <a href="https://github.com/opencirclehq/open-circle/commits/main"><img src="https://img.shields.io/github/last-commit/opencirclehq/open-circle/main?style=flat-square&amp;logo=github&amp;label=last%20commit&amp;color=8b949e" alt="Latest commit on main"></a>
 </p>
 
-OpenCircle brings the group's GitHub profiles and public projects into one place. Members join a shared leaderboard, find each other's work and share useful open-source tools. This repository is where we build the app together.
+OpenCircle brings the group's GitHub profiles and public projects into one place. Members join a shared leaderboard, publish personal portfolios, find each other's work and share useful open-source tools. This repository is where we build the app together.
 
 ## What you can do
 
 - Join the developer leaderboard and follow rank changes.
+- Build a customizable GitHub portfolio at `username.opencircle.cc`.
 - Browse members' repositories, filter by language, upvote projects and save links.
 - Find developer tools, submit tools for review and rate them with GitHub sign-in.
 - Share projects, give feedback and answer help requests through group participation.
 - Manage members, tool submissions and ranking settings through the admin page.
 
-GitHub sign-in is required for tool voting, group participation and admin access. Joining the board requires a personal GitHub profile and a number in the WhatsApp group.
+GitHub sign-in is required for portfolio editing, tool voting, group participation and admin access. Joining the board requires a personal GitHub profile and a number in the WhatsApp group.
+
+## Member portfolios
+
+[Create your portfolio](https://opencircle.cc/portfolio) with GitHub and publish it at `username.opencircle.cc`. Your page includes your GitHub photo, name, bio and up to six public repositories you own, with links to their source and existing live sites.
+
+Choose a light or dark theme, accent colors and a cover image. Add skills, write or import a Markdown README, and customize project titles, descriptions, images and order. Preview your changes before publishing; saved drafts stay private until you publish them.
+
+Contacts are private until you choose to show them. The Hire me button uses your chosen public contact while you are available for work. Your WhatsApp group number is never added to your portfolio automatically.
+
+See the [portfolio guide](https://github.com/opencirclehq/open-circle/blob/member-portfolios/docs/portfolios.md) for setup, uploads and subdomain hosting.
 
 ## Run locally
 
 Use Node.js **22.13+** and pnpm **11.7.0**. If needed, install pnpm with `npm install --global pnpm@11.7.0`.
 
+The live portfolio release is on the [`member-portfolios`](https://github.com/opencirclehq/open-circle/tree/member-portfolios) branch. The commands below use that branch.
+
 ```bash
-git clone https://github.com/opencirclehq/open-circle.git
+git clone --branch member-portfolios https://github.com/opencirclehq/open-circle.git
 cd open-circle
 pnpm install --frozen-lockfile
 cp .env.example .env.local
@@ -79,6 +92,7 @@ Repository rankings use GitHub stars, then forks and repository name. Tool votes
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white" alt="TypeScript"></a>
   <a href="https://vite.dev"><img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&amp;logo=vite&amp;logoColor=white" alt="Vite"></a>
   <a href="https://tailwindcss.com"><img src="https://img.shields.io/badge/Tailwind_CSS-0F172A?style=for-the-badge&amp;logo=tailwindcss&amp;logoColor=38BDF8" alt="Tailwind CSS"></a>
+  <a href="https://github.com/appdever01/skelo"><img src="https://img.shields.io/badge/Skelo-161B22?style=for-the-badge&amp;logoColor=white" alt="Skelo"></a>
 </p>
 
 <p align="center">
@@ -117,9 +131,8 @@ Check [open issues](https://github.com/opencirclehq/open-circle/issues) before s
 Thanks to [everyone who contributes](https://github.com/opencirclehq/open-circle/graphs/contributors) to OpenCircle.
 
 <p align="center">
-  <a href="https://github.com/opencirclehq/open-circle/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=opencirclehq/open-circle&amp;max=30&amp;columns=10" alt="OpenCircle contributors' GitHub avatars">
-  </a>
+  <a href="https://github.com/appdever01"><img src="https://avatars.githubusercontent.com/u/154071744?s=64&amp;v=4" alt="appdever01" width="64" height="64"></a>
+  <a href="https://github.com/Psybah"><img src="https://avatars.githubusercontent.com/u/144453344?s=64&amp;v=4" alt="Psybah" width="64" height="64"></a>
 </p>
 
 ## Documentation
@@ -131,7 +144,7 @@ Thanks to [everyone who contributes](https://github.com/opencirclehq/open-circle
 | [App behaviour](docs/reference.md) | Registration, rankings, voting, refreshes, storage and current limits. |
 | [API](docs/api.md) | Endpoints, request formats and error responses. |
 | [Deployment](docs/deployment.md) | Running the built app and troubleshooting setup problems. |
-| [Portfolios](docs/portfolios.md) | Customization, publishing, contact privacy, uploads and subdomains. |
+| [Portfolios](https://github.com/opencirclehq/open-circle/blob/member-portfolios/docs/portfolios.md) | Customization, publishing, contact privacy, uploads and subdomains. |
 
 ## Privacy
 
