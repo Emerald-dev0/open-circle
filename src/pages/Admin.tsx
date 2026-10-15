@@ -14,6 +14,8 @@ import { AccountCorner } from "@/components/account-corner";
 import { Dock } from "@/components/dock";
 import { LogoutIcon } from "@solar-icons/react/linear";
 import { Chip, Panel, PanelHeader, Row } from "@/components/panel";
+import { Pagination } from "@/components/pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import { ToolModeration } from "@/components/board/tool-moderation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SharedSelect } from "@/components/ui/select";
@@ -264,6 +266,7 @@ function Members({
     const match = `${member.nickname} ${member.login} ${member.whatsapp}`.toLowerCase().includes(search.trim().toLowerCase());
     return match && (visibility === "all" || member.hidden === (visibility === "hidden"));
   });
+  const pagination = usePagination(filtered, 20, JSON.stringify([search, visibility]));
   const now = Date.now();
   const hidden = members.filter((m) => m.hidden).length;
   return (
@@ -276,15 +279,15 @@ function Members({
         />
       }
     >
-      <div className="flex flex-col gap-3 py-4 sm:flex-row">
+      <div ref={pagination.regionRef} tabIndex={-1} className="flex scroll-mt-6 flex-col gap-3 py-4 sm:flex-row">
         <label className="min-w-0 flex-1"><span className="sr-only">Search members</span><input type="search" className="field" placeholder="Search name, GitHub or phone" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <SharedSelect aria-label="Member visibility" className="sm:w-40" value={visibility} onValueChange={setVisibility} options={[{ value: "all", label: "All members" }, { value: "visible", label: "Visible" }, { value: "hidden", label: "Hidden" }]} />
       </div>
       {filtered.length === 0 ? (
         <p role="status" className="py-8 text-center text-sm text-t3">{members.length ? "No members match these filters." : "No one has registered yet."}</p>
       ) : (
-        <ul>
-          {filtered.map((m) => (
+        <ul aria-label="Members">
+          {pagination.items.map((m) => (
             <li
               key={m.login}
               className={cn("grid grid-cols-[1.5rem_2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-white/[0.06] py-3 last:border-0 sm:flex", m.hidden && "opacity-55")}
@@ -338,6 +341,7 @@ function Members({
           ))}
         </ul>
       )}
+      <Pagination {...pagination} label="Members" disabled={busy} onPageChange={pagination.changePage} />
     </Panel>
   );
 }

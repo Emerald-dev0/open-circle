@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { TOOL_CATEGORIES, type ToolInput } from "@shared/community";
 import { parseToolInput } from "@shared/tool-validation";
+import { Pagination } from "@/components/pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import { ToolRow } from "@/components/board/tool-row";
 import { ToolsSkeleton } from "@/components/site-skeleton";
 import { MetalButton } from "@/components/metal-button";
@@ -96,6 +98,8 @@ export function ToolsDirectory() {
       });
   }, [community.data, search, category, sort]);
 
+  const pagination = usePagination(tools, 20, JSON.stringify([search, category, sort]));
+
   function toggleSaved(id: string) {
     const next = saved.includes(id) ? saved.filter((value) => value !== id) : [...saved, id];
     setSaved(next);
@@ -129,7 +133,7 @@ export function ToolsDirectory() {
   useEffect(() => { if (formError) toast.error(formError.message, { id: "tool-form" }); }, [formError]);
 
   return (
-    <section aria-labelledby={`${formId}-heading`}>
+    <section ref={pagination.regionRef} tabIndex={-1} className="scroll-mt-6" aria-labelledby={`${formId}-heading`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id={`${formId}-heading`} className="text-lg font-medium tracking-[-0.02em]">Tools</h2>
           <TextureButton
@@ -243,9 +247,10 @@ export function ToolsDirectory() {
       ) : (
         <>
           {tools.length ? (
-            <ul aria-label="Tools" className="mt-5 flex flex-col gap-2">
+            <>
+            <ul key={JSON.stringify([search, category, sort, pagination.page])} aria-label="Tools" className="mt-5 flex flex-col gap-2">
               <AnimatePresence initial={false}>
-              {tools.map((tool) => {
+              {pagination.items.map((tool) => {
                 const target = `tool:${tool.id}`;
                 return (
                   <ToolRow key={tool.id} pendingValue={vote.isPending && vote.variables?.target === target ? vote.variables.value : null} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || community.isError || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
@@ -253,6 +258,8 @@ export function ToolsDirectory() {
               })}
               </AnimatePresence>
             </ul>
+            <Pagination {...pagination} label="Tools" onPageChange={pagination.changePage} />
+            </>
           ) : (
             <div role="status" className="py-12 text-center">
               <p className="text-sm text-t2">{search || category !== "all" ? "No tools match these filters." : "No tools shared yet."}</p>

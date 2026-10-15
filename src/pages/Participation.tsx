@@ -11,6 +11,7 @@ import { Dock } from "@/components/dock";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
+import { PaginatedList } from "@/components/pagination";
 import { ParticipationSkeleton } from "@/components/site-skeleton";
 import { useCommunity } from "@/hooks/use-community";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -195,7 +196,7 @@ export default function Participation() {
           </section>}
 
           <Panel header={<PanelHeader title="Projects to review" subtitle={`${data.projects.length} in the circle`} />}>
-            {data.projects.length ? <ul>{data.projects.map((project) => <Item key={project.id} action={<>
+            {data.projects.length ? <PaginatedList items={data.projects} label="Projects to review" resetKey={String(profile?.id)} disabled={busy}>{(project) => <Item key={project.id} action={<>
               {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "review", id: project.id, title: project.title })}>Give feedback</MetalButton>}
               {mine(project.owner) && project.status !== "closed" && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</MetalButton>}
             </>}>
@@ -206,14 +207,14 @@ export default function Participation() {
               <p className="text-xs text-t3">@{project.owner} · {project.reviews} confirmed reviews{project.skills?.length ? ` · ${project.skills.join(", ")}` : ""}</p>
               {project.feedbackWanted && <p className="break-words text-sm text-t3">Feedback wanted: {project.feedbackWanted}</p>}
               {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
-            </Item>)}</ul> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
+            </Item>}</PaginatedList> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
             <FormFooter>
               <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
           <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
-            {data.help.length ? <ul>{data.help.map((help) => <Item key={help.id} action={<>
+            {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
               {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "answer", id: help.id, title: help.owner })}>Help with this</MetalButton>}
               {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
               {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
@@ -221,20 +222,20 @@ export default function Participation() {
               <p className="break-words text-sm text-foreground">{help.question}</p>
               <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
               {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
-            </Item>)}</ul> : <Empty>No open help requests.</Empty>}
+            </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
             <FormFooter>
               <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500 }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
           <Panel header={<PanelHeader title="Feedback" subtitle="Given and received." />}>
-            {data.contributions.length ? <ul>{data.contributions.map((entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
+            {data.contributions.length ? <PaginatedList items={data.contributions} label="Feedback" resetKey={String(profile?.id)} disabled={busy}>{(entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
               <MetalButton size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: true })}>Confirm useful</MetalButton>
               <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: false })}>Needs more detail</MetalButton>
             </> : undefined}>
               <div className="flex flex-wrap items-center gap-2 text-xs text-t4"><span>@{entry.by} → @{entry.for}</span><Chip tone={statusTone(entry.status)}>{entry.status}</Chip></div>
               <p className="break-words text-sm text-t2">{entry.text}</p>
-            </Item>)}</ul> : <Empty>Your submitted and received feedback will appear here.</Empty>}
+            </Item>}</PaginatedList> : <Empty>Your submitted and received feedback will appear here.</Empty>}
           </Panel>
 
           <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>

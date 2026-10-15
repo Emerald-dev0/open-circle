@@ -1,12 +1,13 @@
+import { apiHandler } from "../server/api-security.js";
 import { requireSameOriginJson } from "../server/community.js";
-import { handle, json, readJson } from "../server/http.js";
+import { json, readJson } from "../server/http.js";
 import { MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
 import { getPortfolioStore } from "../server/portfolio-store.js";
 import { PORTFOLIO_HEADERS, portfolioEditorState, portfolioRateLimit, readPublicPortfolio, requirePortfolioOrigin, requirePortfolioOwner, savePortfolio } from "../server/portfolio.js";
 import { clientKey } from "../server/rate-limit.js";
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const slug = new URL(req.url).searchParams.get("slug");
     if (slug !== null) {
       await portfolioRateLimit(req, clientKey(req), "read");
@@ -18,7 +19,7 @@ export function GET(req: Request): Promise<Response> {
 }
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     requirePortfolioOrigin(req);
     requireSameOriginJson(req);
     const profile = await requirePortfolioOwner(req);

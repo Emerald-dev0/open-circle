@@ -3,7 +3,6 @@ import { MetalBadge } from "metal-fx";
 import { motion } from "motion/react";
 import type { PublicMember } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TextureButton } from "@/components/ui/texture-button";
 import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
@@ -29,6 +28,7 @@ function Row({
       layout="position"
       id={`member-${id}`}
       role="row"
+      aria-rowindex={member.rank - 2}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ layout: { type: "spring", stiffness: 420, damping: 38 }, opacity: { duration: 0.25 } }}
@@ -114,15 +114,13 @@ export function RankTable({
   members,
   meId,
   flashId,
-  limit,
-  onShowAll,
+  total = members.length,
 }: {
   /** Members ranked 4 and below, in rank order. */
   members: PublicMember[];
   meId?: string | null;
   flashId?: string | null;
-  limit?: number;
-  onShowAll?: () => void;
+  total?: number;
 }) {
   if (members.length === 0) {
     return (
@@ -132,14 +130,9 @@ export function RankTable({
     );
   }
 
-  const shown = limit ? members.slice(0, limit) : members;
-  // Past the cut-off, still show your own row so you can always find yourself.
-  const me = limit && meId ? members.slice(limit).find((m) => m.login.toLowerCase() === meId) : undefined;
-  const hiddenCount = members.length - shown.length;
-
   return (
     <div>
-      <div role="table" aria-label="Ranks 4 and below" aria-rowcount={members.length + 1}>
+      <div role="table" aria-label="Ranks 4 and below" aria-rowcount={total + 1}>
         <div role="rowgroup">
           <div role="row" className={cn(GRID, "px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-t4 md:px-5")}>
             <span role="columnheader">#</span>
@@ -154,26 +147,12 @@ export function RankTable({
           </div>
         </div>
         <div role="rowgroup" className="space-y-1">
-          {shown.map((m, i) => {
+          {members.map((m, i) => {
             const id = m.login.toLowerCase();
             return <Row key={id} member={m} index={i} isMe={id === meId} flash={id === flashId} />;
           })}
-          {me && (
-            <>
-              <div aria-hidden className="py-1 text-center text-xs tracking-[0.3em] text-t4">···</div>
-              <Row member={me} index={0} isMe flash={me.login.toLowerCase() === flashId} />
-            </>
-          )}
         </div>
       </div>
-
-      {hiddenCount > 0 && onShowAll && (
-        <div className="mt-4 flex justify-center">
-          <TextureButton variant="minimal" size="sm" className="w-auto" onClick={onShowAll}>
-            Show all {formatFull(members.length + 3)} members
-          </TextureButton>
-        </div>
-      )}
     </div>
   );
 }

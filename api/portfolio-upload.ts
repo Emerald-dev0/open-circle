@@ -1,9 +1,10 @@
-import { handle, json } from "../server/http.js";
+import { apiHandler } from "../server/api-security.js";
+import { json } from "../server/http.js";
 import { PORTFOLIO_HEADERS, portfolioRateLimit, requirePortfolioOrigin, requirePortfolioOwner } from "../server/portfolio.js";
 import { uploadPortfolioImage } from "../server/portfolio-upload.js";
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     requirePortfolioOrigin(req);
     const profile = await requirePortfolioOwner(req);
     await portfolioRateLimit(req, String(profile.id), "upload");

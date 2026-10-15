@@ -1,10 +1,11 @@
+import { apiHandler } from "../server/api-security.js";
 import { getCommunityStore } from "../server/community-store.js";
 import { readCommunity, visitor } from "../server/community.js";
-import { handle, json } from "../server/http.js";
+import { json } from "../server/http.js";
 import { githubProfile, githubSignInAvailable, profileActor } from "../server/github-auth.js";
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const session = visitor(req);
     const store = getCommunityStore();
     const profile = await githubProfile(req, store);

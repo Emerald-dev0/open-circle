@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { CheckIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
+import { Pagination } from "@/components/pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
 import { COMMUNITY_KEY } from "@/hooks/use-community";
@@ -39,11 +41,12 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
   useErrorToast(community.isError || null, "Couldn't load shared tools.", { id: "tools-moderation-load", retry: () => community.refetch() });
   useErrorToast(action.error, "That didn't work. Try again.");
 
+  const pagination = usePagination(tools, 20, status);
   const all = community.data ?? [];
   const pendingCount = all.filter((tool) => tool.status !== "approved").length;
 
   return (
-    <section aria-labelledby="moderate-tools-title">
+    <section ref={pagination.regionRef} tabIndex={-1} className="scroll-mt-6" aria-labelledby="moderate-tools-title">
       <Panel
         header={
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -64,9 +67,9 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
         ) : tools.length === 0 ? (
           <p className="py-8 text-center text-sm text-t3">{all.length ? "No tools match this filter." : "No community submissions yet."}</p>
         ) : (
-          <ul>
+          <ul key={`${status}:${pagination.page}`} aria-label="Tool review">
             <AnimatePresence initial={false}>
-              {tools.map((tool) => (
+              {pagination.items.map((tool) => (
                 <motion.li
                   key={tool.id}
                   layout="position"
@@ -102,6 +105,7 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
             </AnimatePresence>
           </ul>
         )}
+        {!community.isPending && <Pagination {...pagination} label="Tool review" disabled={action.isPending} onPageChange={pagination.changePage} />}
       </Panel>
     </section>
   );

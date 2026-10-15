@@ -1,9 +1,10 @@
-import { handle, HttpError, json } from "../server/http.js";
+import { apiHandler } from "../server/api-security.js";
+import { HttpError, json } from "../server/http.js";
 import { listPortfolioRepositories, portfolioGitHubDetails, portfolioRepositoryReadme } from "../server/portfolio-github.js";
 import { PORTFOLIO_HEADERS, portfolioRateLimit, requirePortfolioOwner } from "../server/portfolio.js";
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const profile = await requirePortfolioOwner(req);
     await portfolioRateLimit(req, String(profile.id), "github");
     const params = new URL(req.url).searchParams;

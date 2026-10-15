@@ -41,7 +41,7 @@ Errors have a consistent shape:
 }
 ```
 
-The `field` property is optional. Validation failures return 400, missing profiles return 404, identity conflicts return 409, organisation profiles return 422, throttled requests return 429, and unavailable GitHub or storage returns 503. JSON request bodies are limited to 4 KiB. Unexpected failures return 500 without exposing their internal details to the client.
+The `field` property is optional. Validation failures return 400, missing profiles return 404, identity conflicts return 409, organisation profiles return 422, throttled requests return 429, and unavailable GitHub or storage returns 503. JSON request bodies are limited to 4 KiB, except portfolio drafts (125 KiB). Portfolio image uploads retain their separate 3 MiB limit. Unexpected failures return 500 without exposing their internal details to the client.
 
 Profile previews and registration have one-minute request limits:
 
@@ -55,3 +55,15 @@ These limits protect the lookup and registration paths from repeated requests. G
 Community writes require same-origin JSON requests and the visitor cookie established by `GET /api/community`; voting and sharing require cookies to be enabled. Votes are limited to 60 requests per minute for both the client IP and visitor. Tool submissions are limited to five per hour for both. Rejected requests return 429 with `Retry-After`. Community request/response contracts live in `shared/community.ts`, with shared tool validation in `shared/tool-validation.ts`.
 
 Analytics counts distinct browsers using a separate HttpOnly cookie and stores only its namespaced hash, daily totals, allowlisted public paths and referral hostnames. It does not store IP addresses, referral paths or query strings. Known bot user agents, DNT/GPC opt-outs and admin paths are excluded. Blocked scripts, disabled cookies and multiple devices affect the audience counts. Returning visitors visited on at least two UTC days within the selected period. Referral totals count page views, with missing or internal referrals grouped as Direct. New visits prune records to a 180-day window; Redis also expires old records automatically. The collection start timestamp remains. Previous-period traffic comparisons appear only after a complete prior period has been collected. Growth counts use existing member and tool creation dates and exclude deleted records. The write endpoint permits 240 requests per IP and 60 per anonymous browser per minute; the existing request limiter handles IP keys separately from analytics records.
+
+## Shared request protection
+
+Every API handler uses `server/api-security.ts`. Handled API requests share a limit of 240 requests per client IP per minute across endpoints and cookies, alongside the narrower operation and account limits above. OAuth callbacks also allow 30 attempts per IP per minute; starting sign-in allows 20 per hour. Throttled responses include `Retry-After`, and storage failures do not bypass enforcement.
+
+Mutations require the appropriate content type and reject foreign origins, opaque origins and requests marked as coming from a sibling site. JSON is required except for the image upload endpoint, which accepts PNG, JPEG and WebP. Requests without browser origin metadata remain available to direct API clients; the normal authorization and rate limits still apply. CORS is not enabled. URLs are limited to 4,096 characters, and declared body sizes are checked before the Node and Vite adapters buffer them. Existing streaming byte limits also apply when Content-Length is absent or inaccurate.
+
+API responses include `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and `X-Robots-Tag: noindex`. Responses default to `Cache-Control: no-store`; the public board retains its explicit revalidation/CDN policy. Unsupported methods return JSON 405 responses with `Allow`, and unknown API paths return JSON 404 responses. The standalone Node server limits request time to 30 seconds, headers to 10 seconds and header bytes to 16 KiB.
+
+IP keys use the trusted adapter/platform client address, hash it before storage, normalize IPv4-mapped addresses and group IPv6 addresses by /64. Arbitrary `X-Forwarded-For` values are not trusted by handlers. On Node, only `TRUST_PROXY=1` enables the adapter's final forwarded address; enable it only when a trusted proxy appends or overwrites that header and direct access to the app is restricted.
+
+These controls limit abusive traffic; they do not establish ownership of anonymous registration details or turn repository browser votes into verified-person votes. The existing identity limits are described in the [app reference](reference.md#privacy-and-current-limits).

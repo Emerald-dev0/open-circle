@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import type { Plugin } from "vite";
-import { handle, HttpError, MAX_REQUEST_BYTES } from "./http.js";
-import { MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
+import { handle, HttpError, json, MAX_REQUEST_BYTES } from "./http.js";
+import { apiBodyLimit, validateApiRequest } from "./api-security.js";
 
 export async function readBody(
   req: IncomingMessage,
@@ -41,12 +41,20 @@ export function devApi(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url ?? "/", "http://localhost");
         const match = /^\/api\/([a-z-]+)\/?$/.exec(url.pathname);
-        if (!match) return next();
+        if (!match) {
+          if (url.pathname !== "/api" && !url.pathname.startsWith("/api/")) return next();
+          const response = json({ error: { code: "not_found", message: "That endpoint does not exist." } }, 404);
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          res.statusCode = response.status;
+          return res.end(await response.text());
+        }
 
         const file = path.resolve(server.config.root, "api", `${match[1]}.ts`);
         if (!existsSync(file)) {
-          res.statusCode = 404;
-          return res.end();
+          const response = json({ error: { code: "not_found", message: "That endpoint does not exist." } }, 404);
+          response.headers.forEach((value, key) => res.setHeader(key, value));
+          res.statusCode = response.status;
+          return res.end(await response.text());
         }
 
         try {
@@ -55,9 +63,11 @@ export function devApi(): Plugin {
           const handler = mod[method] as
             | ((r: Request) => Promise<Response>)
             | undefined;
-          if (!handler) {
-            res.statusCode = 405;
-            return res.end();
+          if (typeof handler !== "function" || !["GET", "POST", "PATCH", "DELETE"].includes(method)) {
+            const response = json({ error: { code: "method_not_allowed", message: "That method is not supported." } }, 405, { allow: Object.keys(mod).filter((key) => /^(GET|POST|PATCH|DELETE)$/.test(key)).join(", ") });
+            response.headers.forEach((value, key) => res.setHeader(key, value));
+            res.statusCode = response.status;
+            return res.end(await response.text());
           }
 
           const headers = new Headers();
@@ -69,10 +79,11 @@ export function devApi(): Plugin {
             req.socket.remoteAddress ?? "127.0.0.1",
           );
           const response = await handle(async () => {
+            validateApiRequest(new Request(new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`), { method, headers }));
             const body =
               method === "GET" || method === "HEAD"
                 ? undefined
-                : await readBody(req, match[1] === "portfolio-upload" ? MAX_IMAGE_BYTES : match[1] === "portfolio" ? MAX_PORTFOLIO_BYTES : undefined);
+                : await readBody(req, apiBodyLimit(url.pathname));
             return handler(
               new Request(
                 new URL(

@@ -1,11 +1,12 @@
+import { apiHandler } from "../server/api-security.js";
 import { previewProfile } from "../server/board.js";
 import { getStore } from "../server/db.js";
-import { handle, HttpError, json, readJson } from "../server/http.js";
+import { HttpError, json, readJson } from "../server/http.js";
 import { enforcePublicRateLimit } from "../server/rate-limit.js";
 import { parseNickname } from "../shared/validation.js";
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const input = new URL(req.url).searchParams.get("u") ?? "";
     const store = getStore();
     await enforcePublicRateLimit(req, store, "preview", input);
@@ -15,7 +16,7 @@ export function GET(req: Request): Promise<Response> {
 }
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const body = await readJson(req) as { github?: unknown; whatsapp?: unknown; nickname?: unknown } | null;
     const store = getStore();
     await enforcePublicRateLimit(req, store, "preview", body?.github);

@@ -391,7 +391,7 @@ describe("Community leaderboard pages", () => {
     expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
   });
 
-  it("joins from the repository view and reveals a member placed past the table's first 50 rows", async () => {
+  it("joins from the repository view and opens the page containing the new member", async () => {
     const store = new TestStore();
     for (let i = 1; i <= 54; i += 1) {
       await store.createMember(memberRecord({ login: `member-${i}`, displayLogin: `member-${i}`, nickname: `Member ${i}`, whatsapp: `+44770090${String(i).padStart(4, "0")}`, stars: 1000 - i, projects: [] }));
@@ -416,7 +416,11 @@ describe("Community leaderboard pages", () => {
     expect(within(row).getByText("55")).toBeTruthy();
     expect(within(row).getByText("Octo")).toBeTruthy();
     expect(within(row).getByText("You")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Show all .*members/ })).toBeNull();
+    const pagination = within(screen.getByRole("navigation", { name: "Developers pagination" }));
+    expect(pagination.getByText("Page 3 of 3")).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(13);
+    await user.click(pagination.getByRole("button", { name: "Previous" }));
+    await waitFor(() => expect(document.getElementById("member-octocat")).toBeNull());
     expect(client.getQueryData<Board>(BOARD_KEY)?.members.at(-1)).toMatchObject({ login: "Octocat", rank: 55 });
   });
 

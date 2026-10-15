@@ -150,3 +150,9 @@ GitHub lookup confirms that a personal profile exists. It does not prove that th
 Members cannot currently edit their nickname or number themselves. An organiser can remove the record so they can register again. Repeating a registration with the same GitHub login and phone returns the existing entry; it does not update its nickname.
 
 Do not post tokens, real phone numbers, admin responses or data-store exports in issues or pull requests. Report sensitive security or privacy problems privately to a group organiser before sharing details publicly.
+
+## List pagination
+
+Developer ranks below the podium, repositories, tools, admin members and tool review show 20 items per page. Projects, help requests and feedback show 10; catch-up updates and upcoming sessions show five. Page controls show the current range, provide previous/next navigation on phones and add page buttons on wider screens. Filtering or changing sort order returns to page one. If an item is removed and the current page disappears, the list moves to the last available page.
+
+Pagination happens after filtering and sorting the shared snapshots. The board and community API responses still contain their full snapshots, preserving ranking, signup lookup, counts and polling behavior. This bounds rendered rows, not response size. The portfolio repository picker retains its existing paged GitHub requests. Finding your rank opens the page containing that member, including immediately after registration.

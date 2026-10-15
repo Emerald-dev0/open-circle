@@ -1,15 +1,16 @@
+import { apiHandler } from "../server/api-security.js";
 import { authorize } from "../server/admin.js";
 import { analyticsVisitor, ignoreTraffic, parseVisit, readAnalytics } from "../server/analytics.js";
 import { getAnalyticsStore } from "../server/analytics-store.js";
 import { requireSameOriginJson } from "../server/community.js";
 import { getCommunityStore } from "../server/community-store.js";
 import { getStore } from "../server/db.js";
-import { handle, HttpError, json, readJson } from "../server/http.js";
+import { HttpError, json, readJson } from "../server/http.js";
 import { clientKey } from "../server/rate-limit.js";
 import type { AnalyticsDays } from "../shared/analytics.js";
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     requireSameOriginJson(req);
     if (ignoreTraffic(req)) return json({ ok: true }, 200, { "cache-control": "no-store" });
     const input = parseVisit(req, await readJson(req));
@@ -26,7 +27,7 @@ export function POST(req: Request): Promise<Response> {
 }
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     await authorize(req);
     const days = Number(new URL(req.url).searchParams.get("days") ?? "30");
     if (![7, 30, 90].includes(days)) throw new HttpError(400, "invalid_period", "Choose 7, 30 or 90 days.");

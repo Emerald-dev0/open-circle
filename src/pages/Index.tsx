@@ -7,6 +7,8 @@ import { useLocation, useMatch, useNavigate } from "react-router-dom";
 import { FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import type { PublicMember, PublicRepository } from "@shared/types";
+import { Pagination } from "@/components/pagination";
+import { PAGE_SIZE, usePagination } from "@/hooks/use-pagination";
 import { HowItWorks } from "@/components/board/how-it-works";
 import {
   LeaderboardPodium,
@@ -28,8 +30,6 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { pageFor } from "@shared/seo";
 import { formatCount, formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
-
-const TABLE_LIMIT = 50;
 
 function toEntry(m: PublicMember): LeaderboardEntry {
   const id = m.login.toLowerCase();
@@ -121,7 +121,7 @@ const Index = () => {
   const { data: community } = useCommunity();
   const [me, setMe] = useState<string | null>(readMe);
   const [flashId, setFlashId] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [locateRequest, setLocateRequest] = useState<{ id: string } | null>(null);
   const [now, setNow] = useState(Date.now);
   const flashTimer = useRef<number | undefined>(undefined);
 
@@ -129,6 +129,8 @@ const Index = () => {
   const currentMember = members.find((member) => member.login.toLowerCase() === me);
   const podium = useMemo(() => members.slice(0, 3).map(toEntry), [members]);
   const rest = useMemo(() => members.slice(3), [members]);
+  const pagination = usePagination(rest);
+  const setMemberPage = pagination.setPage;
   const repoPodium = useMemo(() => (board?.repositories ?? []).slice(0, 3).map(repoEntry), [board]);
   const repositories = board?.repositories ?? [];
   const toolCount = community?.tools.length ?? 0;
@@ -146,27 +148,28 @@ const Index = () => {
     (login: string) => {
       const id = login.toLowerCase();
       navigate("/", { replace: true });
-      setShowAll(true);
+      setLocateRequest({ id });
       window.clearTimeout(flashTimer.current);
       setFlashId(null);
-      // Let the result card finish opening first; layout moving under a
-      // smooth scroll cancels it. Also restarts the flash.
-      flashTimer.current = window.setTimeout(() => {
-        setFlashId(id);
-        document
-          .getElementById(`member-${id}`)
-          ?.scrollIntoView({
-            behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-              .matches
-              ? "auto"
-              : "smooth",
-            block: "center",
-          });
-        flashTimer.current = window.setTimeout(() => setFlashId(null), 1700);
-      }, 450);
     },
     [navigate],
   );
+
+  useEffect(() => {
+    if (!locateRequest || !members.some((member) => member.login.toLowerCase() === locateRequest.id)) return;
+    const { id } = locateRequest;
+    const index = rest.findIndex((member) => member.login.toLowerCase() === id);
+    setMemberPage(index < 0 ? 1 : Math.floor(index / PAGE_SIZE) + 1);
+    setLocateRequest(null);
+    flashTimer.current = window.setTimeout(() => {
+      setFlashId(id);
+      document.getElementById(`member-${id}`)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "center",
+      });
+      flashTimer.current = window.setTimeout(() => setFlashId(null), 1700);
+    }, 450);
+  }, [locateRequest, members, rest, setMemberPage]);
 
   useEffect(() => {
     if (location.pathname !== "/") return;
@@ -254,7 +257,6 @@ const Index = () => {
             <Tabs
               value={activeTab}
               onValueChange={(value) => {
-                setShowAll(false);
                 navigate(value === "developers" ? "/" : `/${value}`);
               }}
             >
@@ -309,14 +311,14 @@ const Index = () => {
                     />
                   )}
 
-                  {!isPending && members.length > 0 && <div className="mt-4 sm:mt-6">
+                  {!isPending && members.length > 0 && <div ref={pagination.regionRef} tabIndex={-1} className="mt-4 scroll-mt-6 sm:mt-6">
                     <RankTable
-                      members={rest}
+                      members={pagination.items}
+                      total={pagination.total}
                       meId={me}
                       flashId={flashId}
-                      limit={showAll ? undefined : TABLE_LIMIT}
-                      onShowAll={() => setShowAll(true)}
                     />
+                    <Pagination {...pagination} label="Developers" onPageChange={pagination.changePage} />
                   </div>}
                 </TabPanel>
                 </TabsContent>

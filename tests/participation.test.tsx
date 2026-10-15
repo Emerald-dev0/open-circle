@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -103,4 +103,25 @@ it('shows catch-up and sessions, saves mentor preferences and keeps failed draft
   await screen.findByRole('link',{name:'Sign in with GitHub'});
   expect(screen.queryByText('First community task')).toBeNull();
   expect(screen.getByText('Start here')).toBeTruthy();
+});
+
+it('paginates projects, help and feedback independently while keeping later-page actions usable',async()=>{
+  const data:ParticipationState={...initial,projects:Array.from({length:12},(_,index)=>({...initial.projects[0],id:`project_${index}`,title:`Project ${index}`})),help:Array.from({length:12},(_,index)=>({id:`help_${index}`,owner:'Bob',question:`Question ${index}`,createdAt:1,status:'open'})),contributions:Array.from({length:12},(_,index)=>({id:`feedback_${index}`,by:'Bob',for:'Alice',kind:'review',targetId:'project_1',text:`Feedback ${index}`,status:'pending',createdAt:1}))};
+  mount(data);
+  await screen.findByRole('list',{name:'Projects to review'});
+  const user=userEvent.setup();
+  const nav=(name:string)=>within(screen.getByRole('navigation',{name:`${name} pagination`}));
+  expect(within(screen.getByRole('list',{name:'Projects to review'})).getAllByRole('listitem')).toHaveLength(10);
+  await user.click(nav('Projects to review').getByRole('button',{name:'Next'}));
+  expect(within(screen.getByRole('list',{name:'Projects to review'})).getAllByRole('listitem')).toHaveLength(2);
+  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(10);
+  await user.click(within(screen.getByText('Project 10').closest('li')!).getByRole('button',{name:'Give feedback'}));
+  expect(screen.getByText('Feedback for Project 10')).toBeTruthy();
+  await user.click(nav('Help requests').getByRole('button',{name:'Next'}));
+  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(2);
+  await user.click(nav('Feedback').getByRole('button',{name:'Next'}));
+  expect(within(screen.getByRole('list',{name:'Feedback'})).getAllByRole('listitem')).toHaveLength(2);
+  vi.mocked(api.participate).mockResolvedValue(data);
+  await user.click(within(screen.getByText('Feedback 10').closest('li')!).getByRole('button',{name:'Confirm useful'}));
+  await waitFor(()=>expect(api.participate).toHaveBeenCalledWith({action:'confirm',id:'feedback_10',approve:true},expect.anything()));
 });

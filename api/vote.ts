@@ -1,11 +1,12 @@
+import { apiHandler } from "../server/api-security.js";
 import { getStore } from "../server/db.js";
 import { getCommunityStore } from "../server/community-store.js";
 import { communityRateLimit, profileVote, requireSameOriginJson, visitor, vote } from "../server/community.js";
 import { githubProfile, profileActor } from "../server/github-auth.js";
-import { handle, HttpError, json, readJson } from "../server/http.js";
+import { HttpError, json, readJson } from "../server/http.js";
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     requireSameOriginJson(req);
     const input = await readJson(req);
     const target = (input as { target?: unknown } | null)?.target;

@@ -4,7 +4,7 @@ import { CURATED_TOOLS } from "../shared/tools.js";
 import { parseToolInput } from "../shared/tool-validation.js";
 import { readBoard, rebuildBoard } from "./board.js";
 import type { CommunityStore } from "./community-contract.js";
-import { HttpError } from "./http.js";
+import { HttpError, requireSameOrigin } from "./http.js";
 import { clientKey } from "./rate-limit.js";
 import type { Store } from "./store.js";
 
@@ -28,9 +28,7 @@ export function visitor(req: Request, requireExisting = false): { actor: string;
 }
 
 export function requireSameOriginJson(req: Request): void {
-  const origin = req.headers.get("origin");
-  if ((origin && origin !== new URL(req.url).origin) || req.headers.get("sec-fetch-site") === "cross-site")
-    throw new HttpError(403, "cross_origin", "Open this page directly to make changes.");
+  requireSameOrigin(req);
   if (req.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/json")
     throw new HttpError(415, "json_required", "Send this request as JSON.");
 }

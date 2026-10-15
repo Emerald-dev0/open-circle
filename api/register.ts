@@ -1,10 +1,11 @@
+import { apiHandler } from "../server/api-security.js";
 import { register } from "../server/board.js";
 import { getStore } from "../server/db.js";
-import { handle, json, readJson } from "../server/http.js";
+import { json, readJson } from "../server/http.js";
 import { enforcePublicRateLimit } from "../server/rate-limit.js";
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const body = await readJson(req);
     const store = getStore();
     const github = (body as { github?: unknown } | null)?.github;

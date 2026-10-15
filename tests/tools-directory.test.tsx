@@ -77,6 +77,23 @@ beforeEach(() => {
 afterEach(() => clients.splice(0).forEach((client) => client.clear()));
 
 describe("Community tools directory", () => {
+  it("paginates the directory and resets to the first page for search and sort changes", async () => {
+    communityMock.query.data!.tools = Array.from({ length: 45 }, (_, index) => ({ ...fixtures[0], id: `tool-${index}`, name: `Tool ${String(index).padStart(2, "0")}` }));
+    renderDirectory();
+    const user = userEvent.setup();
+    const nav = () => within(screen.getByRole("navigation", { name: "Tools pagination" }));
+    expect(listedNames()).toHaveLength(20);
+    await user.click(nav().getByRole("button", { name: "Next" }));
+    expect(listedNames()[0]).toBe("Tool 20 (opens in a new tab)");
+    await chooseOption(user, "Sort tools", "Name");
+    expect(listedNames()[0]).toBe("Tool 00 (opens in a new tab)");
+    await user.click(nav().getByRole("button", { name: "Go to page 3" }));
+    expect(listedNames()).toHaveLength(5);
+    await user.type(screen.getByRole("searchbox", { name: "Search tools" }), "Tool 01");
+    expect(listedNames()).toEqual(["Tool 01 (opens in a new tab)"]);
+    expect(screen.queryByRole("navigation", { name: "Tools pagination" })).toBeNull();
+  });
+
   it("supports downvotes, switching direction and removing a downvote", async () => {
     communityMock.query.data!.toolVotes = { "tool:docs": -1 };
     communityMock.query.data!.counts["tool:docs"] = -2;

@@ -1,8 +1,9 @@
+import { apiHandler } from "../server/api-security.js";
 import { getCommunityStore } from "../server/community-store.js";
 import { getStore } from "../server/db.js";
 import { githubProfile } from "../server/github-auth.js";
 import { requireSameOriginJson } from "../server/community.js";
-import { handle, HttpError, json, readJson } from "../server/http.js";
+import { HttpError, json, readJson } from "../server/http.js";
 import { enforcePublicRateLimit } from "../server/rate-limit.js";
 import { coordinationRequest } from "../server/participation.js";
 import { parseWhatsappNumber } from "../shared/validation.js";
@@ -15,7 +16,7 @@ async function signedIn(req: Request) {
 }
 
 export function GET(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     const profile = await signedIn(req);
     await enforcePublicRateLimit(req, getStore(), "preview", profile.login);
     return json(await coordinationRequest<ParticipationState>("profile", { login: profile.login }), 200, { "cache-control": "private, no-store" });
@@ -23,7 +24,7 @@ export function GET(req: Request): Promise<Response> {
 }
 
 export function POST(req: Request): Promise<Response> {
-  return handle(async () => {
+  return apiHandler(req, async () => {
     requireSameOriginJson(req);
     const profile = await signedIn(req);
     await enforcePublicRateLimit(req, getStore(), "register", profile.login);

@@ -10,6 +10,8 @@ import { useCommunity, useCommunityVote } from "@/hooks/use-community";
 import { formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { RepositoryTable } from "./repository-table";
+import { Pagination } from "@/components/pagination";
+import { usePagination } from "@/hooks/use-pagination";
 import { CommunityVotesSkeleton } from "@/components/site-skeleton";
 
 const SAVED_KEY = "opencircle:saved-repositories:v1";
@@ -38,7 +40,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   const [language, setLanguage] = useState("");
   const [sort, setSort] = useState<Sort>("stars");
   const [saved, setSaved] = useState(readSaved);
-  const [limit, setLimit] = useState(50);
   const counts = community.data?.counts ?? EMPTY_COUNTS;
   const voted = useMemo(() => new Set(community.data?.voted ?? []), [community.data?.voted]);
   const languages = useMemo(
@@ -72,6 +73,8 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
     }).map((repo, index) => ({ ...repo, rank: index + 1 }));
   }, [repositories, language, search, sort, counts]);
 
+  const pagination = usePagination(visible, 20, JSON.stringify([search, language, sort]));
+
   function toggleSaved(id: string) {
     const next = new Set(saved);
     if (next.has(id)) next.delete(id);
@@ -87,7 +90,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   function resetFilters() {
     setSearch("");
     setLanguage("");
-    setLimit(50);
   }
 
   const hasFilters = Boolean(search || language);
@@ -99,7 +101,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="space-y-5">
+      <div ref={pagination.regionRef} tabIndex={-1} className="scroll-mt-6 space-y-5">
         <div className="space-y-3">
           {/* Phones: search plus a filter toggle on one line; the selects open
               underneath. From sm up all three sit inline. Same as Tools. */}
@@ -111,7 +113,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
                 aria-label="Search repositories"
                 placeholder="Search repositories or builders"
                 value={search}
-                onChange={(event) => { setSearch(event.target.value); setLimit(50); }}
+                onChange={(event) => setSearch(event.target.value)}
                 className="field pl-11 text-base sm:text-[15px]"
               />
             </div>
@@ -139,14 +141,14 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
                 <SharedSelect
                   aria-label="Filter by language"
                   value={language || "all"}
-                  onValueChange={(value) => { setLanguage(value === "all" ? "" : value); setLimit(50); }}
+                  onValueChange={(value) => setLanguage(value === "all" ? "" : value)}
                   options={[{ value: "all", label: "All languages" }, ...languages.map((item) => ({ value: item, label: item }))]}
                   className="min-w-0 text-sm"
                 />
                 <SharedSelect
                   aria-label="Sort repositories"
                   value={sort}
-                  onValueChange={(value) => { setSort(value as Sort); setLimit(50); }}
+                  onValueChange={(value) => setSort(value as Sort)}
                   options={[{ value: "stars", label: "Most stars" }, { value: "votes", label: "Community upvotes" }, { value: "updated", label: "Recently updated" }]}
                   className="min-w-0 text-sm"
                 />
@@ -162,10 +164,10 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
         {community.isPending && <CommunityVotesSkeleton />}
 
         {visible.length > 0 ? (
+          <>
           <RepositoryTable
-            repositories={visible}
-            limit={limit}
-            onShowAll={() => setLimit(visible.length)}
+            key={JSON.stringify([search, language, sort, pagination.page])}
+            repositories={pagination.items}
             label={`Repositories ranked by ${SORT_LABELS[sort]}`}
             counts={counts}
             voted={voted}
@@ -175,6 +177,8 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}
           />
+          <Pagination {...pagination} label="Repositories" onPageChange={pagination.changePage} />
+          </>
         ) : (
           <div className="surface-quiet rounded-[28px] px-5 py-8 text-center">
             <p className="text-sm text-foreground">{repositories.length === 0 ? "No repositories yet." : "No repositories match your filters."}</p>

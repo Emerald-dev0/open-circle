@@ -50,6 +50,21 @@ function renderAdmin(path = "/admin") {
 }
 
 describe("Admin access and management", () => {
+  it("paginates private member records and returns to the first page when searching", async () => {
+    state.members = Array.from({ length: 45 }, (_, index) => ({ ...state.members[0], login: `member-${index}`, nickname: `Member ${index}`, rank: index + 1 }));
+    vi.mocked(api.adminState).mockResolvedValue(state);
+    renderAdmin();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: "Members" }));
+    const nav = () => within(screen.getByRole("navigation", { name: "Members pagination" }));
+    expect(within(screen.getByRole("list", { name: "Members" })).getAllByRole("listitem")).toHaveLength(20);
+    await user.click(nav().getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("button", { name: "Hide Member 20" })).toBeTruthy();
+    await user.type(screen.getByRole("searchbox", { name: "Search members" }), "Member 1");
+    expect(screen.getByRole("button", { name: "Hide Member 1" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Members pagination" })).toBeNull();
+  });
+
   it("shows GitHub sign-in without requesting private data or using a stored legacy secret", async () => {
     sessionStorage.setItem("devechleon:admin", "old-secret");
     vi.mocked(api.adminSession).mockResolvedValue({ configured: true, profile: null });

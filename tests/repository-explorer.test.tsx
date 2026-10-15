@@ -44,6 +44,30 @@ beforeEach(() => {
 });
 
 describe("Repository discovery", () => {
+  it("keeps long repository names, owners and exact GitHub counts available alongside community actions", async () => {
+    const name = "repository-".repeat(12);
+    const ownerLogin = "builder-".repeat(4);
+    const repo = { ...repositories[0], name, ownerLogin, fullName: `${ownerLogin}/${name}`, stars: 1_234_567, forks: 12_345 };
+    render(explorer([repo]));
+
+    const link = screen.getByRole("link", { name: `${name} (opens in a new tab)` });
+    const row = link.closest("li")!;
+    expect(link.getAttribute("href")).toBe(repo.url);
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(within(row).getByLabelText("Rank 1").textContent).toBe("#1");
+    expect(within(row).getByText(`@${ownerLogin}`)).toBeTruthy();
+    expect(within(row).getByText("TypeScript")).toBeTruthy();
+    expect(within(row).getByLabelText("1,234,567 GitHub stars").textContent).toContain("1.2M");
+    expect(within(row).getByLabelText("12,345 forks").textContent).toContain("12.3K");
+    expect(within(row).getByLabelText(`2 upvotes for ${repo.fullName}`).textContent).toBe("2");
+
+    const user = userEvent.setup();
+    await user.click(within(row).getByRole("button", { name: `Save ${repo.fullName}` }));
+    expect(within(row).getByRole("button", { name: `Unsave ${repo.fullName}` }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(within(row).getByRole("button", { name: `Upvote ${repo.fullName}` }));
+    expect(mutate).toHaveBeenCalledWith({ target: "repo:R_cli", active: true });
+  });
+
   it("explains when a bookmark can only be kept for the current visit", async () => {
     vi.spyOn(Object.getPrototypeOf(localStorage), "setItem").mockImplementation(() => { throw new Error("Storage full"); });
     render(explorer());
@@ -137,6 +161,8 @@ describe("Repository discovery", () => {
     hooks.vote.mockReturnValue({ mutate, isPending: true, variables: { target: "repo:R_docs", active: true }, error: null });
     const view = render(explorer());
     expect((screen.getByRole("button", { name: "Upvote sage/docs" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Upvote sage/docs" }).getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByRole("button", { name: "Upvote spark/circle-cli" }).hasAttribute("aria-busy")).toBe(false);
     hooks.vote.mockReturnValue({ mutate, isPending: false, variables: undefined, error: new Error("Too many upvotes. Try again in a minute.") });
     view.rerender(explorer());
     expect(screen.getByRole("alert").textContent).toBe("Too many upvotes. Try again in a minute.");
@@ -150,11 +176,26 @@ describe("Repository discovery", () => {
     expect(screen.queryByRole("list")).toBeNull();
   });
 
-  it("reveals the remaining filtered repositories when Show all is selected", async () => {
-    const items = Array.from({ length: 55 }, (_, index) => ({ ...repositories[0], id: `R_${index}`, name: `repo-${index}`, fullName: `spark/repo-${index}`, url: `https://github.com/spark/repo-${index}`, rank: index + 1 }));
+  it("paginates repositories, keeps their ranks and actions, and resets after a search", async () => {
+    const items = Array.from({ length: 55 }, (_, index) => ({ ...repositories[0], id: `R_${index}`, name: `repo-${String(index).padStart(2, "0")}`, fullName: `spark/repo-${String(index).padStart(2, "0")}`, url: `https://github.com/spark/repo-${index}`, rank: index + 1 }));
     render(explorer(items));
-    expect(displayedRepositories()).toHaveLength(50);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Show all 55 repositories" }));
-    expect(displayedRepositories()).toHaveLength(55);
+    const user = userEvent.setup();
+    const pagination = () => within(screen.getByRole("navigation", { name: "Repositories pagination" }));
+    expect(displayedRepositories()).toHaveLength(20);
+    expect((pagination().getByRole("button", { name: "Previous" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(pagination().getByRole("button", { name: "Next" }));
+    expect(displayedRepositories()).toHaveLength(20);
+    expect(screen.getByLabelText("Rank 21")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save spark/repo-20" }));
+    expect(screen.getByRole("button", { name: "Unsave spark/repo-20" })).toBeTruthy();
+    await user.click(pagination().getByRole("button", { name: "Next" }));
+    expect(displayedRepositories()).toHaveLength(15);
+    expect((pagination().getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.type(screen.getByRole("searchbox", { name: "Search repositories" }), "repo-00");
+    expect(displayedRepositories()).toHaveLength(1);
+    expect(screen.queryByRole("navigation", { name: "Repositories pagination" })).toBeNull();
+    await user.clear(screen.getByRole("searchbox", { name: "Search repositories" }));
+    expect(screen.getByLabelText("Rank 1")).toBeTruthy();
+    expect(displayedRepositories()).toHaveLength(20);
   });
 });

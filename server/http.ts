@@ -22,6 +22,9 @@ export function json(
     headers: {
       "content-type": "application/json; charset=utf-8",
       "x-robots-tag": "noindex",
+      "x-content-type-options": "nosniff",
+      "referrer-policy": "same-origin",
+      "cache-control": "no-store",
       ...headers,
     },
   });
@@ -32,7 +35,12 @@ const NO_STORE = { "cache-control": "no-store" };
 /** Runs a handler and turns thrown errors into `{ error: { code, message } }`. */
 export async function handle(run: () => Promise<Response>): Promise<Response> {
   try {
-    return await run();
+    const response = await run();
+    response.headers.set("x-content-type-options", "nosniff");
+    response.headers.set("referrer-policy", "same-origin");
+    response.headers.set("x-robots-tag", "noindex");
+    if (!response.headers.has("cache-control")) response.headers.set("cache-control", "no-store");
+    return response;
   } catch (err) {
     if (err instanceof HttpError) {
       const body: ApiErrorBody = {
@@ -98,4 +106,11 @@ export async function readJson(
   } catch {
     throw new HttpError(400, "bad_json", "That request wasn't valid JSON.");
   }
+}
+
+export function requireSameOrigin(req: Request): void {
+  const origin = req.headers.get("origin");
+  const site = req.headers.get("sec-fetch-site");
+  if ((origin !== null && origin !== new URL(req.url).origin) || site === "cross-site" || site === "same-site")
+    throw new HttpError(403, "cross_origin", "Open this page directly to make changes.");
 }

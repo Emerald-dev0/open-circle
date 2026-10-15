@@ -27,9 +27,9 @@ import { applySeo, originFromHtml, seoDocument } from "../shared/seo.js";
 import * as portfolio from "../api/portfolio.js";
 import * as portfolioGithub from "../api/portfolio-github.js";
 import * as portfolioUpload from "../api/portfolio-upload.js";
-import { MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
+import { apiBodyLimit, validateApiRequest } from "./api-security.js";
 import { readBody } from "./vite-dev-api.js";
-import { handle, HttpError } from "./http.js";
+import { handle, HttpError, json } from "./http.js";
 import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
 import { readPublicPortfolio } from "./portfolio.js";
 
@@ -69,7 +69,7 @@ const TYPES: Record<string, string> = {
 export function createAppServer(distDirectory = path.resolve(process.cwd(), "dist")) {
   const DIST = distDirectory;
   const INDEX = path.join(DIST, "index.html");
-  return createServer(async (req, res) => {
+  const server = createServer({ requestTimeout: 30_000, headersTimeout: 10_000, maxHeaderSize: 16_384 }, async (req, res) => {
     const callback = process.env.GITHUB_OAUTH_REDIRECT_URI ?? "";
     const callbackUrl = URL.canParse(callback) ? new URL(callback) : null;
     const configuredOrigin = callbackUrl && ["https:", "http:"].includes(callbackUrl.protocol) ? callbackUrl.origin : undefined;
@@ -79,10 +79,13 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
     res.setHeader("x-content-type-options", "nosniff");
 
     const api = /^\/api\/([a-z-]+)\/?$/.exec(url.pathname);
-    if (api) {
-      const handler = routes[api[1]]?.[req.method ?? "GET"];
+    if (url.pathname === "/api" || url.pathname.startsWith("/api/")) {
+      const route = api ? routes[api[1]] : undefined;
+      const handler = route?.[req.method ?? "GET"];
       if (!handler) {
-        res.writeHead(routes[api[1]] ? 405 : 404).end();
+        const response = json({ error: { code: route ? "method_not_allowed" : "not_found", message: route ? "That method is not supported." : "That endpoint does not exist." } }, route ? 405 : 404, route ? { allow: Object.keys(route).filter((method) => /^(GET|POST|PATCH|DELETE)$/.test(method)).join(", ") } : {});
+        response.headers.forEach((value, key) => res.setHeader(key, value));
+        res.writeHead(response.status).end(await response.text());
         return;
       }
       try {
@@ -94,7 +97,8 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         headers.set("x-vercel-forwarded-for", (process.env.TRUST_PROXY === "1" ? forwarded : undefined) ?? req.socket.remoteAddress ?? "unknown");
         const method = req.method ?? "GET";
         const response = await handle(async () => {
-          const maxBytes = api[1] === "portfolio-upload" ? MAX_IMAGE_BYTES : api[1] === "portfolio" ? MAX_PORTFOLIO_BYTES : undefined;
+          validateApiRequest(new Request(url, { method, headers }));
+          const maxBytes = apiBodyLimit(url.pathname);
           const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req, maxBytes);
           return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
         });
@@ -169,6 +173,9 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       res.end("The app is temporarily unavailable.");
     }).pipe(res);
   });
+  server.maxHeadersCount = 100;
+  server.maxRequestsPerSocket = 1000;
+  return server;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

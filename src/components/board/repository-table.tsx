@@ -1,6 +1,5 @@
 import { StarIcon } from "@solar-icons/react/bold-duotone";
-import { GitPullRequestIcon } from "@solar-icons/react/linear";
-import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
+import { ArrowUpIcon, BookmarkIcon, GitPullRequestIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
 import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
 import { AnimatePresence, motion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
@@ -16,8 +15,6 @@ import { cn } from "@/lib/utils";
  */
 export function RepositoryTable({
   repositories,
-  limit = 50,
-  onShowAll,
   label = "Repositories ranked by stars",
   counts = {},
   voted = new Set<string>(),
@@ -28,8 +25,6 @@ export function RepositoryTable({
   onSave,
 }: {
   repositories: PublicRepository[];
-  limit?: number;
-  onShowAll?: () => void;
   label?: string;
   counts?: Record<string, number>;
   voted?: ReadonlySet<string>;
@@ -44,7 +39,7 @@ export function RepositoryTable({
     <div>
       <ul aria-label={label} className="flex flex-col gap-2">
         <AnimatePresence initial={false}>
-          {repositories.slice(0, limit).map((repo) => {
+          {repositories.map((repo) => {
             const target = `repo:${repo.id}`;
             const isVoted = voted.has(target);
             const isSaved = saved.has(repo.id);
@@ -59,40 +54,42 @@ export function RepositoryTable({
                 className="surface-quiet grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 rounded-[24px] px-4 py-3 sm:gap-x-4 sm:px-5"
               >
                 <div className="min-w-0">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="w-5 shrink-0 text-xs tabular text-t4" aria-label={`Rank ${repo.rank}`}>{repo.rank}</span>
-                    <Avatar className="size-7 shrink-0">
-                      <AvatarImage src={repo.ownerAvatarUrl} alt="" loading="lazy" />
-                      <AvatarFallback className="bg-alva-card text-[10px]">{repo.ownerNickname.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
                     <a
                       href={repo.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={repo.fullName}
-                      className="min-w-0 truncate rounded text-sm font-medium text-foreground hover:underline hover:underline-offset-4"
+                      className="touch-target group inline-flex min-h-8 max-w-full items-center gap-2 rounded text-sm font-medium text-foreground"
                     >
-                      {repo.name}
+                      <Avatar className="size-6 shrink-0" aria-hidden="true">
+                        <AvatarImage src={repo.ownerAvatarUrl} alt="" loading="lazy" />
+                        <AvatarFallback className="bg-alva-card text-[10px]">{repo.ownerNickname.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 break-words [overflow-wrap:anywhere]">{repo.name}</span>
+                      <SquareTopDownIcon className="size-3 shrink-0 text-t3 group-hover:text-foreground" aria-hidden="true" />
+                      <span className="sr-only"> (opens in a new tab)</span>
                     </a>
-                    {repo.language && <span className="hidden shrink-0 text-[11px] text-t4 min-[400px]:inline">{repo.language}</span>}
+                    {repo.language && <span className="break-words text-[11px] text-t3 [overflow-wrap:anywhere]">{repo.language}</span>}
                   </div>
 
                   {repo.description && (
-                    <p className="mt-1.5 line-clamp-2 break-words text-xs leading-relaxed text-t2 [overflow-wrap:anywhere]" title={repo.description}>
+                    <p className="mt-1 max-w-[65ch] break-words text-xs leading-relaxed text-t2 [overflow-wrap:anywhere]">
                       {repo.description}
                     </p>
                   )}
 
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-t3">
-                    <span className="inline-flex items-center gap-1 tabular">
+                    <span className="tabular" aria-label={`Rank ${repo.rank}`}>#{repo.rank}</span>
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]" title={repo.ownerNickname}>@{repo.ownerLogin}</span>
+                    <span className="inline-flex items-center gap-1 tabular" title={`${formatFull(repo.stars)} GitHub stars`} aria-label={`${formatFull(repo.stars)} GitHub stars`}>
                       <StarIcon size={12} aria-hidden />
                       {formatCount(repo.stars)}<span className="sr-only"> stars</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 tabular">
+                    <span className="inline-flex items-center gap-1 tabular" title={`${formatFull(repo.forks)} forks`} aria-label={`${formatFull(repo.forks)} forks`}>
                       <GitPullRequestIcon size={12} aria-hidden />
                       {formatCount(repo.forks)}<span className="sr-only"> forks</span>
                     </span>
-                    <span className="min-w-0 truncate">by {repo.ownerNickname}</span>
                     {onSave && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -151,13 +148,6 @@ export function RepositoryTable({
           })}
         </AnimatePresence>
       </ul>
-      {repositories.length > limit && onShowAll && (
-        <div className="mt-4 flex justify-center">
-          <TextureButton variant="minimal" size="sm" className="w-auto" onClick={onShowAll}>
-            Show all {formatFull(repositories.length)} repositories
-          </TextureButton>
-        </div>
-      )}
     </div>
   );
 }
