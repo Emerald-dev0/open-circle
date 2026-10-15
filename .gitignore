@@ -25,10 +25,6 @@ dist-ssr
 .impeccable/
 PRODUCT.md
 DESIGN.md
-AGENTS.md
-AGENT.md
-CLAUDE.md
-CODEX.md
 setup.sh
 coverage/
 .verification/

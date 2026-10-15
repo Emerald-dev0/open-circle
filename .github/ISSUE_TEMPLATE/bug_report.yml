@@ -1,0 +1,36 @@
+name: Bug report
+description: Report something that is not working as expected.
+body:
+  - type: markdown
+    attributes:
+      value: Please check existing issues first. Keep tokens, real phone numbers and other private member details out of the report. Contact a group organiser privately for a security or privacy issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and the part of the app affected.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give the steps someone else can follow to see the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Where did it happen?
+      description: Include the page, browser and device, or your Node.js version for a local setup problem.
+  - type: textarea
+    id: context
+    attributes:
+      label: Screenshots or other details
+      description: Remove private details from screenshots and logs before sharing.
