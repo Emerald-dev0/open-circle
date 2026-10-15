@@ -7,6 +7,7 @@ import type { LinkChallenge, ParticipationAction, ParticipationState } from "@sh
 import { parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon } from "@/components/brand-icons";
 import { CommunityGuide, CommunityRoutine } from "@/components/community-routine";
+import { RepositorySubmissions } from "@/components/repository-submissions";
 import { AccountCorner } from "@/components/account-corner";
 import { Dock } from "@/components/dock";
 import { MetalButton } from "@/components/metal-button";
@@ -113,6 +114,8 @@ export default function Participation() {
       await action.mutateAsync(input);
       if (input.action === "review" || input.action === "answer") { setTarget(null); setNotice("Your contribution is saved and awaits confirmation."); }
       else if (input.action === "project") setNotice("Your project is waiting for admin approval.");
+      else if (input.action === "repository") setNotice("Your repo is waiting for admin approval.");
+      else if (input.action === "repository-progress") setNotice(input.needsHelp ? "Your repo is looking for contributors again." : "Your repo announcements are paused.");
       else if (input.action === "away") setNotice("Your break request is waiting for admin approval.");
       else if (input.action === "help") setNotice("Your help request is open.");
       else if (input.action === "mentor") setNotice("Your mentor preferences are saved.");
@@ -185,6 +188,7 @@ export default function Participation() {
 
         : <>
           {data.community && <CommunityRoutine data={data.community} busy={busy} submit={submit} />}
+          {data.community && <RepositorySubmissions repositories={data.community.repositories ?? []} login={profile!.login} busy={busy} submit={submit} />}
           <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
             <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
             <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
