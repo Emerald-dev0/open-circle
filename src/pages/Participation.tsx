@@ -157,7 +157,10 @@ export default function Participation() {
               <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
               <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
             </div>
-            <p className="text-xs text-t3">Open the bot's profile in the group and choose Message. It replies after you send the command. /link does not work in the group.</p>
+            {challenge.botChatUrl && <MetalButton asChild wrapperClassName="w-full sm:w-auto" className="h-11 w-full sm:w-auto" innerClassName="px-5">
+              <a href={challenge.botChatUrl} target="_blank" rel="noopener noreferrer">Open bot chat</a>
+            </MetalButton>}
+            <p className="text-xs text-t3">{challenge.botChatUrl ? "Open the bot chat and send the prefilled command from the same WhatsApp number. The bot replies there. /link does not work in the group." : "Open the bot's profile in the group and choose Message. It replies after you send the command. /link does not work in the group."}</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-t4">Expires in 10 minutes. This page checks automatically.</p>
               <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Check link</MetalButton>

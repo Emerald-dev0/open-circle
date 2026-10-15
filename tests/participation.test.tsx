@@ -27,7 +27,7 @@ afterEach(()=>clients.splice(0).forEach(client=>client.clear()));
 
 it('directs linking to the bot DM with a short-lived sender verification code',async()=>{
   const user=userEvent.setup();mount({...initial,activity:{...initial.activity,linked:false,login:null}});
-  vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000});
+  vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000,botChatUrl:'https://wa.me/15550000000?text=%2Flink%20ABC123'});
   const phone=await screen.findByLabelText('Your WhatsApp group number');
   expect(phone.getAttribute('placeholder')).toBe('e.g. +234 803 123 4567');
   await user.type(phone,'0803 123 4567');
@@ -40,11 +40,16 @@ it('directs linking to the bot DM with a short-lived sender verification code',a
   await user.click(screen.getByRole('button',{name:'Get linking code'}));
   await screen.findByText('/link ABC123');expect(api.linkWhatsapp).toHaveBeenCalledWith('+2348031234567',expect.anything());
   expect(screen.getByText('Send this command to the OpenCircle bot in a private WhatsApp chat from that number:')).toBeTruthy();
-  expect(screen.getByText(/Open the bot's profile in the group and choose Message/).textContent).toContain('/link does not work in the group.');
+  expect(screen.getByText(/Open the bot chat and send the prefilled command/).textContent).toContain('/link does not work in the group.');
+  const chat=screen.getByRole('link',{name:'Open bot chat'});
+  expect(chat.getAttribute('href')).toBe('https://wa.me/15550000000?text=%2Flink%20ABC123');
+  expect(chat.getAttribute('target')).toBe('_blank');
+  expect(chat.getAttribute('rel')).toBe('noopener noreferrer');
   expect(screen.queryByText('Send this in the WhatsApp group from your number:')).toBeNull();
   await user.click(screen.getByRole('button',{name:'Copy command'}));
   expect(await navigator.clipboard.readText()).toBe('/link ABC123');
   await user.type(screen.getByLabelText('Your WhatsApp group number'),'8');expect(screen.queryByText('/link ABC123')).toBeNull();
+  expect(screen.queryByRole('link',{name:'Open bot chat'})).toBeNull();
 });
 
 it('focuses feedback, preserves failed submissions, saves useful reviews and requests a break',async()=>{

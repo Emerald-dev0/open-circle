@@ -12,6 +12,22 @@ vi.mock('../server/db',()=>({getStore:()=>board}));
 vi.mock('../server/community-store',()=>({getCommunityStore:()=>community}));
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
 
+it('accepts only a bot WhatsApp link containing the issued command, while allowing older bot responses',async()=>{
+  vi.stubEnv('WHATSAPP_MEMBERSHIP_URL','https://bot.example.test/api/v1/membership');
+  vi.stubEnv('WHATSAPP_MEMBERSHIP_TOKEN','t'.repeat(40));
+  const challenge={id:'link_1',code:'ABC123',expiresAt:Date.now()+600_000};
+  const good='https://wa.me/15550000000?text=%2Flink%20ABC123';
+  let payload:unknown={...challenge,botChatUrl:good};
+  vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify(payload),{headers:{'content-type':'application/json'}})));
+  expect(await coordinationRequest('link',{})).toEqual(payload);
+  payload=challenge;
+  expect(await coordinationRequest('link',{})).toEqual(challenge);
+  for(const botChatUrl of [42,'javascript:alert(1)','https://wa.me.evil.test/15550000000?text=%2Flink%20ABC123','https://user:pass@wa.me/15550000000?text=%2Flink%20ABC123','https://wa.me/15550000000?text=%2Flink%20OTHER','https://wa.me/15550000000?text=%2Flink%20ABC123&other=1','https://wa.me/15550000000?text=%2Flink%20ABC123#other']) {
+    payload={...challenge,botChatUrl};
+    await expect(coordinationRequest('link',{})).rejects.toMatchObject({status:503});
+  }
+});
+
 it('uses the signed-in GitHub identity through HTTP and protects personal responses, origin and outages',async()=>{
   community=new MemoryCommunityStore(null); board=new TestStore();
   vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');

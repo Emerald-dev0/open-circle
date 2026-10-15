@@ -25,6 +25,13 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
   if (!result || typeof result !== "object" || Array.isArray(result)) throw unavailable();
   if (action === "link") {
     if (!("id" in result) || !("code" in result) || !("expiresAt" in result) || typeof result.id !== "string" || typeof result.code !== "string" || typeof result.expiresAt !== "number") throw unavailable();
+    if ("botChatUrl" in result) {
+      try {
+        if (typeof result.botChatUrl !== "string") throw unavailable();
+        const chat = new URL(result.botChatUrl);
+        if (chat.origin !== "https://wa.me" || chat.username || chat.password || chat.hash || !/^\/[1-9]\d{6,14}$/.test(chat.pathname) || chat.searchParams.size !== 1 || chat.searchParams.get("text") !== `/link ${result.code}`) throw unavailable();
+      } catch { throw unavailable(); }
+    }
   } else if (!("activity" in result) || !("projects" in result) || !("help" in result) || !("contributions" in result) || !result.activity || typeof result.activity !== "object" || !Array.isArray(result.projects) || !Array.isArray(result.help) || !Array.isArray(result.contributions)) throw unavailable();
   return result as T;
 }

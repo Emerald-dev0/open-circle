@@ -55,7 +55,7 @@ Set `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET` and `GITHUB_OAUTH_RED
 
 ### Group participation
 
-The `/participation` page requires GitHub sign-in, then links the member's WhatsApp number using a ten-minute code sent from that exact group account in a private chat with the bot. Members start the chat themselves; the bot replies there. `/link` is ignored in the group and does not trigger a private message. Members can share projects for admin approval, give useful feedback, answer help requests, confirm received contributions, see their activity and request breaks. Feedback and phone details stay private. The signup membership gate still runs before GitHub ranking.
+The `/participation` page requires GitHub sign-in, then links the member's WhatsApp number using a ten-minute code sent from that exact group account in a private chat with the bot. **Open bot chat** opens the currently paired bot's WhatsApp number with the linking command filled in. The member sends it themselves; the bot replies there. `/link` is ignored in the group and does not trigger a private message. Members can share projects for admin approval, give useful feedback, answer help requests, confirm received contributions, see their activity and request breaks. Feedback and phone details stay private. The signup membership gate still runs before GitHub ranking.
 
 The standalone private bot owns participation records, moderation, scheduling and API types. Maintainers enable coordination in that service. See the bot's README for its policy and activation steps.
 

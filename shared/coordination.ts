@@ -71,6 +71,7 @@ export interface LinkChallenge {
   id: string;
   code: string;
   expiresAt: number;
+  botChatUrl?: string;
 }
 
 export type ParticipationAction =
