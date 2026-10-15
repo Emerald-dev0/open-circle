@@ -17,13 +17,13 @@ describe("portfolio addresses and input", () => {
   it("routes only single-level member subdomains and preserves infrastructure hosts", () => {
     expect(portfolioHostname("alice")).toBe("alice.opencircle.cc");
     expect(portfolioSlugFromHostname("Alice.OpenCircle.cc.")).toBe("alice");
-    for (const host of ["opencircle.cc", "www.opencircle.cc", "api.opencircle.cc", "alice.name.opencircle.cc", "alice.opencircle.cc.evil.test", "-alice.opencircle.cc"]) expect(portfolioSlugFromHostname(host)).toBeNull();
+    for (const host of ["opencircle.cc", "www.opencircle.cc", "wa.opencircle.cc", "api.opencircle.cc", "alice.name.opencircle.cc", "alice.opencircle.cc.evil.test", "-alice.opencircle.cc"]) expect(portfolioSlugFromHostname(host)).toBeNull();
   });
   it("keeps explicit customization and locks a saved address", () => {
     const input = { ...content(), theme: "light", accent: "mint", coverStyle: "contour", coverPosition: 82, skills: ["React", "TypeScript", "React"] };
     expect(parsePortfolio(input)).toMatchObject({ theme: "light", accent: "mint", coverStyle: "contour", coverPosition: 82, skills: ["React", "TypeScript"] });
     expect(() => parsePortfolio({ ...input, slug: "bob" }, "alice")).toThrow("cannot be changed");
-    for (const slug of ["www", "admin", "api", "a.b", "-alice", "alice-", "x".repeat(40)]) expect(() => parsePortfolio({ ...input, slug })).toThrow();
+    for (const slug of ["www", "wa", "admin", "api", "a.b", "-alice", "alice-", "x".repeat(40)]) expect(() => parsePortfolio({ ...input, slug })).toThrow();
     expect(parsePortfolio({ ...input, slug: "a" }).slug).toBe("a");
   });
   it("rejects executable and credential-bearing links, unknown fields and overlong content", () => {

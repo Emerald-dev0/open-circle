@@ -3,7 +3,7 @@ import type { GitHubProfile } from "./community.js";
 export const PORTFOLIO_DOMAIN = "opencircle.cc";
 export const MAX_PORTFOLIO_BYTES = 128_000;
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-export const RESERVED_PORTFOLIO_SLUGS = new Set(["www", "admin", "api", "app", "mail", "support", "help", "name", "opencircle", "assets", "static", "cdn", "auth", "portfolio", "portfolios", "preview", "settings", "cp", "dev", "staging", "sandbox", "media", "uploads", "images", "status", "billing", "account", "accounts", "dashboard", "login", "docs", "blog", "email", "smtp", "imap", "pop", "mx", "ns1", "ns2", "ftp"]);
+export const RESERVED_PORTFOLIO_SLUGS = new Set(["www", "wa", "admin", "api", "app", "mail", "support", "help", "name", "opencircle", "assets", "static", "cdn", "auth", "portfolio", "portfolios", "preview", "settings", "cp", "dev", "staging", "sandbox", "media", "uploads", "images", "status", "billing", "account", "accounts", "dashboard", "login", "docs", "blog", "email", "smtp", "imap", "pop", "mx", "ns1", "ns2", "ftp"]);
 export const PORTFOLIO_ACCENTS = {
   silver: { label: "Silver", color: "#d5dce8", ink: "#202938" },
   mint: { label: "Mint", color: "#8bdbc0", ink: "#185640" },
