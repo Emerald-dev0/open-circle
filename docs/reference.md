@@ -13,7 +13,7 @@ Clicking “Rank me” asks for a nickname and the WhatsApp number used in the g
 The app includes:
 
 - A developer leaderboard with the top three highlighted and rank movement shown for the last 24 hours.
-- A repository leaderboard populated from visible members' owned, public, non-fork repositories.
+- Spotlight with one owned, public, non-fork repository per visible member, each with at least 5 stars.
 - Community upvotes, repository search, language filters and sorting by stars, upvotes or recent updates.
 - A tools directory with curated open-source tools, community submissions, categories, upvotes and downvotes.
 - Saved repositories and tools, kept locally in the visitor's browser.
@@ -24,7 +24,7 @@ The app includes:
 | Route | Purpose |
 | --- | --- |
 | `/` | Join the board and browse developer rankings. |
-| `/repositories` | Find, upvote and save community projects. |
+| `/repositories` | Find, upvote and save Spotlight projects. |
 | `/tools` | Discover, share, rate and save developer tools. |
 | `/participation` | Link a group account, share projects and give feedback after GitHub sign-in. |
 | `/how-it-works` | Open the ranking explanation over the board. |
@@ -64,11 +64,13 @@ The default weights live in `shared/ranking.ts`. Organisers can change them in `
 
 New-member labels last 24 hours. Movement indicators show places gained or lost within a 24-hour movement window; they are not a historical analytics report.
 
-### Repository rankings
+### Repository spotlight
 
-Repositories sort by stars, then forks, then full repository name (`owner/name`). This board uses repository counts directly and does not use the developer scoring formula.
+Spotlight shows one repository per developer, sorted by stars, then forks, then full repository name (`owner/name`). It uses GitHub stars directly and does not use the developer scoring formula.
 
-Only repositories owned by visible members appear. Forks and private repositories are excluded. GitHub results are paginated in batches of 100, so a member's projects and star total are not limited to their first 100 repositories. Organisation-owned projects are outside the current member model.
+Only repositories owned by visible members with at least 5 stars appear. Forks and private repositories are excluded. The most-starred eligible repo is picked automatically; developers can choose another eligible repo during registration. If a choice disappears or falls below 5 stars, Spotlight falls back to the most-starred eligible repo. Developers without an eligible repo still join the developer leaderboard and gain a spotlight when a repo qualifies.
+
+GitHub results are paginated in batches of 100, so a member's eligible projects and star total are not limited to their first 100 repositories. All owned, public, original repos still contribute to developer statistics. Organisation-owned projects are outside the current member model.
 
 Hiding a member also hides their repositories from the public board.
 
@@ -78,7 +80,7 @@ Tool voting requires a verified GitHub account. Browsing and saving tools do not
 
 ### Community upvotes and tools
 
-The repository view defaults to GitHub stars. Visitors can sort by community upvotes or last GitHub update, search by project or builder, filter by language and show only saved repositories. Repository upvotes boost the owner's developer score without changing GitHub stars. Removing an upvote removes its points, and tool votes do not affect developer scores.
+Spotlight defaults to GitHub stars. Visitors can sort by community upvotes or last GitHub update, search by project or builder, filter by language and bookmark individual repos. Repository upvotes boost the owner's developer score without changing GitHub stars. Removing an upvote removes its points, and tool votes do not affect developer scores.
 
 The tools directory starts with six curated open-source tools. Each curated entry links to its source repository. Visitors can submit another tool with a name, public HTTPS URL, description and category. The server validates submissions, normalizes URLs and rejects duplicate links; it never fetches submitted URLs. Submissions stay private and cannot receive votes until an organiser approves them in `/admin`. Organisers can also add tools directly for immediate publication. The admin catalog includes built-in tools and all submissions. Removing any tool also removes its votes, and built-in removals persist across restarts. Removed tools can be added again; visitor submissions still need approval. The directory allows up to 1,000 saved tools, including pending reviews.
 

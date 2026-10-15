@@ -14,7 +14,7 @@ import { previewProfile, readBoard, rebuildBoard, register } from "../server/boa
 import { handle, HttpError, json } from "../server/http";
 import { requireWhatsappMembership } from "../server/whatsapp";
 import type { Board } from "../shared/types";
-import { boardFixture, githubJson, githubOwner, memberRecord, publicMember, repository } from "./helpers/fixtures";
+import { boardFixture, githubJson, githubOwner, githubRepository, memberRecord, publicMember, repository } from "./helpers/fixtures";
 import { TestStore } from "./helpers/test-store";
 import packageJson from "../package.json";
 
@@ -30,7 +30,7 @@ function clientFor(board?: Board) {
   return client;
 }
 
-function networkFor(store: TestStore) {
+function networkFor(store: TestStore, projects?: ReturnType<typeof githubRepository>[]) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/board") return handle(async () => json(await readBoard(store)));
     if (url === "/api/preview") {
@@ -43,7 +43,7 @@ function networkFor(store: TestStore) {
       const { variables } = JSON.parse(String(init?.body));
       const data = Object.fromEntries(Object.entries(variables)
         .filter(([key]) => /^l\d+$/.test(key))
-        .map(([key, login]) => [key.replace("l", "u"), login === "missing" ? null : githubOwner({ login: "Octocat" })]));
+        .map(([key, login]) => [key.replace("l", "u"), login === "missing" ? null : githubOwner({ login: "Octocat", ...(projects ? { repositories: { totalCount: projects.length, nodes: projects, pageInfo: { hasNextPage: false, endCursor: null } } } : {}) })]));
       return githubJson({ data });
     }
     throw new Error(`Unexpected request: ${url}`);
@@ -86,6 +86,70 @@ afterEach(() => {
 });
 
 describe("Username-first community onboarding", () => {
+  it("lets a developer choose a five-star spotlight while excluding lower-star repos", async () => {
+    const store = new TestStore();
+    const fetchMock = networkFor(store, [
+      githubRepository(20, { id: "R_top", name: "top-project" }),
+      githubRepository(5, { id: "R_chosen", name: "my-best-project" }),
+      githubRepository(4, { id: "R_small", name: "small-project" }),
+    ]);
+    render(<Providers client={clientFor(await rebuildBoard(store))}><RankHarness /></Providers>);
+    const user = userEvent.setup();
+    await previewOctocat(user);
+    const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
+    await user.type(phone, "+234 803 123 4567");
+    await user.click(screen.getByRole("button", { name: "Choose a spotlight repo" }));
+    const picker = await screen.findByRole("combobox", { name: "Spotlight repository" });
+    expect(picker.textContent).toContain("Automatic · top-project · 20 stars");
+    expect(await store.listMembers()).toHaveLength(0);
+    await user.click(picker);
+    expect(screen.queryByRole("option", { name: /small-project/ })).toBeNull();
+    await user.click(screen.getByRole("option", { name: "my-best-project · 5 stars" }));
+    await user.click(screen.getByRole("button", { name: "Join the board" }));
+    await screen.findByText("You're in.");
+    expect((await store.getBoard())?.repositories.map((repo) => repo.id)).toEqual(["R_chosen"]);
+    expect(await store.getMember("octocat")).toMatchObject({ spotlightRepositoryId: "R_chosen", stars: 29, repos: 3 });
+    const submission = fetchMock.mock.calls.find(([url]) => url === "/api/register");
+    expect(JSON.parse(String(submission?.[1]?.body))).toMatchObject({ spotlightRepositoryId: "R_chosen" });
+  });
+
+  it("allows joining without a spotlight when no repositories have five stars", async () => {
+    const store = new TestStore();
+    networkFor(store, [githubRepository(4)]);
+    render(<Providers client={clientFor(await rebuildBoard(store))}><RankHarness /></Providers>);
+    const user = userEvent.setup();
+    await previewOctocat(user);
+    await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
+    await user.click(screen.getByRole("button", { name: "Choose a spotlight repo" }));
+    await screen.findByText(/No repos with 5 stars yet/);
+    expect(screen.queryByRole("combobox", { name: "Spotlight repository" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Join the board" }));
+    await screen.findByText("You're in.");
+    expect((await store.getBoard())?.repositories).toEqual([]);
+    expect((await store.getBoard())?.members).toHaveLength(1);
+  });
+
+  it("keeps private details and membership checks in place when choosing a spotlight", async () => {
+    const store = new TestStore();
+    const fetchMock = networkFor(store);
+    vi.mocked(requireWhatsappMembership).mockRejectedValueOnce(new HttpError(503, "whatsapp_unavailable", "Membership check unavailable.", "whatsapp"));
+    render(<Providers client={clientFor(await rebuildBoard(store))}><RankHarness /></Providers>);
+    const user = userEvent.setup();
+    await previewOctocat(user);
+    const phone = screen.getByRole("textbox", { name: /WhatsApp number used/i });
+    await user.type(phone, "+234 803 123 4567");
+    await user.click(screen.getByRole("button", { name: "Choose a spotlight repo" }));
+    await screen.findByText("Membership check unavailable.");
+    expect(fetchMock.mock.calls.some(([url]) => url === "https://api.github.com/graphql")).toBe(false);
+    expect((phone as HTMLInputElement).value).toBe("+234 803 123 4567");
+    await user.click(screen.getByRole("button", { name: "Choose a spotlight repo" }));
+    await screen.findByRole("combobox", { name: "Spotlight repository" });
+    expect(await store.listMembers()).toHaveLength(0);
+    await user.type(phone, "8");
+    expect(screen.queryByRole("combobox", { name: "Spotlight repository" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Choose a spotlight repo" })).toBeTruthy();
+  });
+
   it.each(["@Octocat", "https://github.com/Octocat/"])("previews the real GitHub photo for %s before collecting private details", async (github) => {
     vi.spyOn(window, "Image").mockImplementation(() => {
       const image = document.createElement("img");
@@ -365,20 +429,20 @@ describe("Community leaderboard pages", () => {
     await user.clear(nickname);
     await user.type(nickname, "Octo");
     await user.type(screen.getByRole("textbox", { name: /WhatsApp number used/i }), "+234 803 123 4567");
-    await user.click(screen.getByRole("tab", { name: /Repositories/ }));
+    await user.click(screen.getByRole("tab", { name: /Spotlight/ }));
 
     expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/repositories");
-    expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Repositories" }).getAttribute("href")).toBe("/repositories");
-    await waitFor(() => expect(document.title).toBe("Repositories · OpenCircle"));
-    const table = screen.getByRole("list", { name: "Repositories ranked by stars" });
+    expect(screen.getByText("One repo per developer. At least 5 stars.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Spotlight" }).getAttribute("href")).toBe("/repositories");
+    await waitFor(() => expect(document.title).toBe("Spotlight · OpenCircle"));
+    const table = screen.getByRole("list", { name: "Spotlight repos ranked by stars" });
     expect(within(table).getByRole("link", { name: /open-kit/ }).getAttribute("href")).toBe("https://github.com/Octocat/open-kit");
     expect(within(table).getAllByRole("listitem")).toHaveLength(1);
-    const podium = screen.getByRole("list", { name: "Top three repositories" });
+    const podium = screen.getByRole("list", { name: "Top three spotlight repos" });
     expect(within(podium).getByRole("link", { name: /open-kit, rank 1, .* stars/ }).getAttribute("href")).toBe("https://github.com/Octocat/open-kit");
     expect(podium.textContent).toContain("forks");
     expect(podium.textContent).not.toContain("contributions");
-    expect(screen.getByRole("searchbox", { name: "Search repositories" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search spotlight repos" })).toBeTruthy();
     expect((screen.getByRole("textbox", { name: "Nickname" }) as HTMLInputElement).value).toBe("Octo");
     expect((screen.getByRole("textbox", { name: /WhatsApp number used/i }) as HTMLInputElement).value).toBe("+234 803 123 4567");
     await user.click(screen.getByRole("tab", { name: /Developers/ }));
@@ -388,7 +452,7 @@ describe("Community leaderboard pages", () => {
   it("sends a legacy tab query to the repository route", async () => {
     render(<Providers client={clientFor(boardFixture())} path="/?tab=repositories"><Index /><LocationMarker /></Providers>);
     await waitFor(() => expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/repositories"));
-    expect(screen.getByText("Public projects from members, ranked by stars.")).toBeTruthy();
+    expect(screen.getByText("One repo per developer. At least 5 stars.")).toBeTruthy();
   });
 
   it("joins from the repository view and opens the page containing the new member", async () => {
@@ -428,10 +492,10 @@ describe("Community leaderboard pages", () => {
     const board = boardFixture();
     render(<Providers client={clientFor(board)} path="/repositories"><Index /></Providers>);
 
-    expect(screen.getByRole("tab", { name: /Repositories 0/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /Spotlight 0/ }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("tab", { name: /Tools 0/ })).toBeTruthy();
-    expect(screen.getByText("No repositories yet")).toBeTruthy();
+    expect(screen.getByText("No spotlight repos yet")).toBeTruthy();
     expect(screen.getByText(`OpenCircle v${packageJson.version}`)).toBeTruthy();
-    expect(screen.queryByRole("list", { name: "Repositories ranked by stars" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Spotlight repos ranked by stars" })).toBeNull();
   });
 });

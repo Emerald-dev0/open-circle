@@ -1,6 +1,6 @@
 export const ANALYTICS_PAGES = {
   "/": "Leaderboard",
-  "/repositories": "Repositories",
+  "/repositories": "Spotlight",
   "/tools": "Tools",
   "/participation": "Participation",
   "/how-it-works": "How it works",

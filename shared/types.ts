@@ -101,6 +101,7 @@ export interface RegisterInput {
   nickname: string;
   github: string;
   whatsapp: string;
+  spotlightRepositoryId?: string;
 }
 
 export interface RegisterResult {

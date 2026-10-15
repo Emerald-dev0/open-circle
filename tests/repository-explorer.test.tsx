@@ -88,17 +88,17 @@ describe("Repository discovery", () => {
   it("searches repository names, owners and descriptions and resets a combined language filter", async () => {
     render(explorer());
     const user = userEvent.setup();
-    const search = screen.getByRole("searchbox", { name: "Search repositories" });
+    const search = screen.getByRole("searchbox", { name: "Search spotlight repos" });
 
     await user.type(search, "drawing");
     await waitFor(() => expect(displayedRepositories()).toEqual([repositories[1].url]));
-    expect(screen.getByRole("status").textContent).toBe("1 of 3 repositories");
+    expect(screen.getByRole("status").textContent).toBe("1 of 3 spotlight repos");
     await user.clear(search);
     await user.type(search, "SPARK");
     await waitFor(() => expect(displayedRepositories()).toEqual([repositories[0].url]));
     await selectOption(user, "Filter by language", "JavaScript");
-    expect(screen.getByText("No repositories match your filters.")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Browse all repositories" }));
+    expect(screen.getByText("No spotlight repos match your filters.")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Reset filters" }));
     expect(screen.getByRole("combobox", { name: "Filter by language" }).textContent).toBe("All languages");
     await waitFor(() => expect(displayedRepositories()).toEqual(repositories.map((repo) => repo.url)));
     await user.type(search, "circle-cli");
@@ -108,15 +108,15 @@ describe("Repository discovery", () => {
   it("sorts by actual community votes or recent updates while keeping GitHub stars separate", async () => {
     render(explorer());
     const user = userEvent.setup();
-    await selectOption(user, "Sort repositories", "Community upvotes");
+    await selectOption(user, "Sort spotlight repos", "Community upvotes");
     await waitFor(() => expect(displayedRepositories()).toEqual([repositories[2].url, repositories[1].url, repositories[0].url]));
     const cliRow = screen.getByRole("button", { name: "Upvote spark/circle-cli" }).closest<HTMLElement>("li")!;
     expect(within(cliRow).getByText("40")).toBeTruthy();
     expect(within(cliRow).getByLabelText("2 upvotes for spark/circle-cli").textContent).toBe("2");
-    expect(screen.getByRole("list", { name: "Repositories ranked by community upvotes" })).toBeTruthy();
-    await selectOption(user, "Sort repositories", "Recently updated");
+    expect(screen.getByRole("list", { name: "Spotlight repos ranked by community upvotes" })).toBeTruthy();
+    await selectOption(user, "Sort spotlight repos", "Recently updated");
     expect(displayedRepositories()[0]).toBe(repositories[2].url);
-    await selectOption(user, "Sort repositories", "Most stars");
+    await selectOption(user, "Sort spotlight repos", "Most stars");
     expect(displayedRepositories()[0]).toBe(repositories[0].url);
   });
 
@@ -182,7 +182,7 @@ describe("Repository discovery", () => {
   it("handles malformed saved data and an empty board without inventing repositories", () => {
     localStorage.setItem("opencircle:saved-repositories:v1", "{not-json");
     render(explorer([]));
-    expect(screen.getByText("No repositories yet.")).toBeTruthy();
+    expect(screen.getByText("No spotlight repos yet.")).toBeTruthy();
     expect(screen.queryByRole("list")).toBeNull();
   });
 
@@ -190,7 +190,7 @@ describe("Repository discovery", () => {
     const items = Array.from({ length: 55 }, (_, index) => ({ ...repositories[0], id: `R_${index}`, name: `repo-${String(index).padStart(2, "0")}`, fullName: `spark/repo-${String(index).padStart(2, "0")}`, url: `https://github.com/spark/repo-${index}`, rank: index + 1 }));
     render(explorer(items));
     const user = userEvent.setup();
-    const pagination = () => within(screen.getByRole("navigation", { name: "Repositories pagination" }));
+    const pagination = () => within(screen.getByRole("navigation", { name: "Spotlight pagination" }));
     expect(displayedRepositories()).toHaveLength(20);
     expect((pagination().getByRole("button", { name: "Previous" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(pagination().getByRole("button", { name: "Next" }));
@@ -201,10 +201,10 @@ describe("Repository discovery", () => {
     await user.click(pagination().getByRole("button", { name: "Next" }));
     expect(displayedRepositories()).toHaveLength(15);
     expect((pagination().getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
-    await user.type(screen.getByRole("searchbox", { name: "Search repositories" }), "repo-00");
+    await user.type(screen.getByRole("searchbox", { name: "Search spotlight repos" }), "repo-00");
     expect(displayedRepositories()).toHaveLength(1);
-    expect(screen.queryByRole("navigation", { name: "Repositories pagination" })).toBeNull();
-    await user.clear(screen.getByRole("searchbox", { name: "Search repositories" }));
+    expect(screen.queryByRole("navigation", { name: "Spotlight pagination" })).toBeNull();
+    await user.clear(screen.getByRole("searchbox", { name: "Search spotlight repos" }));
     expect(screen.getByLabelText("Rank 1")).toBeTruthy();
     expect(displayedRepositories()).toHaveLength(20);
   });

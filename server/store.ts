@@ -24,6 +24,7 @@ export interface MemberRecord {
   helpedMembers?: number;
   activitySince?: number;
   projects?: GithubRepository[];
+  spotlightRepositoryId?: string;
   hidden: boolean;
   createdAt: number;
   statsUpdatedAt: number;
@@ -108,6 +109,7 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     name: hash.name || null,
     hidden: hash.hidden === "1",
     projects: hash.projects ? JSON.parse(hash.projects) : [],
+    spotlightRepositoryId: hash.spotlightRepositoryId || undefined,
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;
   return record;

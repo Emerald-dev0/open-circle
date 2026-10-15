@@ -100,22 +100,25 @@ it("accepts a newer saved draft when untouched and preserves changes already bei
   expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("My unsaved edit");
 });
 
-it("asks before the dock leaves unsaved changes, and leaves only when confirmed", async () => {
+it.each([
+  ["Group participation", "/participation", "Participation page"],
+  ["OpenCircle home", "/", "Community board"],
+])("asks before %s leaves unsaved changes, and leaves only when confirmed", async (action, destination, page) => {
   const user = userEvent.setup();
   vi.stubGlobal("fetch", vi.fn());
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(COMMUNITY_KEY, { tools: [], counts: {}, voted: [], toolVotes: {}, signInAvailable: true, profile });
   render(<MemoryRouter initialEntries={["/portfolio"]}><QueryClientProvider client={client}><Routes>
     <Route path="/portfolio" element={<PortfolioEditor initial={initial()} />} />
-    <Route path="/participation" element={<p>Participation page</p>} />
+    <Route path={destination} element={<p>{page}</p>} />
   </Routes></QueryClientProvider></MemoryRouter>);
   await user.type(screen.getByLabelText("Name", { exact: true }), " Jr");
-  await user.click(screen.getByRole("button", { name: "Group participation" }));
+  await user.click(screen.getByRole("button", { name: action }));
   expect(screen.getByRole("dialog").textContent).toContain("Leave your unsaved changes?");
   await user.click(screen.getByRole("button", { name: "Keep editing" }));
   expect(screen.getByLabelText("Name", { exact: true })).toBeTruthy();
-  expect(screen.queryByText("Participation page")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "Group participation" }));
+  expect(screen.queryByText(page)).toBeNull();
+  await user.click(screen.getByRole("button", { name: action }));
   await user.click(screen.getByRole("button", { name: "Leave page" }));
-  expect(await screen.findByText("Participation page")).toBeTruthy();
+  expect(await screen.findByText(page)).toBeTruthy();
 });

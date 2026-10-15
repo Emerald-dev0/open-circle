@@ -111,8 +111,8 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
               <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
               <input
                 type="search"
-                aria-label="Search repositories"
-                placeholder="Search repositories or builders"
+                aria-label="Search spotlight repos"
+                placeholder="Search spotlight repos or builders"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 className="field pl-11 text-base sm:text-[15px]"
@@ -147,7 +147,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
                   className="min-w-0 text-sm"
                 />
                 <SharedSelect
-                  aria-label="Sort repositories"
+                  aria-label="Sort spotlight repos"
                   value={sort}
                   onValueChange={(value) => setSort(value as Sort)}
                   options={[{ value: "stars", label: "Most stars" }, { value: "votes", label: "Community upvotes" }, { value: "updated", label: "Recently updated" }]}
@@ -157,7 +157,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             </div>
           </div>
           <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 text-xs text-t3">
-            <p role="status">{formatFull(visible.length)} of {formatFull(repositories.length)} {repositories.length === 1 ? "repository" : "repositories"}</p>
+            <p role="status">{formatFull(visible.length)} of {formatFull(repositories.length)} spotlight {repositories.length === 1 ? "repo" : "repos"}</p>
             {hasFilters && <TextureButton type="button" variant="minimal" size="default" onClick={resetFilters} className="h-11 w-auto" innerClassName="px-3 text-xs">Reset filters</TextureButton>}
           </div>
         </div>
@@ -169,7 +169,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
           <RepositoryTable
             key={JSON.stringify([search, language, sort, pagination.page])}
             repositories={pagination.items}
-            label={`Repositories ranked by ${SORT_LABELS[sort]}`}
+            label={`Spotlight repos ranked by ${SORT_LABELS[sort]}`}
             counts={counts}
             voted={voted}
             saved={saved}
@@ -178,17 +178,12 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}
           />
-          <Pagination {...pagination} label="Repositories" onPageChange={pagination.changePage} />
+          <Pagination {...pagination} label="Spotlight" onPageChange={pagination.changePage} />
           </>
         ) : (
           <div className="surface-quiet rounded-[28px] px-5 py-8 text-center">
-            <p className="text-sm text-foreground">{repositories.length === 0 ? "No repositories yet." : "No repositories match your filters."}</p>
-            <p className="mt-2 text-xs text-t3">{repositories.length === 0 ? "Member projects appear here after GitHub updates." : "Try another search or browse all repositories."}</p>
-            {hasFilters && (
-              <TextureButton type="button" variant="minimal" size="default" className="mt-4 h-11 w-auto" innerClassName="px-3.5 text-xs" onClick={resetFilters}>
-                Browse all repositories
-              </TextureButton>
-            )}
+            <p className="text-sm text-foreground">{repositories.length === 0 ? "No spotlight repos yet." : "No spotlight repos match your filters."}</p>
+            <p className="mt-2 text-xs text-t3">{repositories.length === 0 ? "One project per developer, with at least 5 stars." : "Try another search or reset your filters."}</p>
           </div>
         )}
       </div>

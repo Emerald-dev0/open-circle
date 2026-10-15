@@ -34,9 +34,9 @@ it("serves route metadata, a real 404 and a trailing-slash redirect", async () =
   const repositories = await fetch(`${base}/repositories`);
   expect(repositories.status).toBe(200);
   const html = await repositories.text();
-  expect(html).toContain("<title>Repositories · OpenCircle</title>");
+  expect(html).toContain("<title>Spotlight · OpenCircle</title>");
   expect(html).toContain(`href="${DEFAULT_SITE_URL}/repositories"`);
-  expect(html).toContain("Public projects from members, ranked by stars.");
+  expect(html).toContain("One repo per developer. At least 5 stars.");
   expect(repositories.headers.get("x-robots-tag")).toBeNull();
 
   const missing = await fetch(`${base}/missing`);

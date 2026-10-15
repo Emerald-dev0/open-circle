@@ -2,7 +2,7 @@ import { Skeleton } from "skelo";
 import { LoadingSkeleton, SkeletonPlaceholder as Placeholder } from "@/components/loading-skeleton";
 
 export function BoardSkeleton({ repositories = false }: { repositories?: boolean }) {
-  return <LoadingSkeleton label={repositories ? "Loading repositories…" : "Loading developer rankings…"}>
+  return <LoadingSkeleton label={repositories ? "Loading spotlight repos…" : "Loading developer rankings…"}>
     <div className="space-y-6 py-6">
       <Skeleton animation="pulse" template={<div className="flex justify-center gap-8 py-4 sm:gap-16">
         {[0, 1, 2].map((index) => <div key={index} className="flex min-w-0 flex-col items-center gap-3">

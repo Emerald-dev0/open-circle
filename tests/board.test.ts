@@ -213,7 +213,7 @@ describe("Member and repository board updates", () => {
       .toEqual(["2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z"]);
   });
 
-  it("ranks repositories by stars, then forks, then name rather than by owner score", async () => {
+  it("automatically spotlights one eligible repository per developer, then ranks them by stars", async () => {
     const store = new TestStore();
     await store.createMember(memberRecord({ projects: [repository({ id: "R_z", name: "z", fullName: "Octocat/z", stars: 5, forks: 2 }), repository({ id: "R_a", name: "a", fullName: "Octocat/a", stars: 5, forks: 2 })] }));
     await store.createMember(memberRecord({ login: "second", displayLogin: "Second", nickname: "Second", whatsapp: "+2348031234568", stars: 0, projects: [repository({ id: "R_top", fullName: "Second/top", stars: 50, forks: 0 }), repository({ id: "R_forks", fullName: "Second/forks", stars: 5, forks: 3 })] }));
@@ -221,7 +221,7 @@ describe("Member and repository board updates", () => {
     const board = await rebuildBoard(store);
 
     expect(board.members.map((member) => member.login)).toEqual(["Octocat", "Second"]);
-    expect(board.repositories.map((repo) => [repo.id, repo.rank])).toEqual([["R_top", 1], ["R_forks", 2], ["R_a", 3], ["R_z", 4]]);
+    expect(board.repositories.map((repo) => [repo.id, repo.rank])).toEqual([["R_top", 1], ["R_a", 2]]);
   });
 
   it("moves members when their scores change and preserves the original daily movement rank", async () => {

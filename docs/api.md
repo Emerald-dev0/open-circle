@@ -6,9 +6,9 @@ The frontend calls same-origin API routes. Vite serves these during development;
 
 | Method and path | Input | Result |
 | --- | --- | --- |
-| `GET /api/board` | None. | Public members, repositories, timestamps, invite settings and reputation weights. Members include helperPoints, helpfulContributions, helpedMembers and uncapped githubScore. helpersUpdatedAt and helpersDelayed describe helper-score freshness. The final score caps GitHub reputation at 20 points and adds confirmed helper points. |
-| `POST /api/preview` | JSON with `github`, `nickname`, `whatsapp`. | Profile stats and score after confirming group membership. The old username-only GET is rejected. |
-| `POST /api/register` | JSON with `github`, `nickname` and `whatsapp`. | Registered login and the updated public board. |
+| `GET /api/board` | None. | Public members, one eligible spotlight repo per member, timestamps, invite settings and reputation weights. Members include helperPoints, helpfulContributions, helpedMembers and uncapped githubScore. helpersUpdatedAt and helpersDelayed describe helper-score freshness. The final score caps GitHub reputation at 20 points and adds confirmed helper points. |
+| `POST /api/preview` | JSON with `github`, `nickname`, `whatsapp`. | Profile stats, score and eligible spotlight choices after confirming group membership. Only public, original repos with at least 5 stars are returned in `profile.projects`; aggregate profile stats remain complete. The old username-only GET is rejected. |
+| `POST /api/register` | JSON with `github`, `nickname`, `whatsapp` and optional `spotlightRepositoryId`. | Registered login and the updated public board. Omit `spotlightRepositoryId` to pick the most-starred eligible repo automatically. Selections are checked against current GitHub data; ineligible choices return 400 with `invalid_spotlight`. |
 | `GET /api/community` | Visitor cookie, created if absent. | Tools, public vote counts and this visitor's vote selections. |
 | `POST /api/vote` | Repository: JSON `{ "target": "repo:ID", "active": true }` with visitor cookie. Tool: `{ "target": "tool:ID", "value": 1 }` with GitHub session; value is -1, 0 or 1. | Target, saved state and current vote score. |
 | `GET /api/auth-start` | None. | Redirect to GitHub public-profile sign-in. |

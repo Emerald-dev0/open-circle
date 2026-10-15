@@ -47,7 +47,7 @@ export function HowItWorks({
 
         <p className="mt-5 text-xs leading-relaxed text-t3">Ties go to more helper points, then helping more members, GitHub reputation, stars and joining order. Forks and private repos don't count. Giving stars is voluntary and earns no helper points.</p>
         <p className="mt-3 text-xs leading-relaxed text-t3">Public commits, issues, pull requests, reviews and new repos count from the UTC day you join. These GitHub totals keep adding up; their ranking points stay within the {HELPER_POLICY.reputationCap}-point limit. Removing an upvote removes its points.</p>
-        <p className="mt-3 text-xs leading-relaxed text-t3">Repositories rank by stars, then forks, then their name. Only public, original projects from visible members appear.</p>
+        <p className="mt-3 text-xs leading-relaxed text-t3">Spotlight shows one public, original repo per developer with at least 5 stars. We pick the most-starred eligible repo automatically, or you can choose one when joining. Projects rank by stars, then forks, then name.</p>
         <p className="mt-3 text-xs leading-relaxed text-t3">The board checks for updates every 10 seconds. GitHub stats refresh about once a minute, in batches for larger groups.</p>
       </DialogContent>
     </Dialog>

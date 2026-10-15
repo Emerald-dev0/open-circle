@@ -25,6 +25,7 @@ import { HttpError } from "./http.js";
 import { getCommunityStore } from "./community-store.js";
 import type { AppConfig, MemberRecord, Store } from "./store.js";
 import { requireWhatsappMembership } from "./whatsapp.js";
+import { pickSpotlight, spotlightCandidates } from "../shared/spotlight.js";
 import { coordinationRequest } from "./participation.js";
 import type { HelperLeaderboard } from "../shared/coordination.js";
 
@@ -166,15 +167,16 @@ export async function rebuildBoard(
   await Promise.all(writes);
 
   const repositories: PublicRepository[] = ranked
-    .flatMap(({ m }) =>
-      (m.projects ?? []).map((repo) => ({
+    .flatMap(({ m }) => {
+      const repo = pickSpotlight(m.projects ?? [], m.spotlightRepositoryId);
+      return repo ? [{
         ...repo,
         rank: 0,
         ownerLogin: m.displayLogin,
         ownerNickname: m.nickname,
         ownerAvatarUrl: m.avatarUrl,
-      })),
-    )
+      }] : [];
+    })
     .sort(
       (a, b) =>
         b.stars - a.stars ||
@@ -332,7 +334,7 @@ export async function previewProfile(
   ]);
   const upvotes = repositoryUpvotes(profile.projects ?? [], votes.counts);
   const githubScore = scoreOf({ ...profile, upvotes }, config.weights);
-  return { profile, score: communityScore(githubScore, existing?.helperPoints), githubScore, helpedMembers: existing?.helpedMembers ?? 0, helperPoints: existing?.helperPoints ?? 0 };
+  return { profile: { ...profile, projects: spotlightCandidates(profile.projects ?? []) }, score: communityScore(githubScore, existing?.helperPoints), githubScore, helpedMembers: existing?.helpedMembers ?? 0, helperPoints: existing?.helperPoints ?? 0 };
 }
 
 function field(body: unknown, key: string): string {
@@ -353,6 +355,11 @@ export async function register(
   const whatsapp = parseWhatsappNumber(field(body, "whatsapp"));
   if (!whatsapp.ok)
     throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
+
+  const spotlightRepositoryId = (body as Record<string, unknown> | null)?.spotlightRepositoryId;
+  if (spotlightRepositoryId !== undefined && (typeof spotlightRepositoryId !== "string" || !spotlightRepositoryId || spotlightRepositoryId.length > 200)) {
+    throw new HttpError(400, "invalid_spotlight", "Choose a repository with at least 5 stars, or use the automatic pick.", "spotlightRepositoryId");
+  }
 
   await requireWhatsappMembership(whatsapp.value);
 
@@ -379,6 +386,9 @@ export async function register(
 
   const now = Date.now();
   const stats = await fetchUser(github.value, now);
+  if (spotlightRepositoryId !== undefined && !spotlightCandidates(stats.projects ?? []).some((repo) => repo.id === spotlightRepositoryId)) {
+    throw new HttpError(400, "invalid_spotlight", "That repository is no longer eligible. Choose another with at least 5 stars, or use the automatic pick.", "spotlightRepositoryId");
+  }
   const record: MemberRecord = {
     login: stats.login.toLowerCase(),
     displayLogin: stats.login,
@@ -392,6 +402,7 @@ export async function register(
     activity: stats.activity,
     activitySince: stats.activitySince,
     projects: stats.projects ?? [],
+    spotlightRepositoryId,
     hidden: false,
     createdAt: now,
     statsUpdatedAt: now,

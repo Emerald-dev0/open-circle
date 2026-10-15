@@ -58,10 +58,10 @@ describe("search documents", () => {
 
   it("rewrites the shell for the requested route and stays stable", () => {
     const repositories = render("/repositories");
-    expect(repositories).toContain("<title>Repositories · OpenCircle</title>");
+    expect(repositories).toContain("<title>Spotlight · OpenCircle</title>");
     expect(repositories).toContain(`href="${origin}/repositories"`);
     expect(repositories).toContain('content="index, follow, max-image-preview:large"');
-    expect(repositories).toContain("Public projects from members, ranked by stars.");
+    expect(repositories).toContain("One repo per developer. At least 5 stars.");
     expect(repositories).toContain('"@type": "Organization"');
     expect(repositories).not.toContain("%SITE_URL%");
     expect(applySeo(repositories, seoDocument("/repositories", origin))).toBe(repositories);

@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  */
 export function RepositoryTable({
   repositories,
-  label = "Repositories ranked by stars",
+  label = "Spotlight repos ranked by stars",
   counts = {},
   voted = new Set<string>(),
   saved = new Set<string>(),

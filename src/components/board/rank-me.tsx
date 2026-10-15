@@ -6,12 +6,14 @@ import { toast } from "sonner";
 import { CloseCircleIcon, CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
 import { DEFAULT_WEIGHTS } from "@shared/ranking";
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
-import type { Board, InviteConfig, PublicMember } from "@shared/types";
+import type { Board, GithubRepository, InviteConfig, PublicMember } from "@shared/types";
+import { spotlightCandidates } from "@shared/spotlight";
 import { parseGithubInput, parseNickname, parseWhatsappNumber } from "@shared/validation";
 import { GitHubIcon, WhatsAppIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TextureButton } from "@/components/ui/texture-button";
+import { SharedSelect } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useSetBoard } from "@/hooks/use-board";
 import { ApiError, api } from "@/lib/api";
@@ -256,14 +258,18 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
   const [errorField, setErrorField] = useState<string | null>(null);
   useEffect(() => { if (error) toast.error(error, { id: "register" }); }, [error]);
   const [needsJoin, setNeedsJoin] = useState(false);
-  const ids = { nickname: useId(), whatsapp: useId(), error: useId(), hint: useId() };
+  const [projects, setProjects] = useState<GithubRepository[] | null>(null);
+  const [spotlight, setSpotlight] = useState("auto");
+  const ids = { nickname: useId(), whatsapp: useId(), error: useId(), hint: useId(), spotlight: useId(), spotlightHint: useId() };
 
   const register = useMutation({ mutationFn: api.register });
+  const preview = useMutation({ mutationFn: api.preview });
+  const busy = register.isPending || preview.isPending;
   const invite = board?.invite ?? { url: DEFAULT_INVITE_URL, open: true, note: DEFAULT_INVITE_NOTE };
 
-  async function submit(event: React.FormEvent) {
+  async function submit(event: React.SyntheticEvent, choosing = false) {
     event.preventDefault();
-    if (register.isPending) return;
+    if (busy) return;
     const nick = parseNickname(nickname);
     const phone = parseWhatsappNumber(whatsapp);
     if (!nick.ok || !phone.ok) {
@@ -276,7 +282,14 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
     setNeedsJoin(false);
 
     try {
-      const result = await register.mutateAsync({ nickname: nick.value, github: login, whatsapp: phone.value });
+      const details = { nickname: nick.value, github: login, whatsapp: phone.value };
+      if (choosing) {
+        const result = await preview.mutateAsync(details);
+        setProjects(spotlightCandidates(result.profile.projects ?? []));
+        setSpotlight("auto");
+        return;
+      }
+      const result = await register.mutateAsync({ ...details, ...(spotlight !== "auto" ? { spotlightRepositoryId: spotlight } : {}) });
       setBoard(result.board);
       writeMe(result.login);
       const member = findMember(result.board, result.login);
@@ -304,7 +317,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         value={nickname}
         maxLength={24}
         autoComplete="nickname"
-        disabled={register.isPending}
+        disabled={busy}
         aria-invalid={errorField === "nickname" || undefined}
         onChange={(e) => setNickname(e.target.value)}
       />
@@ -320,12 +333,14 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
           autoComplete="tel"
           placeholder="e.g. +234 803 123 4567"
           value={whatsapp}
-          disabled={register.isPending}
+          disabled={busy}
           aria-invalid={errorField === "whatsapp" || undefined}
           aria-describedby={ids.hint}
           onChange={(e) => {
             setWhatsapp(e.target.value);
             setNeedsJoin(false);
+            setProjects(null);
+            setSpotlight("auto");
             if (errorField === "whatsapp") {
               setError(null);
               setErrorField(null);
@@ -335,6 +350,31 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
       </div>
       <p id={ids.hint} className="px-4 text-xs leading-relaxed text-t3">Use your WhatsApp group number with its country code (e.g. +234). We check membership before ranking. Your number stays private. <Link to="/participation" className="text-foreground underline underline-offset-4">Connect your account and give feedback.</Link></p>
 
+      <div className="space-y-2 px-1 py-3">
+        <label htmlFor={ids.spotlight} className="block px-3 text-sm text-foreground">Spotlight repository</label>
+        <p id={ids.spotlightHint} className="px-3 text-xs leading-relaxed text-t3">We automatically pick your most-starred public, original repo with at least 5 stars. You can choose another.</p>
+        {projects === null ? (
+          <TextureButton type="button" variant="secondary" className="min-h-11 w-full" loading={preview.isPending} disabled={busy} onClick={(event) => void submit(event, true)}>
+            {preview.isPending ? "Loading eligible repos…" : "Choose a spotlight repo"}
+          </TextureButton>
+        ) : projects.length > 0 ? (
+          <SharedSelect
+            id={ids.spotlight}
+            aria-label="Spotlight repository"
+            aria-describedby={ids.spotlightHint}
+            aria-invalid={errorField === "spotlightRepositoryId" || undefined}
+            value={spotlight}
+            onValueChange={setSpotlight}
+            disabled={busy}
+            options={[
+              { value: "auto", label: `Automatic · ${projects[0].name} · ${formatFull(projects[0].stars)} stars` },
+              ...projects.map((repo) => ({ value: repo.id, label: `${repo.name} · ${formatFull(repo.stars)} stars` })),
+            ]}
+          />
+        ) : (
+          <p role="status" className="px-3 text-xs leading-relaxed text-t3">No repos with 5 stars yet. You can still join; your spotlight will appear when one qualifies.</p>
+        )}
+      </div>
 
       {needsJoin && (
         <div className="space-y-2 px-4 py-2">
@@ -349,7 +389,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         </div>
       )}
 
-      <MetalButton type="submit" loading={register.isPending} wrapperClassName="w-full" className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
+      <MetalButton type="submit" loading={register.isPending} disabled={busy} wrapperClassName="w-full" className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
         {register.isPending ? "Checking membership and ranking…" : needsJoin ? "Check again" : "Join the board"}
       </MetalButton>
     </form>

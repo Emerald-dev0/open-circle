@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { MetalText } from "metal-fx";
+import { MetalText } from "@/components/metal-text";
 import { motion, useSpring, useTransform } from "motion/react";
 import { CupStarIcon, UserIdIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { WhatsAppIcon } from "@/components/brand-icons";

@@ -32,7 +32,7 @@ OpenCircle brings the group's GitHub profiles and public projects into one place
 
 - Join the developer leaderboard and follow rank changes.
 - Build a customizable GitHub portfolio at `username.opencircle.cc`.
-- Browse members' repositories, filter by language, upvote projects and save links.
+- Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, upvote projects and save links.
 - Find developer tools, submit tools for review and rate them with GitHub sign-in.
 - Share projects, give feedback and answer help requests through group participation.
 - Manage members, tool submissions and ranking settings through the admin page.
@@ -87,7 +87,7 @@ GitHub reputation and repo upvotes add at most 20 points in total, using these d
 
 GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, members helped, GitHub reputation, stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary and earns no helper points. Bot outages preserve the last confirmed helper scores and mark them delayed.
 
-Repository rankings use GitHub stars, then forks and repository name. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
+Spotlight picks each developer's most-starred eligible repo automatically, or they can choose one during registration. Projects rank by GitHub stars, then forks and repository name. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
 
 ## Built with
 

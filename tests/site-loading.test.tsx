@@ -65,7 +65,7 @@ describe("Public Skelo loading", () => {
 
   it.each([
     ["/", "Loading developer rankings…", "Ranks 4 and below", "table"],
-    ["/repositories", "Loading repositories…", "Repositories ranked by stars", "list"],
+    ["/repositories", "Loading spotlight repos…", "Spotlight repos ranked by stars", "list"],
   ])("loads %s and preserves its results during a background refresh", async (path, label, tableName, role) => {
     const initial = deferred<Board>();
     const refresh = deferred<Board>();

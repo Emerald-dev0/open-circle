@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MetalText } from "@/components/metal-text";
 import { ArrowRightUpIcon, CheckReadIcon, CopyIcon, DisketteIcon, MonitorIcon, RefreshIcon, SmartphoneIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import { GitHubIcon } from "@/components/brand-icons";
@@ -8,7 +9,7 @@ import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
 import { AccountCorner } from "@/components/account-corner";
 import { Dock } from "@/components/dock";
-import { setLeaveGuard } from "@/lib/leave-guard";
+import { guardedLeave, setLeaveGuard } from "@/lib/leave-guard";
 import { SharedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,11 +17,13 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { EditorField, ImageField, ProjectEditor, RepositoryPicker } from "@/components/portfolio/editor-fields";
 import { PortfolioMarkdown, PortfolioView } from "@/components/portfolio/portfolio-view";
 import { useCommunity } from "@/hooks/use-community";
+import { useTheme } from "@/hooks/use-theme";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ApiError } from "@/lib/api";
 import { portfolioApi } from "@/lib/portfolio-api";
 import { CONTACT_KINDS, CONTACT_LABELS, PORTFOLIO_ACCENTS, defaultPortfolio, portfolioHostname, type ContactKind, type PortfolioContent, type PortfolioEditorState, type PublicPortfolio } from "@shared/portfolio";
 import { parsePortfolio } from "@shared/portfolio-validation";
+import { BRAND_NAME } from "@shared/brand";
 import "@/components/portfolio/studio.css";
 
 const EXAMPLE_PROFILE = { id: 0, login: "your-username", avatarUrl: "" };
@@ -32,8 +35,10 @@ const EXAMPLE: PublicPortfolio = {
 
 /** Avatar top-right and the dock, on every portfolio state. */
 function StudioChrome() {
+  const navigate = useNavigate();
+  const { resolvedTheme } = useTheme();
   return <>
-    <AccountCorner />
+    <AccountCorner leading={<button type="button" className="flex min-h-11 shrink-0 items-center rounded-full px-2" aria-label={`${BRAND_NAME} home`} onClick={() => guardedLeave(() => navigate("/"))}><MetalText font="650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color={resolvedTheme === "dark" ? "#F4F7FB" : "#252E3D"} theme={resolvedTheme}>{BRAND_NAME}</MetalText></button>} />
     <Dock />
   </>;
 }

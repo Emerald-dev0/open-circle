@@ -1,12 +1,13 @@
 import * as React from "react";
 import GitHubButton from "react-github-btn";
-import { MetalText } from "metal-fx";
+import { MetalText } from "@/components/metal-text";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useMatch, useNavigate } from "react-router-dom";
 import { FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import type { PublicMember, PublicRepository } from "@shared/types";
+import { SPOTLIGHT_MIN_STARS } from "@shared/spotlight";
 import { Pagination } from "@/components/pagination";
 import { PAGE_SIZE, usePagination } from "@/hooks/use-pagination";
 import { HowItWorks } from "@/components/board/how-it-works";
@@ -136,8 +137,8 @@ const Index = () => {
   const rest = useMemo(() => members.slice(3), [members]);
   const pagination = usePagination(rest);
   const setMemberPage = pagination.setPage;
-  const repoPodium = useMemo(() => (board?.repositories ?? []).slice(0, 3).map(repoEntry), [board]);
-  const repositories = board?.repositories ?? [];
+  const repositories = useMemo(() => (board?.repositories ?? []).filter((repo) => repo.stars >= SPOTLIGHT_MIN_STARS), [board]);
+  const repoPodium = useMemo(() => repositories.slice(0, 3).map(repoEntry), [repositories]);
   const toolCount = community?.tools.length ?? 0;
 
   // Visiting /how-it-works opens the explainer over the board.
@@ -257,7 +258,7 @@ const Index = () => {
             aria-labelledby="board-title"
           >
             <h2 id="board-title" className="sr-only">
-              {activeTab === "tools" ? "Developer tools" : activeTab === "repositories" ? "Repository ranking" : "Developer leaderboard"}
+              {activeTab === "tools" ? "Developer tools" : activeTab === "repositories" ? "Repository spotlight" : "Developer leaderboard"}
             </h2>
             <Tabs
               value={activeTab}
@@ -274,7 +275,7 @@ const Index = () => {
                   </TabsTrigger>
                   <TabsTrigger value="repositories" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "repositories" && <TabPill />}
-                    <span className="relative">Repositories</span>{" "}
+                    <span className="relative">Spotlight</span>{" "}
                     <TabCount count={repositories.length} />
                   </TabsTrigger>
                   <TabsTrigger value="tools" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
@@ -335,7 +336,7 @@ const Index = () => {
                   <BoardSkeleton repositories />
                 ) : repositories.length > 0 ? (
                   <>
-                    <LeaderboardPodium entries={repoPodium} unit="stars" ariaLabel="Top three repositories" />
+                    <LeaderboardPodium entries={repoPodium} unit="stars" ariaLabel="Top three spotlight repos" />
                     <div className="mt-4 sm:mt-6">
                       <RepositoryExplorer repositories={repositories} />
                     </div>
@@ -344,8 +345,8 @@ const Index = () => {
                   !isError && (
                     <EmptyState
                       icon={<FolderWithFilesIcon size={22} aria-hidden />}
-                      title="No repositories yet"
-                      body="Join the board and your public projects show up here."
+                      title="No spotlight repos yet"
+                      body="One project per developer, with at least 5 stars. Join the board to add yours."
                     />
                   )
                 )}

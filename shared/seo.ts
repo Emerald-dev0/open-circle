@@ -26,10 +26,10 @@ export const SEO_PAGES: readonly SeoPage[] = [
   },
   {
     path: "/repositories",
-    title: `Repositories · ${BRAND_NAME}`,
+    title: `Spotlight · ${BRAND_NAME}`,
     description:
-      "Public repositories from Open Source Circle members, ranked by GitHub stars. Search, filter and upvote projects from the circle.",
-    summary: "Public projects from members, ranked by stars.",
+      "One spotlight repository per Open Source Circle developer, each with at least 5 GitHub stars. Find and support the circle's best public projects.",
+    summary: "One repo per developer. At least 5 stars.",
     heading: HOME_HEADING,
     index: true,
   },
@@ -89,7 +89,7 @@ const NOT_FOUND: SeoPage = {
 
 export const SITE_LINKS = [
   { path: "/", label: "Developer leaderboard" },
-  { path: "/repositories", label: "Repositories" },
+  { path: "/repositories", label: "Spotlight" },
   { path: "/tools", label: "Developer tools" },
   { path: "/how-it-works", label: "How ranking works" },
   { path: "/participation", label: "Group participation" },
@@ -202,7 +202,7 @@ export function llmsTxt(originInput = DEFAULT_SITE_URL) {
     "",
     "> The community leaderboard for the Open Source Circle developer community.",
     "",
-    "OpenCircle rewards confirmed useful help in the last 28 days: 20 points per contribution and 5 per different member helped. GitHub reputation and repo upvotes add at most 20 points in total. Giving stars is voluntary and earns no helper points. It also lists members' public repositories and developer tools they share.",
+    "OpenCircle rewards confirmed useful help in the last 28 days: 20 points per contribution and 5 per different member helped. GitHub reputation and repo upvotes add at most 20 points in total. Giving stars is voluntary and earns no helper points. Spotlight features one public, original repository per developer with at least 5 stars. Developers can choose an eligible repo when joining, or use the automatic most-starred pick. Members also share developer tools.",
     "",
     "## Pages",
     "",
@@ -227,7 +227,7 @@ function escapeAttr(value: string) {
 
 function setAttribute(tag: string, name: string, value: string) {
   const assignment = ` ${name}="${escapeAttr(value)}"`;
-  const pattern = new RegExp(`\\s${name}=["'][^"']*["']`, "i");
+  const pattern = new RegExp(`\\s${name}=(?:"[^"]*"|'[^']*')`, "i");
   if (pattern.test(tag)) return tag.replace(pattern, assignment);
   return tag.replace(/\s*\/?>$/, `${assignment}$&`);
 }
