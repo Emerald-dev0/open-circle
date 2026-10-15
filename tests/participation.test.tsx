@@ -25,7 +25,7 @@ function mount(data=initial){
 beforeEach(()=>{vi.mocked(api.community).mockReset().mockResolvedValue(community);vi.mocked(api.participation).mockReset();vi.mocked(api.linkWhatsapp).mockReset();vi.mocked(api.participate).mockReset();});
 afterEach(()=>clients.splice(0).forEach(client=>client.clear()));
 
-it('links the group number with a short-lived sender verification code',async()=>{
+it('directs linking to the bot DM with a short-lived sender verification code',async()=>{
   const user=userEvent.setup();mount({...initial,activity:{...initial.activity,linked:false,login:null}});
   vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000});
   const phone=await screen.findByLabelText('Your WhatsApp group number');
@@ -39,6 +39,11 @@ it('links the group number with a short-lived sender verification code',async()=
   await user.type(phone,'+234 803 123 4567');
   await user.click(screen.getByRole('button',{name:'Get linking code'}));
   await screen.findByText('/link ABC123');expect(api.linkWhatsapp).toHaveBeenCalledWith('+2348031234567',expect.anything());
+  expect(screen.getByText('Send this command to the OpenCircle bot in a private WhatsApp chat from that number:')).toBeTruthy();
+  expect(screen.getByText(/Open the bot's profile in the group and choose Message/).textContent).toContain('/link does not work in the group.');
+  expect(screen.queryByText('Send this in the WhatsApp group from your number:')).toBeNull();
+  await user.click(screen.getByRole('button',{name:'Copy command'}));
+  expect(await navigator.clipboard.readText()).toBe('/link ABC123');
   await user.type(screen.getByLabelText('Your WhatsApp group number'),'8');expect(screen.queryByText('/link ABC123')).toBeNull();
 });
 

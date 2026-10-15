@@ -147,16 +147,17 @@ export default function Participation() {
           <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Try again</MetalButton>
         </div>
 
-        : data && (!data.activity.linked ? <Panel header={<PanelHeader title="Connect your WhatsApp account" subtitle="Use your number in Open Source Circle with its country code (e.g. +234), then send the code from that account." chip={<Chip tone="muted">Step {challenge ? 2 : 1} of 2</Chip>} />}>
+        : data && (!data.activity.linked ? <Panel header={<PanelHeader title="Connect your WhatsApp account" subtitle="Use your number in Open Source Circle with its country code (e.g. +234), then send the code to the bot in a private WhatsApp chat from that account." chip={<Chip tone="muted">Step {challenge ? 2 : 1} of 2</Chip>} />}>
           <div className="py-4">
             <ParticipationForm inline button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel", placeholder: "e.g. +234 803 123 4567" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
           </div>
           {challenge && <div className="space-y-3 border-t border-white/[0.06] py-4" role="status">
-            <p className="text-sm text-t3">Send this in the WhatsApp group from your number:</p>
+            <p className="text-sm text-t3">Send this command to the OpenCircle bot in a private WhatsApp chat from that number:</p>
             <div className="flex items-center gap-2 rounded-full bg-white/[0.06] py-1.5 pl-4 pr-1.5">
               <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
               <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
             </div>
+            <p className="text-xs text-t3">Open the bot's profile in the group and choose Message. It replies after you send the command. /link does not work in the group.</p>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-t4">Expires in 10 minutes. This page checks automatically.</p>
               <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Check link</MetalButton>
