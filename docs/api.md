@@ -6,7 +6,7 @@ The frontend calls same-origin API routes. Vite serves these during development;
 
 | Method and path | Input | Result |
 | --- | --- | --- |
-| `GET /api/board` | None. | Public members, repositories, timestamps, invite settings and weights. |
+| `GET /api/board` | None. | Public members, repositories, timestamps, invite settings and reputation weights. Members include helperPoints, helpfulContributions, helpedMembers and uncapped githubScore. helpersUpdatedAt and helpersDelayed describe helper-score freshness. The final score caps GitHub reputation at 20 points and adds confirmed helper points. |
 | `POST /api/preview` | JSON with `github`, `nickname`, `whatsapp`. | Profile stats and score after confirming group membership. The old username-only GET is rejected. |
 | `POST /api/register` | JSON with `github`, `nickname` and `whatsapp`. | Registered login and the updated public board. |
 | `GET /api/community` | Visitor cookie, created if absent. | Tools, public vote counts and this visitor's vote selections. |

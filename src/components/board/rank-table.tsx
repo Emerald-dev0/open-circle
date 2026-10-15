@@ -69,7 +69,7 @@ function Row({
               )}
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
-            <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.activity)} contributions · {formatCount(member.upvotes)} upvotes</span>
+            <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>
           </span>
         </a>
       </div>
@@ -87,7 +87,7 @@ function Row({
       </div>
 
       <div role="cell" className="text-right md:text-left">
-        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.activity)} contributions since joining · ${formatFull(member.upvotes)} repo upvotes`}>
+        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.helperPoints ?? 0)} from confirmed help · ${formatFull(member.helpedMembers ?? 0)} members helped in 28 days`}>
           <span className="sr-only">{formatFull(member.score)} points</span>
           <span className="md:hidden" aria-hidden="true">{formatCount(member.score)}</span>
           <span className="hidden md:inline" aria-hidden="true">{formatFull(member.score)}</span>
@@ -101,9 +101,9 @@ function Row({
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.stars)}</div>
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.followers)}</div>
       <div role="cell" className="hidden text-sm tabular text-t3 md:block">{formatCount(member.repos)}</div>
-      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title="Contributions since joining OpenCircle">
-        {formatCount(member.activity)}
-        <span className="block text-[11px] text-t3">{formatCount(member.upvotes)} upvotes</span>
+      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title={`${formatFull(member.activity)} GitHub contributions since joining · ${formatFull(member.upvotes)} repo upvotes`}>
+        {formatCount(member.helpfulContributions ?? 0)} helps
+        <span className="block text-[11px] text-t3">{formatCount(member.helpedMembers ?? 0)} members</span>
       </div>
       <div role="cell" className="hidden text-sm md:block">
         <Movement delta={member.delta} isNew={member.isNew} />
@@ -144,7 +144,7 @@ export function RankTable({
             <span role="columnheader" className="hidden md:block">Stars</span>
             <span role="columnheader" className="hidden md:block">Followers</span>
             <span role="columnheader" className="hidden md:block">Repos</span>
-            <span role="columnheader" className="hidden md:block">Contributions</span>
+            <span role="columnheader" className="hidden md:block">Help · 28 days</span>
             <span role="columnheader" className="hidden md:block">Move</span>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../shared/brand.js";
 import {
   compareStanding,
+  communityScore,
   contributionStart,
   DEFAULT_WEIGHTS,
   scoreOf,
@@ -24,9 +25,11 @@ import { HttpError } from "./http.js";
 import { getCommunityStore } from "./community-store.js";
 import type { AppConfig, MemberRecord, Store } from "./store.js";
 import { requireWhatsappMembership } from "./whatsapp.js";
+import { coordinationRequest } from "./participation.js";
+import type { HelperLeaderboard } from "../shared/coordination.js";
 
 const REFRESH_EVERY_MS = 60_000;
-const RANKING_VERSION = 2;
+const RANKING_VERSION = 4;
 // Held for this long after a failed refresh, so a rate-limited GitHub isn't retried on every poll.
 const REFRESH_LOCK_S = 50;
 // With more members than this, each tick refreshes the stalest ones and the rest wait their turn.
@@ -79,6 +82,29 @@ export async function rebuildBoard(
     opts.voteCounts ?? getCommunityStore().readVotes("").then((result) => result.counts),
   ]);
   const now = Date.now();
+  let helpersCheckedAt = previous?.helpersCheckedAt ?? 0;
+  let helpersUpdatedAt = previous?.helpersUpdatedAt ?? 0;
+  let helpersDelayed = previous?.helpersDelayed ?? true;
+  if (now - helpersCheckedAt >= REFRESH_EVERY_MS) {
+    helpersCheckedAt = now;
+    let helpers: HelperLeaderboard | null = null;
+    try {
+      helpers = await coordinationRequest<HelperLeaderboard>("helpers", {});
+    } catch {
+      helpersDelayed = true;
+    }
+    if (helpers) {
+      const scores = new Map(helpers.members.map((entry) => [entry.login.toLowerCase(), entry]));
+      await Promise.all(records.map(async (record) => {
+        const helper = scores.get(record.login);
+        const patch = { helperPoints: helper?.points ?? 0, helpfulContributions: helper?.contributions ?? 0, helpedMembers: helper?.peers ?? 0 };
+        if ((record.helperPoints ?? 0) !== patch.helperPoints || (record.helpfulContributions ?? 0) !== patch.helpfulContributions || (record.helpedMembers ?? 0) !== patch.helpedMembers) await store.patchMember(record.login, patch);
+        Object.assign(record, patch);
+      }));
+      helpersUpdatedAt = helpers.generatedAt;
+      helpersDelayed = false;
+    }
+  }
 
   const ranked = records
     .filter((m) => !m.hidden)
@@ -86,7 +112,8 @@ export async function rebuildBoard(
       const activity = record.activitySince === contributionStart(record.createdAt) ? record.activity : 0;
       const upvotes = repositoryUpvotes(record.projects ?? [], votes);
       const m = { ...record, activity, upvotes };
-      return { m, score: scoreOf(m, config.weights) };
+      const githubScore = scoreOf(m, config.weights);
+      return { m: { ...m, githubScore }, score: communityScore(githubScore, m.helperPoints) };
     })
     .sort((a, b) =>
       compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }),
@@ -120,6 +147,10 @@ export async function rebuildBoard(
       repos: m.repos,
       activity: m.activity,
       upvotes: m.upvotes,
+      helperPoints: m.helperPoints ?? 0,
+      helpfulContributions: m.helpfulContributions ?? 0,
+      helpedMembers: m.helpedMembers ?? 0,
+      githubScore: m.githubScore,
       rank,
       delta: recent ? prevRank - rank : 0,
       isNew: now - m.createdAt < NEW_WINDOW_MS,
@@ -154,6 +185,9 @@ export async function rebuildBoard(
 
   const board: Board = {
     rankingVersion: RANKING_VERSION,
+    helpersCheckedAt,
+    helpersUpdatedAt,
+    helpersDelayed,
     members,
     repositories,
     updatedAt: now,
@@ -229,7 +263,7 @@ export async function readBoard(
     ? saved
     : await rebuildBoard(store, saved ? { refreshedAt: 0 } : {});
   if (
-    Date.now() - board.refreshedAt >= REFRESH_EVERY_MS &&
+    (Date.now() - board.refreshedAt >= REFRESH_EVERY_MS || Date.now() - (board.helpersCheckedAt ?? 0) >= REFRESH_EVERY_MS) &&
     (await store.tryLock("refresh", REFRESH_LOCK_S))
   ) {
     background(refreshInBackground(store));
@@ -297,7 +331,8 @@ export async function previewProfile(
     getCommunityStore().readVotes(""),
   ]);
   const upvotes = repositoryUpvotes(profile.projects ?? [], votes.counts);
-  return { profile, score: scoreOf({ ...profile, upvotes }, config.weights) };
+  const githubScore = scoreOf({ ...profile, upvotes }, config.weights);
+  return { profile, score: communityScore(githubScore, existing?.helperPoints), githubScore, helpedMembers: existing?.helpedMembers ?? 0, helperPoints: existing?.helperPoints ?? 0 };
 }
 
 function field(body: unknown, key: string): string {

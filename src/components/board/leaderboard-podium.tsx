@@ -14,6 +14,8 @@ export type LeaderboardEntry = {
   stars: number;
   activity?: number;
   upvotes?: number;
+  helpfulContributions?: number;
+  helpedMembers?: number;
   href: string;
   /** The member's GitHub avatar; DiceBear stands in when it's missing. */
   avatarUrl?: string;
@@ -85,8 +87,8 @@ function PodiumSlot({
                 <span className="sm:hidden" aria-hidden="true">{formatCount(entry.points)} {unit}</span>
                 <span className="hidden sm:inline" aria-hidden="true">{formatFull(entry.points)} {unit}</span>
               </span>
-              {entry.activity !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.activity)} contributions since joining OpenCircle · ${formatFull(entry.upvotes ?? 0)} repo upvotes`}>
-                {formatCount(entry.activity)} contributions
+              {entry.helpfulContributions !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.helpfulContributions)} confirmed helps for ${formatFull(entry.helpedMembers ?? 0)} members in 28 days`}>
+                {formatCount(entry.helpfulContributions)} confirmed helps
               </span>}
               <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-t3 tabular sm:mt-1 sm:text-xs">
                 {entry.secondary?.icon ?? <StarIcon size={11} aria-hidden />}

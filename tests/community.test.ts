@@ -74,7 +74,7 @@ describe("Community API workflow", () => {
       expect(await response.json()).toEqual({ ...input, count: 1 });
     }
     const own = await (await getCommunity(request("community"))).json() as CommunityState;
-    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 1, score: 69 });
+    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 1, score: 20, githubScore: 69 });
     expect(own.counts[input.target]).toBe(1);
     expect(own.voted).toEqual([input.target]);
     const other = await (await getCommunity(request("community", "GET", undefined, { cookie: "" }))).json() as CommunityState;
@@ -83,7 +83,7 @@ describe("Community API workflow", () => {
     const removed = await postVote(request("vote", "POST", { ...input, active: false }));
     expect(await removed.json()).toEqual({ ...input, active: false, count: 0 });
     expect((await board.getBoard())?.repositories[0].stars).toBe(10);
-    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 0, score: 68 });
+    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 0, score: 20, githubScore: 68 });
   });
 
   it("supports independent voters without counting duplicate concurrent requests twice", async () => {
@@ -96,7 +96,7 @@ describe("Community API workflow", () => {
     ]);
     expect(results.every((response) => response.status === 200)).toBe(true);
     expect((await community.readVotes(visitor(request("community")).actor)).counts[input.target]).toBe(2);
-    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 2, score: 70 });
+    expect((await board.getBoard())?.members[0]).toMatchObject({ upvotes: 2, score: 20, githubScore: 70 });
   });
 
   it("rejects nonexistent and hidden member repositories without storing votes", async () => {

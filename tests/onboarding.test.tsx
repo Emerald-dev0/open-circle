@@ -411,8 +411,8 @@ describe("Community leaderboard pages", () => {
     await waitFor(() => expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/"));
     await waitFor(() => expect(document.getElementById("member-octocat")).toBeTruthy());
     const row = document.getElementById("member-octocat")!;
-    expect(screen.getByRole("columnheader", { name: "Contributions" })).toBeTruthy();
-    expect(within(row).getByText("9 contributions · 0 upvotes")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Help · 28 days" })).toBeTruthy();
+    expect(within(row).getByText("0 confirmed helps · 0 members")).toBeTruthy();
     expect(within(row).getByText("55")).toBeTruthy();
     expect(within(row).getByText("Octo")).toBeTruthy();
     expect(within(row).getByText("You")).toBeTruthy();

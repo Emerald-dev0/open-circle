@@ -17,6 +17,23 @@ const community:CommunityState={profile:{id:1,login:'Alice',avatarUrl:'https://a
 const initial:ParticipationState={activity:{linked:true,login:'Alice',enabled:true,tracking:true,contributions:1,reviewPeers:1,target:4,requiredReviewPeers:2,inactiveDays:3,graceRemainingDays:0,awayUntil:null,awayRequestedDays:null,pendingContributions:0,removalReview:false},projects:[{id:'project_1',title:'Portfolio',url:'https://example.test',owner:'Bob',reviews:0,status:'approved',assignedTo:['Alice'],createdAt:1}],help:[],contributions:[]};
 const emptyRoutine:MemberCommunityState={timezone:'Africa/Lagos',quietStart:22,quietEnd:8,groupSchedule:false,updates:[],sessions:[],mentor:{available:false,skills:[],weeklyLimit:2},assignedHelp:[],repositories:[]};
 const clients:QueryClient[]=[];
+
+it('lets a member record repo help, focuses the feedback form and submits for confirmation',async()=>{
+  const user=userEvent.setup();
+  const repo={id:'repo_1',owner:'Bob',fullName:'Bob/tool',url:'https://github.com/Bob/tool',license:'MIT',fork:false,summary:'A useful tool for learning TypeScript.',helpWanted:'Help with tests and documentation.',issues:[],skills:['typescript'],tagOwner:false,status:'approved' as const,reason:'',needsHelp:true,createdAt:1,checkedAt:1,announcedAt:null,followedUpAt:null,pinStatus:'idle' as const};
+  mount({...initial,community:{...emptyRoutine,repositories:[repo,{...repo,id:'mine',owner:'Alice'},{...repo,id:'paused',needsHelp:false},{...repo,id:'pending',status:'pending'}]}},{entry:'/participation#repositories'});
+  vi.mocked(api.participate).mockResolvedValue({...initial,contributions:[]});
+  await screen.findByRole('tab',{name:'Repos',selected:true});
+  expect(screen.getAllByRole('button',{name:'Record your help'})).toHaveLength(1);
+  await user.click(screen.getByRole('button',{name:'Record your help'}));
+  expect(await screen.findByRole('tab',{name:'Feedback',selected:true})).toBeTruthy();
+  const field=screen.getByLabelText('What you tried and a useful observation or suggestion');
+  expect(document.activeElement).toBe(field);
+  const text='I tested the setup and improved the README installation steps.';
+  await user.type(field,text);
+  await user.click(screen.getByRole('button',{name:'Submit feedback'}));
+  await waitFor(()=>expect(vi.mocked(api.participate).mock.calls[0]?.[0]).toEqual({action:'review',projectId:'repo_1',text}));
+});
 function HistoryControls(){
   const navigate=useNavigate();
   return <><button onClick={()=>navigate(-1)}>Go back</button><button onClick={()=>navigate(1)}>Go forward</button></>;

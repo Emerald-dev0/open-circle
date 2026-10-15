@@ -62,7 +62,8 @@ export function publicMember(overrides: Partial<PublicMember> = {}): PublicMembe
 
 export function boardFixture(overrides: Partial<Board> = {}): Board {
   return {
-    rankingVersion: 2,
+    rankingVersion: 4,
+    helpersCheckedAt: Date.now(),
     members: [],
     repositories: [],
     updatedAt: Date.now(),

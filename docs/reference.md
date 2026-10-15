@@ -37,7 +37,7 @@ The app includes:
 The default score is:
 
 ```text
-score = (stars × 5)
+github reputation = (stars × 5)
       + (followers × 4)
       + min(public original repositories, 50)
       + public contributions since joining OpenCircle
@@ -56,9 +56,11 @@ Activity includes commits, issues, pull requests, pull request reviews and repos
 
 Contribution days use UTC, including the whole joining day. Totals accumulate beyond 30 days and across years. Each refresh replaces the total from GitHub, so retries do not add points twice. Existing members are backfilled from their saved registration date; their previous 30-day totals are excluded until that first successful refresh. GitHub failures preserve the last successful cumulative total.
 
-Members sort by score, then total stars, then earliest registration. Registration checks group membership before fetching the profile and calculating the member's position.
+The developer score is confirmed helper points plus at most 20 points of GitHub reputation. In a rolling 28-day window, each confirmed useful contribution earns 20 points and each distinct recipient adds 5. Only three contributions per UTC submission day and two per recipient count. Each project or question counts once, with copied feedback and self-reviews excluded. Recipient identities follow linked GitHub accounts across group rejoining. Giving stars earns no helper points.
 
-The default weights live in `shared/ranking.ts`. Organisers can change them in `/admin`, and the ranking explanation reads the saved settings. Only repository points are capped; stars, contributions and upvotes keep counting.
+Members sort by score, helper points, distinct recipients, uncapped GitHub reputation, stars and earliest registration. Registration checks group membership before fetching the profile and calculating the member's position.
+
+The default weights live in `shared/ranking.ts`. Organisers can change them in `/admin`, and the ranking explanation reads the saved settings. These weights only affect the secondary reputation component, capped at 20 ranking points in total. Stars, contributions and upvotes still retain their full displayed totals. Helper scores come from one authenticated bot aggregate, checked at most once per minute during normal board rebuilding. Failed or invalid responses preserve stored helper points and mark the public snapshot delayed. Admins can revoke confirmed help with a recorded reason; the next successful aggregate removes its credit.
 
 New-member labels last 24 hours. Movement indicators show places gained or lost within a 24-hour movement window; they are not a historical analytics report.
 

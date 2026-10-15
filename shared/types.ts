@@ -55,6 +55,10 @@ export interface PublicMember {
   activity: number;
   upvotes: number;
   rank: number;
+  helperPoints?: number;
+  helpfulContributions?: number;
+  helpedMembers?: number;
+  githubScore?: number;
   /** Places gained (+) or lost (−) on the last move, if it happened in the last 24h. */
   delta: number;
   /** Joined in the last 24h. */
@@ -70,6 +74,9 @@ export interface InviteConfig {
 
 export interface Board {
   rankingVersion?: number;
+  helpersCheckedAt?: number;
+  helpersUpdatedAt?: number;
+  helpersDelayed?: boolean;
   members: PublicMember[];
   repositories: PublicRepository[];
   /** When this snapshot was written. Clients never replace a newer one with an older one. */
@@ -85,6 +92,9 @@ export interface Board {
 export interface Preview {
   profile: GithubStats;
   score: number;
+  githubScore?: number;
+  helpedMembers?: number;
+  helperPoints?: number;
 }
 
 export interface RegisterInput {

@@ -43,6 +43,8 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     stars: m.stars,
     activity: m.activity,
     upvotes: m.upvotes,
+    helpfulContributions: m.helpfulContributions ?? 0,
+    helpedMembers: m.helpedMembers ?? 0,
     href: githubUrl(m.login),
     avatarUrl: m.avatarUrl || undefined,
     seed: id,
@@ -300,6 +302,7 @@ const Index = () => {
               ) : (
                 <TabsContent value="developers" asChild>
                 <TabPanel>
+                  {board?.helpersDelayed && <p role="status" className="mb-4 text-center text-xs text-t3">Helper scores are waiting for the bot. Last confirmed points are preserved.</p>}
                   {isPending ? <BoardSkeleton /> : <LeaderboardPodium
                     entries={podium}
                     currentUserId={me}
@@ -376,6 +379,7 @@ const Index = () => {
         open={howItWorks}
         onOpenChange={setHowOpen}
         weights={board?.weights}
+        helpersDelayed={board?.helpersDelayed}
       />
     </div>
   );

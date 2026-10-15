@@ -1,7 +1,7 @@
 import { HttpError } from "./http.js";
-import { isMemberCommunityState } from "../shared/coordination.js";
+import { isHelperLeaderboard, isMemberCommunityState } from "../shared/coordination.js";
 
-export async function coordinationRequest<T>(action: "profile" | "link" | "action", body: unknown): Promise<T> {
+export async function coordinationRequest<T>(action: "profile" | "link" | "action" | "helpers", body: unknown): Promise<T> {
   const configured = process.env.WHATSAPP_MEMBERSHIP_URL?.trim();
   const token = process.env.WHATSAPP_MEMBERSHIP_TOKEN?.trim();
   const unavailable = () => new HttpError(503, "coordination_unavailable", "Group participation is unavailable right now. Your activity won't be penalised while tracking is paused.");
@@ -14,8 +14,23 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
   let response: Response;
   let result: unknown;
   try {
-    response = await fetch(url, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body), redirect: "error", signal: AbortSignal.timeout(12_000) });
-    result = await response.json();
+    response = await fetch(url, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "cache-control": "no-store" }, body: JSON.stringify(body), redirect: "error", signal: AbortSignal.timeout(action === "helpers" ? 4000 : 12_000) });
+    if (action === "helpers") {
+      if (!response.body) throw unavailable();
+      const reader = response.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      try {
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          size += chunk.value.byteLength;
+          if (size > 2097152) throw unavailable();
+          chunks.push(chunk.value);
+        }
+      } finally { await reader.cancel().catch(() => undefined); }
+      result = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    } else result = await response.json();
   } catch { throw unavailable(); }
   if (!response.ok) {
     if ([400, 403, 404, 409, 429].includes(response.status) && result && typeof result === "object" && "error" in result && typeof result.error === "string") {
@@ -24,6 +39,10 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
     throw unavailable();
   }
   if (!result || typeof result !== "object" || Array.isArray(result)) throw unavailable();
+  if (action === "helpers") {
+    if (!isHelperLeaderboard(result) || result.generatedAt > Date.now() + 60_000 || Date.now() - result.generatedAt > 120_000) throw unavailable();
+    return result as T;
+  }
   if (action === "link") {
     if (!("id" in result) || !("code" in result) || !("expiresAt" in result) || typeof result.id !== "string" || typeof result.code !== "string" || typeof result.expiresAt !== "number") throw unavailable();
     if ("botChatUrl" in result) {

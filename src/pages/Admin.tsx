@@ -176,7 +176,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
       header={
         <PanelHeader
           title="Settings"
-          subtitle="Group invite and ranking weights"
+          subtitle="Group invite and GitHub reputation weights (20-point total limit)"
           chip={<Chip tone={config.invite.open ? "ok" : "warn"}>{config.invite.open ? "Invite live" : "Invite paused"}</Chip>}
         />
       }

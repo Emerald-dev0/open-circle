@@ -8,7 +8,7 @@ const repo: RepositorySubmission = { id: "repo_1", owner: "Alice", fullName: "Al
 
 it("sends repo details with explicit permission and optional tagging, and preserves failed drafts", async () => {
   const user = userEvent.setup(); const submit = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-  render(<RepositorySubmissions repositories={[]} login="Alice" busy={false} submit={submit} />);
+  render(<RepositorySubmissions repositories={[]} login="Alice" busy={false} submit={submit} contribute={vi.fn()} />);
   await user.click(screen.getByText("Submit an open-source repo"));
   const url = screen.getByLabelText("GitHub repository link");
   await user.type(url, repo.url); await user.type(screen.getByLabelText("What does it do?"), repo.summary); await user.type(screen.getByLabelText("What help do you need?"), repo.helpWanted);
@@ -23,11 +23,11 @@ it("sends repo details with explicit permission and optional tagging, and preser
 
 it("only offers owner controls and disables editing during requests", async () => {
   const user = userEvent.setup(); const submit = vi.fn().mockResolvedValue(true);
-  const view = render(<RepositorySubmissions repositories={[repo]} login="Bob" busy={false} submit={submit} />);
+  const view = render(<RepositorySubmissions repositories={[repo]} login="Bob" busy={false} submit={submit} contribute={vi.fn()} />);
   expect(screen.getByText("Queued for announcement")).toBeTruthy(); expect(screen.queryByRole("button", { name: "Close submission" })).toBeNull();
-  view.rerender(<RepositorySubmissions repositories={[repo]} login="Alice" busy={false} submit={submit} />);
+  view.rerender(<RepositorySubmissions repositories={[repo]} login="Alice" busy={false} submit={submit} contribute={vi.fn()} />);
   await user.click(screen.getByRole("button", { name: "Pause help requests" })); expect(submit).toHaveBeenCalledWith({ action: "repository-progress", id: repo.id, needsHelp: false });
-  view.rerender(<RepositorySubmissions repositories={[repo]} login="Alice" busy={true} submit={submit} />);
+  view.rerender(<RepositorySubmissions repositories={[repo]} login="Alice" busy={true} submit={submit} contribute={vi.fn()} />);
   expect((screen.getByRole("button", { name: "Close submission" }) as HTMLButtonElement).disabled).toBe(true);
   await user.click(screen.getByText("Submit an open-source repo")); expect((screen.getByLabelText("GitHub repository link") as HTMLInputElement).matches(":disabled")).toBe(true);
   expect(screen.getByRole("link", { name: "Starter issue #1" }).getAttribute("rel")).toBe("noopener noreferrer");

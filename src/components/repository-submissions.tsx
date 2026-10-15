@@ -3,7 +3,7 @@ import { MetalButton } from "@/components/metal-button";
 import { PaginatedList } from "@/components/pagination";
 import { Panel, PanelHeader } from "@/components/panel";
 
-export function RepositorySubmissions({ repositories, login, busy, submit }: { repositories: RepositorySubmission[]; login: string; busy: boolean; submit: (input: ParticipationAction) => Promise<boolean> }) {
+export function RepositorySubmissions({ repositories, login, busy, submit, contribute }: { repositories: RepositorySubmission[]; login: string; busy: boolean; submit: (input: ParticipationAction) => Promise<boolean>; contribute: (repo: RepositorySubmission) => void }) {
   return <section id="repositories" className="scroll-mt-24">
     <Panel header={<PanelHeader title="Open-source repos" />}>
       {repositories.length ? <PaginatedList items={repositories} label="Open-source submissions" resetKey={login} disabled={busy}>{(repo) => {
@@ -19,6 +19,7 @@ export function RepositorySubmissions({ repositories, login, busy, submit }: { r
           {repo.issues.length > 0 && <ul className="space-y-2 text-sm">{repo.issues.map((issue) => <li key={issue}><a href={issue} target="_blank" rel="noopener noreferrer" className="break-all text-t2 underline underline-offset-4">Starter issue #{issue.split("/").at(-1)}</a></li>)}</ul>}
           {repo.reason && <p className="break-words text-sm text-t2">Admin feedback: {repo.reason}</p>}
           {repo.status === "approved" && <p className="text-xs text-t3">{repo.needsHelp ? "Looking for contributors" : "Help requests paused"}{repo.followedUpAt ? " · Follow-up shared" : ""}</p>}
+          {!mine && repo.status === "approved" && repo.needsHelp && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => contribute(repo)}>Record your help</MetalButton>}
           {mine && ["pending", "approved"].includes(repo.status) && <div className="flex flex-wrap gap-2">
             <MetalButton variant="minimal" size="sm" disabled={busy} onClick={() => submit({ action: "repository-progress", id: repo.id, needsHelp: !repo.needsHelp })}>{repo.needsHelp ? "Pause help requests" : "Still need help"}</MetalButton>
             <MetalButton variant="minimal" size="sm" disabled={busy} onClick={() => submit({ action: "close", id: repo.id })}>Close submission</MetalButton>

@@ -244,7 +244,7 @@ export default function Participation() {
             </section>
           </TabsContent>
           <TabsContent value="repositories" forceMount hidden={section !== "repositories"} className="space-y-4 sm:space-y-6">
-            {data.community ? <RepositorySubmissions repositories={data.community.repositories ?? []} login={profile!.login} busy={busy} submit={submit} /> : <section id="repositories" className="scroll-mt-24"><Panel header={<PanelHeader title="Open-source repos" />}><Empty>Repo submissions are unavailable right now. Please try again later.</Empty></Panel></section>}
+            {data.community ? <RepositorySubmissions repositories={data.community.repositories ?? []} login={profile!.login} busy={busy} submit={submit} contribute={(repo) => { setTarget({ kind: "review", id: repo.id, title: repo.fullName }); selectSection("feedback", true); }} /> : <section id="repositories" className="scroll-mt-24"><Panel header={<PanelHeader title="Open-source repos" />}><Empty>Repo submissions are unavailable right now. Please try again later.</Empty></Panel></section>}
           </TabsContent>
           <TabsContent value="projects" forceMount hidden={section !== "projects"}>
             <section id="projects" className="scroll-mt-24 space-y-4 sm:space-y-6">
@@ -289,7 +289,7 @@ export default function Participation() {
           <TabsContent value="feedback" forceMount hidden={section !== "feedback"}>
             <section id="feedback" className="scroll-mt-24 space-y-4 sm:space-y-6">
               {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
-                <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
+                <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="Describe your fix, testing, documentation or answer. Include an issue or pull request link if you have one. Useful help earns points after confirmation." />}>
                   <div className="py-4">
                     <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
                     <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>

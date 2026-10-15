@@ -19,6 +19,9 @@ export interface MemberRecord {
   followers: number;
   repos: number;
   activity: number;
+  helperPoints?: number;
+  helpfulContributions?: number;
+  helpedMembers?: number;
   activitySince?: number;
   projects?: GithubRepository[];
   hidden: boolean;
@@ -64,6 +67,9 @@ const NUMERIC = [
   "followers",
   "repos",
   "activity",
+  "helperPoints",
+  "helpfulContributions",
+  "helpedMembers",
   "activitySince",
   "createdAt",
   "statsUpdatedAt",

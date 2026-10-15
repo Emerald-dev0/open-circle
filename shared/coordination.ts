@@ -13,6 +13,44 @@ export interface CoordinationPolicy {
   removalDays: number;
 }
 
+export const HELPER_POLICY = {
+  windowDays: 28,
+  contributionPoints: 20,
+  peerPoints: 5,
+  dailyLimit: 3,
+  perPeerLimit: 2,
+  reputationCap: 20,
+} as const;
+
+export interface HelperScore {
+  login: string;
+  points: number;
+  contributions: number;
+  peers: number;
+}
+
+export interface HelperLeaderboard {
+  version: 1;
+  generatedAt: number;
+  windowStartedAt: number;
+  members: HelperScore[];
+}
+
+export function isHelperLeaderboard(value: unknown): value is HelperLeaderboard {
+  if (!value || typeof value !== "object") return false;
+  const state = value as HelperLeaderboard;
+  if (state.version !== 1 || !Number.isSafeInteger(state.generatedAt) || !Number.isSafeInteger(state.windowStartedAt) || state.windowStartedAt !== state.generatedAt - HELPER_POLICY.windowDays * 86400000 || !Array.isArray(state.members) || state.members.length > 10000) return false;
+  const logins = new Set<string>();
+  return state.members.every((member) => {
+    if (!member || typeof member.login !== "string" || !/^[a-z\d](?:[a-z\d]|-(?=[a-z\d])){0,38}$/i.test(member.login) || logins.has(member.login.toLowerCase())) return false;
+    logins.add(member.login.toLowerCase());
+    return [member.points, member.contributions, member.peers].every((number) => Number.isSafeInteger(number) && number >= 0)
+      && member.contributions <= (HELPER_POLICY.windowDays + 1) * HELPER_POLICY.dailyLimit
+      && member.peers <= member.contributions && member.contributions <= member.peers * HELPER_POLICY.perPeerLimit
+      && member.points === member.contributions * HELPER_POLICY.contributionPoints + member.peers * HELPER_POLICY.peerPoints;
+  });
+}
+
 export interface ActivitySummary {
   linked: boolean;
   login: string | null;

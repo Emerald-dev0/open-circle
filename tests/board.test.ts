@@ -48,7 +48,8 @@ describe("OpenCircle member registration", () => {
     const preview = await previewProfile(store, "Octocat", input.whatsapp);
 
     expect(preview.score).toBe(board.members[0].score);
-    expect(preview.score).toBe(70);
+    expect(preview.score).toBe(20);
+    expect(preview.githubScore).toBe(70);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).variables.f0_0).toBe("2026-08-01T00:00:00.000Z");
   });
 
@@ -59,7 +60,8 @@ describe("OpenCircle member registration", () => {
     const preview = await previewProfile(store, "https://github.com/Octocat/", input.whatsapp);
 
     expect(preview.profile.login).toBe("Octocat");
-    expect(preview.score).toBe(68);
+    expect(preview.score).toBe(20);
+    expect(preview.githubScore).toBe(68);
     expect(await store.listMembers()).toEqual([]);
   });
 
@@ -72,7 +74,7 @@ describe("OpenCircle member registration", () => {
 
     expect(response.status).toBe(200);
     expect(result.login).toBe("Octocat");
-    expect(result.board.members).toMatchObject([{ login: "Octocat", nickname: "Octo Cat", rank: 1, score: 68 }]);
+    expect(result.board.members).toMatchObject([{ login: "Octocat", nickname: "Octo Cat", rank: 1, score: 20, githubScore: 68 }]);
     expect(result.board.repositories).toMatchObject([{ fullName: "Octocat/open-kit", rank: 1, stars: 10, ownerNickname: "Octo Cat" }]);
     expect(await store.getMember("octocat")).toMatchObject({ whatsapp: "+2348031234567", nickname: "Octo Cat" });
     expect(await store.getMember("octocat")).toMatchObject({ activitySince: contributionStart(Date.now()) });
@@ -164,8 +166,8 @@ describe("Member and repository board updates", () => {
     expect((await rebuildBoard(store)).members[0].login).toBe("Second");
     const updated = await rebuildBoard(store, { voteCounts: { "repo:R_open-kit": 11, "repo:unlisted": 1000, "tool:R_open-kit": 1000 } });
 
-    expect(updated.members[0]).toMatchObject({ login: "Octocat", activity: 110, upvotes: 11, score: 130, delta: 1 });
-    expect(updated.members[1]).toMatchObject({ login: "Second", upvotes: 0, score: 129 });
+    expect(updated.members[0]).toMatchObject({ login: "Octocat", activity: 110, upvotes: 11, score: 20, githubScore: 130, delta: 1 });
+    expect(updated.members[1]).toMatchObject({ login: "Second", upvotes: 0, score: 20, githubScore: 129 });
     expect(updated.repositories[0].stars).toBe(10);
     expect(scoreOf({ stars: 0, followers: 0, repos: 0, activity: 1000, upvotes: 2 }, DEFAULT_WEIGHTS)).toBe(1002);
   });
@@ -187,7 +189,7 @@ describe("Member and repository board updates", () => {
     await Promise.all(work);
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).variables.f0_0).toBe("2026-08-01T00:00:00.000Z");
-    expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 68 });
+    expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 20, githubScore: 68 });
     expect((await store.getBoard())?.statsDelayed).toBe(false);
   });
 
@@ -205,7 +207,7 @@ describe("Member and repository board updates", () => {
       const work: Promise<unknown>[] = [];
       await readBoard(store, (promise) => { work.push(promise); });
       await Promise.all(work);
-      expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 68 });
+      expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 20, githubScore: 68 });
     }
     expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).variables.f0_0))
       .toEqual(["2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z"]);
@@ -264,7 +266,7 @@ describe("Member and repository board updates", () => {
 
     const board = await readBoard(store);
 
-    expect(board.members).toMatchObject([{ login: "Octocat", rank: 1, score: 68 }]);
+    expect(board.members).toMatchObject([{ login: "Octocat", rank: 1, score: 20, githubScore: 68 }]);
     expect(board.repositories).toEqual([]);
     expect(decodeMember(encodeMember(memberRecord())).projects).toEqual([repository()]);
   });
@@ -311,7 +313,7 @@ describe("Member and repository board updates", () => {
     await Promise.all(work);
     const updated = await store.getBoard();
 
-    expect(updated?.members[0]).toMatchObject({ score: 318, stars: 60 });
+    expect(updated?.members[0]).toMatchObject({ score: 20, githubScore: 318, stars: 60 });
     expect(updated?.repositories[0]).toMatchObject({ stars: 60, rank: 1 });
     expect(updated?.refreshedAt).toBeGreaterThan(initial.refreshedAt);
     expect(updated?.statsDelayed).toBe(false);

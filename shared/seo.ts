@@ -17,10 +17,10 @@ const HOME_HEADING = "Paste your username. Take your place.";
 export const SEO_PAGES: readonly SeoPage[] = [
   {
     path: "/",
-    title: `${BRAND_NAME} · Live GitHub ranking for Open Source Circle`,
+    title: `${BRAND_NAME} · Community leaderboard for Open Source Circle`,
     description:
-      "The live GitHub leaderboard for the Open Source Circle developer community. Paste your username, take your place, and climb as the circle stars your work.",
-    summary: "The live GitHub leaderboard for Open Source Circle.",
+      "The Open Source Circle community leaderboard. Help other members with fixes, testing, documentation and answers, then earn points when your help is confirmed.",
+    summary: "The community leaderboard for Open Source Circle.",
     heading: HOME_HEADING,
     index: true,
   },
@@ -46,8 +46,8 @@ export const SEO_PAGES: readonly SeoPage[] = [
     path: "/how-it-works",
     title: `How ranking works · ${BRAND_NAME}`,
     description:
-      "How OpenCircle scores a GitHub profile: stars on repositories you own, followers, public repos, contributions since you join, and community upvotes.",
-    summary: "How stars, followers, repos, contributions and upvotes become a rank.",
+      "How OpenCircle rewards confirmed useful help, different members supported and GitHub reputation, with limits to prevent repeated contributions farming points.",
+    summary: "How confirmed help and GitHub reputation become a rank.",
     heading: HOME_HEADING,
     index: true,
   },
@@ -200,9 +200,9 @@ export function llmsTxt(originInput = DEFAULT_SITE_URL) {
   return [
     `# ${BRAND_NAME}`,
     "",
-    "> The live GitHub leaderboard for the Open Source Circle developer community.",
+    "> The community leaderboard for the Open Source Circle developer community.",
     "",
-    "OpenCircle ranks members from public GitHub stars, followers, repositories, contributions since they join, and upvotes from the circle. It also lists members' public repositories and developer tools they share.",
+    "OpenCircle rewards confirmed useful help in the last 28 days: 20 points per contribution and 5 per different member helped. GitHub reputation and repo upvotes add at most 20 points in total. Giving stars is voluntary and earns no helper points. It also lists members' public repositories and developer tools they share.",
     "",
     "## Pages",
     "",

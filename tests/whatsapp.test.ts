@@ -23,6 +23,7 @@ function network(member: boolean) {
   const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
     calls.push(String(url));
     if (String(url) === endpoint) return json({ member });
+    if (String(url) === endpoint.replace("membership", "coordination/helpers")) return json({ version: 1, generatedAt: Date.now(), windowStartedAt: Date.now() - 28 * 86400000, members: [] });
     expect(JSON.parse(String(init?.body)).variables.l0).toBe("Octocat");
     return githubJson({ data: { u0: githubOwner() } });
   });
@@ -45,7 +46,7 @@ describe("Required WhatsApp group membership", () => {
   it("checks normalized membership first and registers only after confirmation", async () => {
     const { calls, fetchMock } = network(true);
     const result = await register(new TestStore(), input);
-    expect(calls).toEqual([endpoint, "https://api.github.com/graphql"]);
+    expect(calls).toEqual([endpoint, "https://api.github.com/graphql", endpoint.replace("membership", "coordination/helpers")]);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       method: "POST", body: JSON.stringify({ phone: "+2348031234567" }),
       headers: { authorization: "Bearer test-membership-token-at-least-32-characters", "cache-control": "no-store" },
