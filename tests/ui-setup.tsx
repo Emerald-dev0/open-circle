@@ -2,6 +2,11 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { JSDOM } from "jsdom";
+import { MotionGlobalConfig } from "motion/react";
+
+// Animations finish instantly in tests, so exiting rows and closing forms
+// leave the DOM right away, as they do once a real animation completes.
+MotionGlobalConfig.skipAnimations = true;
 
 let storageDocument: JSDOM;
 

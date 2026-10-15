@@ -1,8 +1,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useErrorToast } from "@/hooks/use-error-toast";
-import { AddIcon, MagnifierIcon } from "@solar-icons/react/linear";
+import { AddIcon, MagnifierIcon, Tuning2Icon } from "@solar-icons/react/linear";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "motion/react";
 import { TOOL_CATEGORIES, type ToolInput } from "@shared/community";
 import { parseToolInput } from "@shared/tool-validation";
 import { ToolRow } from "@/components/board/tool-row";
@@ -11,6 +12,7 @@ import { SharedSelect } from "@/components/ui/select";
 import { TextureButton } from "@/components/ui/texture-button";
 import { COMMUNITY_KEY, GITHUB_SIGN_OUT_KEY, useCommunity, useToolVote } from "@/hooks/use-community";
 import { ApiError, api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const SAVED_KEY = "opencircle.saved-tools";
 const EMPTY_INPUT: ToolInput = { name: "", url: "", description: "", category: "Development" };
@@ -38,6 +40,8 @@ export function ToolsDirectory() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [sort, setSort] = useState("votes");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersActive = category !== "all" || sort !== "votes";
   const [saved, setSaved] = useState(readSavedTools);
   const [sharing, setSharing] = useState(false);
   const [sentForReview, setSentForReview] = useState(false);
@@ -137,57 +141,96 @@ export function ToolsDirectory() {
             disabled={submit.isPending || !community.data || community.isError}
             onClick={() => { setSharing(!sharing); setSentForReview(false); }}
           >
-            <AddIcon aria-hidden="true" className="size-3.5" />
+            <AddIcon aria-hidden="true" className={cn("size-3.5 transition-transform duration-300", sharing && "rotate-45")} />
             {sharing ? "Close form" : "Share a tool"}
           </TextureButton>
       </div>
 
-      {sentForReview && <p role="status" className="mt-3 text-sm text-t2">Sent to admins for review. It will appear here once approved.</p>}
+      <AnimatePresence initial={false}>
+        {sentForReview && (
+          <motion.p key="sent" role="status" className="overflow-hidden text-sm text-t2" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }}>
+            <span className="block pt-3">Sent to admins for review. It will appear here once approved.</span>
+          </motion.p>
+        )}
+      </AnimatePresence>
 
-      {sharing && (
-        <form ref={formRef} id={`${formId}-form`} onSubmit={shareTool} noValidate className="surface-quiet mt-4 rounded-2xl p-4 sm:p-5">
-          <fieldset disabled={submit.isPending} className="grid gap-4 sm:grid-cols-2 disabled:opacity-60">
-            <div>
-              <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-name`}>Name</label>
-              <input id={`${formId}-name`} name="name" className="field text-base" value={input.name} maxLength={60} autoComplete="off" aria-invalid={formError?.field === "name"} onChange={(event) => setInput({ ...input, name: event.target.value })} />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-url`}>URL</label>
-              <input id={`${formId}-url`} name="url" type="url" inputMode="url" className="field text-base" value={input.url} maxLength={2048} placeholder="https://" autoComplete="url" aria-invalid={formError?.field === "url"} onChange={(event) => setInput({ ...input, url: event.target.value })} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-description`}>Description</label>
-              <textarea id={`${formId}-description`} name="description" className="field min-h-24 resize-y rounded-2xl py-3 text-base" value={input.description} maxLength={240} rows={3} placeholder="What does it help you do?" aria-invalid={formError?.field === "description"} onChange={(event) => setInput({ ...input, description: event.target.value })} />
-            </div>
-            <div>
-              <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-category`}>Category</label>
-              <SharedSelect
-                id={`${formId}-category`}
-                name="category"
-                aria-label="Category"
-                className="text-base"
-                value={input.category}
-                options={CATEGORY_OPTIONS}
-                disabled={submit.isPending}
-                aria-invalid={formError?.field === "category"}
+      <AnimatePresence initial={false}>
+        {sharing && (
+          <motion.div key="share-form" className="overflow-hidden" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 340, damping: 34 }}>
+            <div className="pt-4">
+              <form ref={formRef} id={`${formId}-form`} onSubmit={shareTool} noValidate className="surface-quiet rounded-[24px] p-4 sm:p-5">
+                <fieldset disabled={submit.isPending} className="grid gap-4 sm:grid-cols-2 disabled:opacity-60">
+                  <div>
+                    <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-name`}>Name</label>
+                    <input id={`${formId}-name`} name="name" className="field text-base" value={input.name} maxLength={60} autoComplete="off" aria-invalid={formError?.field === "name"} onChange={(event) => setInput({ ...input, name: event.target.value })} />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-url`}>URL</label>
+                    <input id={`${formId}-url`} name="url" type="url" inputMode="url" className="field text-base" value={input.url} maxLength={2048} placeholder="https://" autoComplete="url" aria-invalid={formError?.field === "url"} onChange={(event) => setInput({ ...input, url: event.target.value })} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-description`}>Description</label>
+                    <textarea id={`${formId}-description`} name="description" className="field min-h-24 resize-y rounded-2xl py-3 text-base" value={input.description} maxLength={240} rows={3} placeholder="What does it help you do?" aria-invalid={formError?.field === "description"} onChange={(event) => setInput({ ...input, description: event.target.value })} />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-category`}>Category</label>
+                    <SharedSelect
+                      id={`${formId}-category`}
+                      name="category"
+                      aria-label="Category"
+                      className="text-base"
+                      value={input.category}
+                      options={CATEGORY_OPTIONS}
+                      disabled={submit.isPending}
+                      aria-invalid={formError?.field === "category"}
                
-                onValueChange={(value) => setInput({ ...input, category: value as ToolInput["category"] })}
-              />
+                      onValueChange={(value) => setInput({ ...input, category: value as ToolInput["category"] })}
+                    />
+                  </div>
+                  <div className="flex items-end sm:justify-end">
+                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
+                  </div>
+                </fieldset>
+              </form>
             </div>
-            <div className="flex items-end sm:justify-end">
-              <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
-            </div>
-          </fieldset>
-        </form>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div className="mt-5 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-[minmax(0,1fr)_11rem_10rem]">
-        <div className="relative min-w-0 min-[400px]:col-span-2 sm:col-span-1">
+      {/* Phones: search plus a filter toggle on one line; the selects open
+          underneath. From sm up all three sit inline. */}
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_11rem_10rem] sm:gap-3">
+        <div className="relative min-w-0">
           <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
           <input className="field pl-11 text-base" type="search" aria-label="Search tools" placeholder="Search tools" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
-        <SharedSelect className="text-sm" aria-label="Filter tools by category" value={category} options={FILTER_OPTIONS} onValueChange={setCategory} />
-        <SharedSelect className="text-sm" aria-label="Sort tools" value={sort} options={SORT_OPTIONS} onValueChange={setSort} />
+        <TextureButton
+          type="button"
+          variant="icon"
+          size="icon"
+          className="relative size-11 sm:hidden"
+          aria-label="Filters"
+          aria-expanded={filtersOpen}
+          aria-controls={`${formId}-filters`}
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          <Tuning2Icon className="size-5" aria-hidden="true" />
+          {filtersActive && <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-foreground" aria-hidden="true" />}
+        </TextureButton>
+        {/* Collapses by animating the grid row to 0fr; `invisible` keeps closed
+            selects out of the tab order. From sm up both wrappers vanish. */}
+        <div
+          id={`${formId}-filters`}
+          className={cn(
+            "col-span-2 grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-out sm:contents",
+            filtersOpen ? "visible grid-rows-[1fr] opacity-100" : "invisible grid-rows-[0fr] opacity-0",
+          )}
+        >
+          <div className="grid min-h-0 grid-cols-2 gap-2 overflow-hidden sm:contents">
+            <SharedSelect className="text-sm" aria-label="Filter tools by category" value={category} options={FILTER_OPTIONS} onValueChange={setCategory} />
+            <SharedSelect className="text-sm" aria-label="Sort tools" value={sort} options={SORT_OPTIONS} onValueChange={setSort} />
+          </div>
+        </div>
       </div>
 
       {community.isLoading && !community.data ? (
@@ -200,12 +243,14 @@ export function ToolsDirectory() {
         <>
           {tools.length ? (
             <ul aria-label="Tools" className="mt-5 flex flex-col gap-2">
+              <AnimatePresence initial={false}>
               {tools.map((tool) => {
                 const target = `tool:${tool.id}`;
                 return (
                   <ToolRow key={tool.id} tool={tool} count={community.data?.counts[target] ?? 0} value={community.data?.toolVotes?.[target] ?? 0} saved={saved.includes(tool.id)} disabled={!profile || vote.isPending || signingOut || community.isError || !community.data} onVote={(value) => vote.mutate({ target, value })} onSave={() => toggleSaved(tool.id)} />
                 );
               })}
+              </AnimatePresence>
             </ul>
           ) : (
             <div role="status" className="py-12 text-center">

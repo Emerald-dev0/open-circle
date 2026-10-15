@@ -149,7 +149,7 @@ describe("Community tools directory", () => {
     screen.getByRole("combobox", { name: "Filter tools by category" }).focus();
     await user.keyboard("{ArrowDown}{End}{Enter}");
     expect(screen.getByRole("combobox", { name: "Filter tools by category" }).textContent).toContain("Learning");
-    expect(listedNames()).toHaveLength(1);
+    await waitFor(() => expect(listedNames()).toHaveLength(1));
     expect(listedNames()[0]).toContain("DevDocs");
   });
 

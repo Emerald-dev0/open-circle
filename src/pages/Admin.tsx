@@ -1,6 +1,7 @@
 import type * as React from "react";
 import { GitHubIcon } from "@/components/brand-icons";
 import { MetalText } from "metal-fx";
+import { motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
@@ -145,11 +146,16 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
         <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
         <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="settings">Settings</TabsTrigger>
       </TabsList>
-      <TabsContent value="members"><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></TabsContent>
-      <TabsContent value="tools"><ToolModeration onUnauthorized={onUnauthorized} /></TabsContent>
-      <TabsContent value="settings"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /></TabsContent>
+      <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
+      <TabsContent value="tools"><FadeIn><ToolModeration onUnauthorized={onUnauthorized} /></FadeIn></TabsContent>
+      <TabsContent value="settings"><FadeIn><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /></FadeIn></TabsContent>
     </Tabs>
   </div>;
+}
+
+/** Tab content eases in on switch. */
+function FadeIn({ children }: { children: React.ReactNode }) {
+  return <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, ease: [0.2, 0.7, 0.2, 1] }}>{children}</motion.div>;
 }
 
 const WEIGHT_FIELDS: { key: keyof Weights; label: string }[] = [
