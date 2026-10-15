@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { createServer } from 'node:http';
 import { afterEach, expect, it, vi } from 'vitest';
 import { GET, POST } from '../api/participation';
@@ -82,11 +82,37 @@ it('returns from OAuth to participation and rejects arbitrary return destination
   vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');
   const {beginGitHubSignIn,finishGitHubSignIn}=await import('../server/github-auth');
   const store=new MemoryCommunityStore(null);
-  for(const returnTo of ['/participation','https://foreign.test']) {
+  for(const returnTo of ['/participation','/participation#start','/participation#overview','/participation#repositories','/participation#catch-up','/participation#projects','/participation#help','/participation#feedback','https://foreign.test','//foreign.test/participation','/participation?next=https://foreign.test','/participation#unknown']) {
     const started=beginGitHubSignIn(new Request(`https://opencircle.test/api/auth-start?returnTo=${encodeURIComponent(returnTo)}`));
     const state=new URL(started.headers.get('location')!).searchParams.get('state');
     vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({access_token:'test',token_type:'bearer'}))).mockResolvedValueOnce(new Response(JSON.stringify({id:1,login:'Alice',type:'User'}))));
     const result=await finishGitHubSignIn(new Request(`https://opencircle.test/api/auth-callback?code=code&state=${state}`,{headers:{cookie:started.headers.get('set-cookie')!.split(';')[0]}}),store);
-    expect(result.headers.get('location')).toBe(returnTo==='/participation'?'/participation':'/tools');
+    expect(result.headers.get('location')).toBe(['/participation','/participation#start','/participation#overview','/participation#repositories','/participation#catch-up','/participation#projects','/participation#help','/participation#feedback'].includes(returnTo)?returnTo:'/tools');
   }
+});
+
+it('keeps an allowed participation tab after cancelled sign-in with the error before the hash',async()=>{
+  vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');
+  const {beginGitHubSignIn,finishGitHubSignIn}=await import('../server/github-auth');
+  const store=new MemoryCommunityStore(null);
+  const started=beginGitHubSignIn(new Request('https://opencircle.test/api/auth-start?returnTo=%2Fparticipation%23repositories'));
+  const state=new URL(started.headers.get('location')!).searchParams.get('state');
+  const result=await finishGitHubSignIn(new Request(`https://opencircle.test/api/auth-callback?error=access_denied&state=${state}`,{headers:{cookie:started.headers.get('set-cookie')!.split(';')[0]}}),store);
+  expect(result.headers.get('location')).toBe('/participation?signin=github_denied#repositories');
+});
+
+it('accepts a still-valid participation sign-in started before tab destinations were introduced',async()=>{
+  vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');
+  const {beginGitHubSignIn,finishGitHubSignIn}=await import('../server/github-auth');
+  const store=new MemoryCommunityStore(null);
+  const started=beginGitHubSignIn(new Request('https://opencircle.test/api/auth-start?returnTo=%2Fparticipation'));
+  const state=new URL(started.headers.get('location')!).searchParams.get('state');
+  const original=started.headers.get('set-cookie')!.split(';')[0];
+  const [name,value]=original.split('=');
+  const saved=JSON.parse(Buffer.from(value.split('.')[0],'base64url').toString());saved.participation=true;
+  const payload=Buffer.from(JSON.stringify(saved)).toString('base64url');
+  const signature=createHmac('sha256','test-secret').update(payload).digest('base64url');
+  vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({access_token:'test',token_type:'bearer'}))).mockResolvedValueOnce(new Response(JSON.stringify({id:1,login:'Alice',type:'User'}))));
+  const result=await finishGitHubSignIn(new Request(`https://opencircle.test/api/auth-callback?code=code&state=${state}`,{headers:{cookie:`${name}=${payload}.${signature}`}}),store);
+  expect(result.headers.get('location')).toBe('/participation');
 });

@@ -15,6 +15,7 @@ import type { MemberCommunityState } from '../shared/coordination';
 vi.mock('../src/lib/api',async original=>({...await original<typeof import('../src/lib/api')>(),api:{community:vi.fn(),participation:vi.fn(),linkWhatsapp:vi.fn(),participate:vi.fn(),signOut:vi.fn()}}));
 const community:CommunityState={profile:{id:1,login:'Alice',avatarUrl:'https://avatars.githubusercontent.com/u/1'},signInAvailable:true,tools:[],counts:{},voted:[],toolVotes:{}};
 const initial:ParticipationState={activity:{linked:true,login:'Alice',enabled:true,tracking:true,contributions:1,reviewPeers:1,target:4,requiredReviewPeers:2,inactiveDays:3,graceRemainingDays:0,awayUntil:null,awayRequestedDays:null,pendingContributions:0,removalReview:false},projects:[{id:'project_1',title:'Portfolio',url:'https://example.test',owner:'Bob',reviews:0,status:'approved',assignedTo:['Alice'],createdAt:1}],help:[],contributions:[]};
+const emptyRoutine:MemberCommunityState={timezone:'Africa/Lagos',quietStart:22,quietEnd:8,groupSchedule:false,updates:[],sessions:[],mentor:{available:false,skills:[],weeklyLimit:2},assignedHelp:[],repositories:[]};
 const clients:QueryClient[]=[];
 function HistoryControls(){
   const navigate=useNavigate();
@@ -29,6 +30,100 @@ function mount(data=initial,{entry='/participation',history=false}={}){
 }
 beforeEach(()=>{vi.mocked(api.community).mockReset().mockResolvedValue(community);vi.mocked(api.participation).mockReset();vi.mocked(api.linkWhatsapp).mockReset();vi.mocked(api.participate).mockReset();});
 afterEach(()=>clients.splice(0).forEach(client=>client.clear()));
+
+it('keeps drafts across tabs and browser history, then removes every private panel after sign-out',async()=>{
+  const user=userEvent.setup();
+  const client=mount({...initial,community:emptyRoutine},{history:true});
+  await screen.findByRole('tab',{name:'Overview',selected:true});
+  expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+  for(const tab of screen.getAllByRole('tab')){
+    const panel=document.getElementById(tab.getAttribute('aria-controls')!)!;
+    expect(panel.getAttribute('role')).toBe('tabpanel');
+    expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
+  }
+  await user.click(screen.getByRole('tab',{name:'Projects'}));
+  await user.type(screen.getByLabelText('Project name'),'My project draft');
+  await user.click(screen.getByRole('tab',{name:'Help'}));
+  await user.type(screen.getByLabelText('Your question'),'My unfinished question');
+  await user.click(screen.getByRole('tab',{name:'Repos'}));
+  await user.click(screen.getByText('Submit an open-source repo'));
+  await user.type(screen.getByLabelText('What does it do?'),'My unfinished repository description');
+  await user.click(screen.getByRole('tab',{name:'Projects'}));
+  expect((screen.getByLabelText('Project name') as HTMLInputElement).value).toBe('My project draft');
+  await user.click(screen.getByRole('button',{name:'Go back'}));
+  expect(await screen.findByRole('tab',{name:'Repos',selected:true})).toBeTruthy();
+  expect((screen.getByLabelText('What does it do?') as HTMLTextAreaElement).value).toBe('My unfinished repository description');
+  await user.click(screen.getByRole('button',{name:'Go back'}));
+  expect(await screen.findByRole('tab',{name:'Help',selected:true})).toBeTruthy();
+  expect((screen.getByLabelText('Your question') as HTMLTextAreaElement).value).toBe('My unfinished question');
+  await user.click(screen.getByRole('button',{name:'Go forward'}));
+  expect(await screen.findByRole('tab',{name:'Repos',selected:true})).toBeTruthy();
+  await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
+  await screen.findByRole('link',{name:'Sign in with GitHub'});
+  expect(screen.queryByRole('tablist')).toBeNull();
+  expect(document.querySelector('input[name="title"]')).toBeNull();
+  expect(document.querySelector('textarea[name="summary"]')).toBeNull();
+});
+
+it('supports arrow keys, Home and End while exposing only the selected tab panel',async()=>{
+  const user=userEvent.setup();mount();
+  await user.click(await screen.findByRole('tab',{name:'Overview'}));
+  const navigation=screen.getByRole('tablist',{name:'Participation sections'});
+  const scroll=vi.fn();navigation.scrollIntoView=scroll;
+  await user.keyboard('{ArrowRight}');
+  expect(await screen.findByRole('tab',{name:'Catch up',selected:true})).toBeTruthy();
+  expect(scroll).toHaveBeenCalledWith({block:'start',behavior:'instant'});
+  expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+  await user.keyboard('{End}');
+  expect(await screen.findByRole('tab',{name:'Feedback',selected:true})).toBeTruthy();
+  await user.keyboard('{Home}');
+  expect(await screen.findByRole('tab',{name:'Overview',selected:true})).toBeTruthy();
+});
+
+it('keeps keyboard focus in the tablist when returning to an existing feedback draft',async()=>{
+  const user=userEvent.setup();mount();
+  await user.click(await screen.findByRole('tab',{name:'Projects'}));
+  await user.click(screen.getByRole('button',{name:'Give feedback'}));
+  const field=screen.getByLabelText('What you tried and a useful observation or suggestion');
+  expect(document.activeElement).toBe(field);
+  await user.type(field,'My unfinished feedback draft');
+  await user.click(screen.getByRole('tab',{name:'Help'}));
+  await user.keyboard('{End}');
+  const tab=await screen.findByRole('tab',{name:'Feedback',selected:true});
+  expect(document.activeElement).toBe(tab);
+  expect((screen.getByLabelText('What you tried and a useful observation or suggestion') as HTMLTextAreaElement).value).toBe('My unfinished feedback draft');
+  await user.keyboard('{Home}');
+  expect(document.activeElement).toBe(await screen.findByRole('tab',{name:'Overview',selected:true}));
+});
+
+it.each([['repositories','Repos','Open-source repos'],['catch-up','Catch up','Catch up'],['unknown','Overview','Your activity']])('opens the correct section from #%s',async(hash,tab,heading)=>{
+  mount({...initial,community:emptyRoutine},{entry:`/participation#${hash}`});
+  await screen.findByRole('tab',{name:tab,selected:true});
+  expect(screen.getByRole('heading',{name:heading})).toBeTruthy();
+  expect(screen.getAllByRole('tabpanel')).toHaveLength(1);
+});
+
+it('keeps the requested section in the GitHub sign-in link',async()=>{
+  const client=mount(initial,{entry:'/participation#repositories'});
+  await screen.findByRole('tab',{name:'Repos',selected:true});
+  await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
+  const link=await screen.findByRole('link',{name:'Sign in with GitHub'});
+  expect(new URL(link.getAttribute('href')!,'https://opencircle.test').searchParams.get('returnTo')).toBe('/participation#repositories');
+});
+
+it('opens the feedback editor for a selected question and clears the previous target draft',async()=>{
+  const user=userEvent.setup();
+  mount({...initial,help:[{id:'help_1',owner:'Bob',question:'How can I improve my React menu?',createdAt:1,status:'open'}]});
+  await user.click(await screen.findByRole('tab',{name:'Projects'}));
+  await user.click(screen.getByRole('button',{name:'Give feedback'}));
+  await user.type(screen.getByLabelText('What you tried and a useful observation or suggestion'),'Feedback for the first project');
+  await user.click(screen.getByRole('tab',{name:'Help'}));
+  await user.click(screen.getByRole('button',{name:'Help with this'}));
+  expect(await screen.findByRole('tab',{name:'Feedback',selected:true})).toBeTruthy();
+  const field=screen.getByLabelText('What you tried and a useful observation or suggestion');
+  expect((field as HTMLTextAreaElement).value).toBe('');
+  expect(document.activeElement).toBe(field);
+});
 
 it('collapses completed onboarding into instructions that can be reopened, and restores the guide after sign-out',async()=>{
   const user=userEvent.setup();
@@ -162,7 +257,7 @@ it('paginates projects, help and feedback independently while keeping later-page
 it('keeps the phone draft and issued code through failed background checks, then detects a successful link',async()=>{
   const user=userEvent.setup();
   const unlinked={...initial,activity:{...initial.activity,linked:false,login:null}};
-  const client=mount(unlinked);
+  const client=mount(unlinked,{entry:'/participation#repositories'});
   const chat='https://wa.me/15550000000?text=%2Flink%20ABC123';
   vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000,botChatUrl:chat});
   const phone=await screen.findByLabelText('Your WhatsApp group number');
@@ -181,7 +276,7 @@ it('keeps the phone draft and issued code through failed background checks, then
   await act(async()=>{await client.refetchQueries({queryKey:COMMUNITY_KEY});});
   vi.mocked(api.participation).mockResolvedValue(initial);
   await user.click(screen.getByRole('button',{name:'Check link'}));
-  await screen.findByText('Your activity');
+  await screen.findByRole('tab',{name:'Repos',selected:true});
   expect(screen.queryByText('/link ABC123')).toBeNull();
   expect(screen.queryByText('Start here')).toBeNull();
   expect(screen.getByText('Instructions').closest('details')!.open).toBe(false);

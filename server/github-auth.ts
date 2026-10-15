@@ -3,6 +3,7 @@ import type { GitHubProfile } from "../shared/community.js";
 import type { CommunityStore } from "./community-contract.js";
 import { HttpError } from "./http.js";
 import { adminUserIds, createAdminSession } from "./admin-session.js";
+import { participationDestination } from "../shared/participation-navigation.js";
 
 const SESSION_COOKIE = "opencircle_github";
 const STATE_COOKIE = "opencircle_oauth";
@@ -63,7 +64,7 @@ export function beginGitHubSignIn(req: Request): Response {
   if (admin && !adminUserIds().size) throw new HttpError(503, "admin_disabled", "Admin access hasn't been configured yet.");
   const state = randomBytes(32).toString("hex");
   const verifier = randomBytes(32).toString("base64url");
-  const participation = new URL(req.url).searchParams.get("returnTo") === "/participation";
+  const participation = participationDestination(new URL(req.url).searchParams.get("returnTo"));
   const portfolio = new URL(req.url).searchParams.get("returnTo") === "/portfolio";
   const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio })).toString("base64url");
   const signature = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
@@ -100,6 +101,7 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     if (typeof savedState.state !== "string" || savedState.state.length !== state.length || !timingSafeEqual(Buffer.from(savedState.state), Buffer.from(state)) || typeof savedState.expiresAt !== "number" || savedState.expiresAt <= Date.now() || typeof savedState.verifier !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(savedState.verifier)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
     if (savedState.admin === true) returnTo = "/admin";
     else if (savedState.participation === true) returnTo = "/participation";
+    else if (participationDestination(savedState.participation)) returnTo = participationDestination(savedState.participation)!;
     else if (savedState.portfolio === true) returnTo = "/portfolio";
     if (url.searchParams.has("error") || !code || code.length > 256) throw new HttpError(400, "github_denied", "GitHub sign-in was cancelled. Try again when you're ready.");
     const token = await githubJson("https://github.com/login/oauth/access_token", { method: "POST", headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, code, redirect_uri: config.redirectUri, code_verifier: savedState.verifier }) });
@@ -124,7 +126,9 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     return new Response(null, { status: 302, headers });
   } catch (error) {
     const reason = error instanceof HttpError ? error.code : "github_failed";
-    return new Response(null, { status: 302, headers: { location: `${returnTo}?signin=${encodeURIComponent(reason)}`, "cache-control": "no-store", "set-cookie": clearState } });
+    const destination = new URL(returnTo, config.origin);
+    destination.searchParams.set("signin", reason);
+    return new Response(null, { status: 302, headers: { location: `${destination.pathname}${destination.search}${destination.hash}`, "cache-control": "no-store", "set-cookie": clearState } });
   }
 }
 

@@ -23,16 +23,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const participationSections = [
-  { value: "overview", label: "Overview" },
-  { value: "catch-up", label: "Catch up" },
-  { value: "repositories", label: "Repos" },
-  { value: "projects", label: "Projects" },
-  { value: "help", label: "Help" },
-  { value: "feedback", label: "Feedback" },
-] as const;
-type ParticipationSection = typeof participationSections[number]["value"];
+import { participationDestination, participationSections, type ParticipationSection } from "@shared/participation-navigation";
 
 type Field = { required?: boolean; name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder: string };
 
@@ -99,7 +90,15 @@ export default function Participation() {
   const location = useLocation();
   const navigate = useNavigate();
   const section = participationSections.find((entry) => location.hash === `#${entry.value}`)?.value ?? "overview";
-  const selectSection = (value: ParticipationSection) => navigate({ pathname: location.pathname, search: location.search, hash: `#${value}` });
+  const requestedSection = useRef<ParticipationSection | null>(null);
+  const feedbackFocusRequested = useRef(false);
+  const selectSection = (value: ParticipationSection, focusEditor = false) => {
+    feedbackFocusRequested.current = focusEditor;
+    if (section === value || requestedSection.current === value) return;
+    requestedSection.current = value;
+    navigate({ pathname: location.pathname, search: location.search, hash: `#${value}` });
+  };
+  useEffect(() => { requestedSection.current = null; }, [location.key]);
   const page = pageFor("/participation");
   const community = useCommunity();
   const communityUnavailable = community.isError && (!community.data || !isTemporaryFailure(community.error));
@@ -115,6 +114,7 @@ export default function Participation() {
   useEffect(() => { if (notice) toast.success(notice, { id: "participation-notice" }); }, [notice]);
   const owner = useRef(profile?.id);
   owner.current = profile?.id;
+  const tabsList = useRef<HTMLDivElement>(null);
   const feedbackForm = useRef<HTMLElement>(null);
   const link = useMutation({ mutationFn: api.linkWhatsapp, onMutate: () => ({ owner: profile?.id }), onSuccess: (result, _input, context) => { if (owner.current === context?.owner) setChallenge(result); } });
   const action = useMutation({ mutationFn: api.participate, onMutate: async () => { await client.cancelQueries({ queryKey: key }); return { owner: profile?.id, key }; }, onSuccess: (result, _input, context) => { if (context && owner.current === context.owner) client.setQueryData<ParticipationState>(context.key, result); }, onSettled: (_result, _error, _input, context) => context && owner.current === context.owner ? client.invalidateQueries({ queryKey: context.key }) : undefined });
@@ -122,9 +122,15 @@ export default function Participation() {
   const data = state.data;
   useEffect(() => { setChallenge(null); setTarget(null); setError(null); setNotice(null); if (!profile?.id) client.removeQueries({ queryKey: ["participation"] }); }, [profile?.id, client]);
   useEffect(() => { if (data?.activity.linked) setChallenge(null); }, [data?.activity.linked]);
-  useEffect(() => { if (target && section === "feedback") feedbackForm.current?.querySelector("textarea")?.focus(); }, [target, section]);
   useEffect(() => {
-    if (profile && data?.activity.linked && location.hash) document.getElementById(location.hash.slice(1))?.scrollIntoView?.({ block: "start", behavior: "instant" });
+    if (!target || section !== "feedback" || !feedbackFocusRequested.current) return;
+    feedbackFocusRequested.current = false;
+    feedbackForm.current?.querySelector("textarea")?.focus();
+  }, [target, section]);
+  useEffect(() => {
+    if (!profile?.id || !data?.activity.linked || !location.hash) return;
+    const destination = location.hash === "#start" ? document.getElementById("start") : tabsList.current;
+    destination?.scrollIntoView?.({ block: "start", behavior: "instant" });
   }, [profile?.id, data?.activity.linked, location.hash]);
 
   async function submit(input: ParticipationAction) {
@@ -173,7 +179,7 @@ export default function Participation() {
         </div> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
           <div className="flex justify-center py-6">
             {community.data?.signInAvailable
-              ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href="/api/auth-start?returnTo=%2Fparticipation"><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
+              ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href={`/api/auth-start?${new URLSearchParams({ returnTo: participationDestination(`/participation${location.hash}`) ?? "/participation" })}`}><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
               : <p className="text-sm text-t3">{community.isPending ? "Checking sign-in…" : "GitHub sign-in is being set up."}</p>}
           </div>
         </Panel>
@@ -206,35 +212,35 @@ export default function Participation() {
         </Panel>
 
         : <Tabs key={`participation:${profile!.id}`} value={section} onValueChange={(value) => { if (participationSections.some((entry) => entry.value === value)) selectSection(value as ParticipationSection); }}>
-          <TabsList aria-label="Participation sections" className="mb-6 grid h-auto w-full grid-cols-3 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
+          <TabsList ref={tabsList} aria-label="Participation sections" className="mb-6 grid h-auto w-full scroll-mt-24 grid-cols-3 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
             {participationSections.map((entry) => <TabsTrigger key={entry.value} value={entry.value} className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]">{entry.label}</TabsTrigger>)}
           </TabsList>
           <TabsContent value="overview" forceMount hidden={section !== "overview"}>
             <section id="overview" className="scroll-mt-24 space-y-4 sm:space-y-6">
-          <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
-            <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
-            <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
-            {(!data.activity.tracking || data.activity.graceRemainingDays > 0 || data.activity.removalReview) && <div className="space-y-1.5 py-4 text-xs text-t4">
-              {!data.activity.tracking && <p role="status">{data.activity.enabled ? "Tracking is paused while the bot checks group access." : "Coordination is paused. You can still submit feedback."}</p>}
-              {data.activity.graceRemainingDays > 0 && <p>{data.activity.graceRemainingDays} days left in your settling-in period.</p>}
-              {data.activity.removalReview && <p>An admin is reviewing your participation. Pending feedback and approved breaks are checked before any removal.</p>}
-            </div>}
-          </Panel>
+              <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
+                <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
+                <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
+                {(!data.activity.tracking || data.activity.graceRemainingDays > 0 || data.activity.removalReview) && <div className="space-y-1.5 py-4 text-xs text-t4">
+                  {!data.activity.tracking && <p role="status">{data.activity.enabled ? "Tracking is paused while the bot checks group access." : "Coordination is paused. You can still submit feedback."}</p>}
+                  {data.activity.graceRemainingDays > 0 && <p>{data.activity.graceRemainingDays} days left in your settling-in period.</p>}
+                  {data.activity.removalReview && <p>An admin is reviewing your participation. Pending feedback and approved breaks are checked before any removal.</p>}
+                </div>}
+              </Panel>
 
-          <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>
-            <div className="py-4">
-              {data.activity.awayUntil && data.activity.awayUntil > Date.now()
-                ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
-                : data.activity.awayRequestedDays
-                  ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
-                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7", placeholder: "e.g. 7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
-            </div>
-          </Panel>
+              <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>
+                <div className="py-4">
+                  {data.activity.awayUntil && data.activity.awayUntil > Date.now()
+                    ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
+                    : data.activity.awayRequestedDays
+                      ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
+                      : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7", placeholder: "e.g. 7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
+                </div>
+              </Panel>
             </section>
           </TabsContent>
           <TabsContent value="catch-up" forceMount hidden={section !== "catch-up"}>
             <section id="catch-up" className="scroll-mt-24 space-y-4 sm:space-y-6">
-            {data.community ? <CommunityCatchUp data={data.community} /> : <Panel header={<PanelHeader title="Catch up" />}><Empty>No catch-up updates are available yet.</Empty></Panel>}
+              {data.community ? <CommunityCatchUp data={data.community} /> : <Panel header={<PanelHeader title="Catch up" />}><Empty>No catch-up updates are available yet.</Empty></Panel>}
             </section>
           </TabsContent>
           <TabsContent value="repositories" forceMount hidden={section !== "repositories"} className="space-y-4 sm:space-y-6">
@@ -242,64 +248,64 @@ export default function Participation() {
           </TabsContent>
           <TabsContent value="projects" forceMount hidden={section !== "projects"}>
             <section id="projects" className="scroll-mt-24 space-y-4 sm:space-y-6">
-          <Panel header={<PanelHeader title="Projects to review" subtitle={`${data.projects.length} in the circle`} />}>
-            {data.projects.length ? <PaginatedList items={data.projects} label="Projects to review" resetKey={String(profile?.id)} disabled={busy}>{(project) => <Item key={project.id} action={<>
-              {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "review", id: project.id, title: project.title }); selectSection("feedback"); }}>Give feedback</MetalButton>}
-              {mine(project.owner) && project.status !== "closed" && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</MetalButton>}
-            </>}>
-              <div className="flex flex-wrap items-center gap-2">
-                <a href={project.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium hover:underline hover:underline-offset-4">{project.title}</a>
-                <Chip tone={statusTone(project.status)}>{project.status}</Chip>
-              </div>
-              <p className="text-xs text-t3">@{project.owner} · {project.reviews} confirmed reviews{project.skills?.length ? ` · ${project.skills.join(", ")}` : ""}</p>
-              {project.feedbackWanted && <p className="break-words text-sm text-t3">Feedback wanted: {project.feedbackWanted}</p>}
-              {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
-            </Item>}</PaginatedList> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
-            <FormFooter>
-              <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80, placeholder: "e.g. Developer Portfolio" }, { name: "url", label: "Project link", type: "url", placeholder: "https://github.com/yourname/project" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false, placeholder: "e.g. Check the mobile layout and keyboard navigation" }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false, placeholder: "react, typescript, design" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
-            </FormFooter>
-          </Panel>
+              <Panel header={<PanelHeader title="Projects to review" subtitle={`${data.projects.length} in the circle`} />}>
+                {data.projects.length ? <PaginatedList items={data.projects} label="Projects to review" resetKey={String(profile?.id)} disabled={busy}>{(project) => <Item key={project.id} action={<>
+                  {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "review", id: project.id, title: project.title }); selectSection("feedback", true); }}>Give feedback</MetalButton>}
+                  {mine(project.owner) && project.status !== "closed" && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</MetalButton>}
+                </>}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a href={project.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium hover:underline hover:underline-offset-4">{project.title}</a>
+                    <Chip tone={statusTone(project.status)}>{project.status}</Chip>
+                  </div>
+                  <p className="text-xs text-t3">@{project.owner} · {project.reviews} confirmed reviews{project.skills?.length ? ` · ${project.skills.join(", ")}` : ""}</p>
+                  {project.feedbackWanted && <p className="break-words text-sm text-t3">Feedback wanted: {project.feedbackWanted}</p>}
+                  {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
+                </Item>}</PaginatedList> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
+                <FormFooter>
+                  <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80, placeholder: "e.g. Developer Portfolio" }, { name: "url", label: "Project link", type: "url", placeholder: "https://github.com/yourname/project" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false, placeholder: "e.g. Check the mobile layout and keyboard navigation" }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false, placeholder: "react, typescript, design" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
+                </FormFooter>
+              </Panel>
             </section>
           </TabsContent>
           <TabsContent value="help" forceMount hidden={section !== "help"}>
             <section id="help" className="scroll-mt-24 space-y-4 sm:space-y-6">
-          <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
-            {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
-              {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "answer", id: help.id, title: help.owner }); selectSection("feedback"); }}>Help with this</MetalButton>}
-              {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
-              {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
-            </>}>
-              <p className="break-words text-sm text-foreground">{help.question}</p>
-              <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
-              {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
-            </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
-            <FormFooter>
-              <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
-            </FormFooter>
-          </Panel>
-            {data.community && <CommunityMentoring data={data.community} busy={busy} submit={submit} />}
+              <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
+                {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
+                  {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "answer", id: help.id, title: help.owner }); selectSection("feedback", true); }}>Help with this</MetalButton>}
+                  {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
+                  {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
+                </>}>
+                  <p className="break-words text-sm text-foreground">{help.question}</p>
+                  <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
+                  {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
+                </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
+                <FormFooter>
+                  <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
+                </FormFooter>
+              </Panel>
+              {data.community && <CommunityMentoring data={data.community} busy={busy} submit={submit} />}
             </section>
           </TabsContent>
           <TabsContent value="feedback" forceMount hidden={section !== "feedback"}>
             <section id="feedback" className="scroll-mt-24 space-y-4 sm:space-y-6">
-          {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
-            <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
-              <div className="py-4">
-                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
-                <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
-              </div>
-            </Panel>
-          </section>}
+              {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
+                <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
+                  <div className="py-4">
+                    <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
+                    <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
+                  </div>
+                </Panel>
+              </section>}
 
-          <Panel header={<PanelHeader title="Feedback" subtitle="Given and received." />}>
-            {data.contributions.length ? <PaginatedList items={data.contributions} label="Feedback" resetKey={String(profile?.id)} disabled={busy}>{(entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
-              <MetalButton size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: true })}>Confirm useful</MetalButton>
-              <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: false })}>Needs more detail</MetalButton>
-            </> : undefined}>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-t4"><span>@{entry.by} → @{entry.for}</span><Chip tone={statusTone(entry.status)}>{entry.status}</Chip></div>
-              <p className="break-words text-sm text-t2">{entry.text}</p>
-            </Item>}</PaginatedList> : <Empty>Your submitted and received feedback will appear here.</Empty>}
-          </Panel>
+              <Panel header={<PanelHeader title="Feedback" subtitle="Given and received." />}>
+                {data.contributions.length ? <PaginatedList items={data.contributions} label="Feedback" resetKey={String(profile?.id)} disabled={busy}>{(entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
+                  <MetalButton size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: true })}>Confirm useful</MetalButton>
+                  <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: false })}>Needs more detail</MetalButton>
+                </> : undefined}>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-t4"><span>@{entry.by} → @{entry.for}</span><Chip tone={statusTone(entry.status)}>{entry.status}</Chip></div>
+                  <p className="break-words text-sm text-t2">{entry.text}</p>
+                </Item>}</PaginatedList> : <Empty>Your submitted and received feedback will appear here.</Empty>}
+              </Panel>
             </section>
           </TabsContent>
         </Tabs>)}
