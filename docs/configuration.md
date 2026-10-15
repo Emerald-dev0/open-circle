@@ -80,3 +80,14 @@ pnpm db:migrate
 ```
 
 `neon deploy` provisions the services in `neon.ts` and pulls their variables into `.env.local` (or `.env` if it exists). It does not deploy the app. Migrations use the direct `DATABASE_URL_UNPOOLED`; the app uses the pooled `DATABASE_URL`.
+
+
+### Bot controls in Admin settings
+
+The website Settings tab includes bot welcome controls, schedules, group posts, private replies, participation thresholds, moderation flags and editable message formats. Set `WHATSAPP_ADMIN_TOKEN` on the website server and the private bot server to the same separate random secret of at least 32 characters. It must differ from `WHATSAPP_MEMBERSHIP_TOKEN`. Keep it runtime-only and never prefix it with `VITE_`.
+
+The existing membership URL derives the bot settings endpoint. Approved GitHub admins use the website's existing protected session; their browser never receives the bot credential or console password. The bot and website must both include the settings contract before enabling this connection. With no admin token, membership and participation continue normally while the settings panel reports unavailable.
+
+Saving retains unrelated bot data, pairing and group controls. Message-only changes do not restart participation observation. Changes to participation thresholds start a fresh observation period, with existing history retained. Saves use a separate settings version, so a stale page cannot overwrite another admin's changes.
+
+Message variables use `{{name}}`. Each format lists its supported variables and required links or values. Previews use sample data and send nothing; individual resets restore the shipped default. Pending unsent automatic content is replaced by future batches using the saved formats, while the second half of an already-started welcome remains queued. Historical or uncertain deliveries are never rewritten or replayed.

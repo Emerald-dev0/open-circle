@@ -5,12 +5,12 @@ import { lazy, Suspense } from "react";
 import { MotionConfig } from "motion/react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
-import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { TrafficTracker } from "./components/traffic-tracker";
 import { portfolioSlugFromHostname } from "@shared/portfolio";
 import { ThemeProvider } from "./components/theme-provider";
 
+const Admin = lazy(() => import("./pages/Admin"));
 const Portfolio = lazy(() => import("./pages/Portfolio"));
 const Participation = lazy(() => import("./pages/Participation"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));

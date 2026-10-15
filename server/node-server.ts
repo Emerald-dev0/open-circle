@@ -1,3 +1,4 @@
+import * as botSettings from "../api/bot-settings.js";
 /**
  * Standalone Node server for hosts that aren't Vercel (e.g. Pxxl): serves the
  * built SPA from dist/ and the same api/*.ts handlers on the same paths.
@@ -38,6 +39,7 @@ type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
   analytics: analytics as Record<string, Handler>,
   admin: admin as Record<string, Handler>,
+  "bot-settings": botSettings as Record<string, Handler>,
   "admin-session": adminSession as Record<string, Handler>,
   auth: auth as Record<string, Handler>,
   "auth-start": authStart as Record<string, Handler>,

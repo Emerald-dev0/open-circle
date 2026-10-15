@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { pollApi } from "@/lib/query-policy";
 import type * as React from "react";
 import { GitHubIcon } from "@/components/brand-icons";
@@ -30,6 +31,8 @@ import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { AdminAnalytics } from "@/components/admin-analytics";
 import { AdminDashboardSkeleton } from "@/components/admin-skeleton";
+
+const AdminBotSettings = lazy(() => import("@/components/admin-bot-settings"));
 
 const SESSION_KEY = ["admin", "session"];
 const STATE_KEY = ["admin", "state"];
@@ -101,6 +104,7 @@ function SignIn({ configured }: { configured: boolean }) {
 
 function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
   const [section, setSection] = useState("overview");
+  const [settingsVisited, setSettingsVisited] = useState(false);
   const queryClient = useQueryClient();
   const state = useQuery({ queryKey: STATE_KEY, queryFn: ({ signal }) => api.adminState(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
   const tools = useQuery({ queryKey: TOOLS_KEY, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: pollApi(30_000) });
@@ -135,7 +139,7 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
       <h1 className="text-2xl font-medium tracking-[-0.03em]">Admin</h1>
       <p className="text-sm text-t3">{formatFull(state.data.members.length - hidden)} visible members · {formatFull(hidden)} hidden{pending !== undefined ? ` · ${formatFull(pending)} tools awaiting review` : ""}</p>
     </div>
-    <Tabs value={section} onValueChange={setSection}>
+    <Tabs value={section} onValueChange={(value) => { if (value === "settings") setSettingsVisited(true); setSection(value); }}>
       <TabsList aria-label="Admin sections" className="mb-6 grid h-auto w-full grid-cols-2 rounded-[24px] sm:inline-flex sm:w-auto sm:rounded-full">
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="overview">Overview</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="members">Members</TabsTrigger>
@@ -145,7 +149,7 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
       <TabsContent value="overview"><AdminAnalytics onUnauthorized={onUnauthorized} onReviewTools={() => setSection("tools")} /></TabsContent>
       <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
       <TabsContent value="tools"><FadeIn><ToolModeration onUnauthorized={onUnauthorized} /></FadeIn></TabsContent>
-      <TabsContent value="settings"><FadeIn><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /></FadeIn></TabsContent>
+      <TabsContent value="settings" forceMount={settingsVisited || undefined} hidden={section !== "settings"}><FadeIn><div className="space-y-6"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /><Suspense fallback={<p className="py-4 text-sm text-t3" role="status">Loading bot settings…</p>}><AdminBotSettings onUnauthorized={onUnauthorized} /></Suspense></div></FadeIn></TabsContent>
     </Tabs>
   </div>;
 }

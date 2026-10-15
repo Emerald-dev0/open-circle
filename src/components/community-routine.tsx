@@ -23,7 +23,7 @@ export function CommunityGuide({ completed = false }: { completed?: boolean }) {
 export function CommunityCatchUp({ data }: { data: MemberCommunityState }) {
   const date = new Intl.DateTimeFormat("en", { timeZone: data.timezone, dateStyle: "medium", timeStyle: "short" });
   return <Panel header={<PanelHeader title="Catch up" />}>
-    {data.groupSchedule && <p className="py-3 text-sm text-t3">Group quiet hours: {data.quietStart}:00 to {data.quietEnd}:00 ({data.timezone}). You can use this page at any time.</p>}
+    {data.groupSchedule && <p className="py-3 text-sm text-t3">Group quiet hours: {String(data.quietStart).padStart(2, "0")}:{String(data.quietStartMinute ?? 0).padStart(2, "0")} to {String(data.quietEnd).padStart(2, "0")}:{String(data.quietEndMinute ?? 0).padStart(2, "0")} ({data.timezone}). You can use this page at any time.</p>}
     {data.sessions.length > 0 && <div className="border-b border-foreground/[0.06] py-4">
       <h2 className="mb-3 text-sm font-medium">Upcoming sessions</h2>
       <PaginatedList items={data.sessions} label="Upcoming sessions" pageSize={5} className="space-y-3">{(session) => <li key={session.id} className="text-sm"><p>{session.title}</p><p className="text-xs text-t3"><time dateTime={new Date(session.startsAt).toISOString()}>{date.format(session.startsAt)}</time> ({data.timezone}) · {Math.round((session.endsAt - session.startsAt) / 60_000)} minutes</p></li>}</PaginatedList>

@@ -1,3 +1,4 @@
+import type { BotSettingsInput, BotSettingsState } from "@shared/bot-settings";
 import type {
   AdminAction,
   AdminState,
@@ -66,6 +67,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  botSettings: (signal?: AbortSignal) => request<BotSettingsState>("/api/bot-settings", { signal, cache: "no-store" }),
+  saveBotSettings: (input: BotSettingsInput) => request<BotSettingsState>("/api/bot-settings", { method: "POST", headers: { "x-opencircle-admin": "1" }, body: JSON.stringify(input) }),
   adminAnalytics: (days: AnalyticsDays, signal?: AbortSignal) => request<AdminAnalytics>(`/api/analytics?days=${days}`, { signal, cache: "no-store" }),
   participation: (signal?: AbortSignal) => request<ParticipationState>("/api/participation", { signal }),
   linkWhatsapp: (phone: string) => request<LinkChallenge>("/api/participation", { method: "POST", body: JSON.stringify({ action: "link", phone }) }),

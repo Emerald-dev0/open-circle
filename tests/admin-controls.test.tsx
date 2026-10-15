@@ -1,3 +1,4 @@
+import { defaultBotOptions, defaultBotMessages } from "../shared/bot-settings";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,7 +12,7 @@ import { emptyTraffic } from "../server/analytics-store";
 
 vi.mock("../src/lib/api", async (original) => ({
   ...await original<typeof import("../src/lib/api")>(),
-  api: { adminSession: vi.fn(), adminSignOut: vi.fn(), adminState: vi.fn(), adminAction: vi.fn(), adminTools: vi.fn(), adminAnalytics: vi.fn() },
+  api: { adminSession: vi.fn(), adminSignOut: vi.fn(), adminState: vi.fn(), adminAction: vi.fn(), adminTools: vi.fn(), botSettings: vi.fn(), adminAnalytics: vi.fn() },
 }));
 vi.mock("../src/components/board/tool-moderation", () => ({ ToolModeration: () => <p>Tool review queue</p> }));
 
@@ -33,6 +34,7 @@ beforeEach(() => {
   vi.mocked(api.adminSignOut).mockReset().mockResolvedValue({ ok: true });
   vi.mocked(api.adminState).mockReset().mockResolvedValue(state);
   vi.mocked(api.adminAction).mockReset();
+  vi.mocked(api.botSettings).mockReset().mockResolvedValue({ version: 1, policy: { enabled: true, timezone: "Africa/Lagos", welcomeTimes: ["09:00", "14:00", "19:00"], quietStart: 22, quietEnd: 8, graceDays: 14, target: 4, reviewPeers: 2, periodDays: 28, reminderDays: 14, warningDays: 21, removalDays: 28 }, community: { groupSchedule: false, summariesEnabled: false, mentorMatching: false, sessionsEnabled: false, summaryTime: "19:00", announcementsJid: "", mentorWaitHours: 24, helpDay: 3, helpTime: "18:00", demoDay: 5, demoTime: "18:00", sessionMinutes: 60 }, options: defaultBotOptions(), messages: defaultBotMessages(), status: { connected: true, botAdmin: true, groupOpen: true, tracking: true, announced: true, lastCheckAt: Date.now(), pendingWelcomes: 0, uncertainDeliveries: 0, consoleUrl: "https://wa.opencircle.test" } });
   vi.mocked(api.adminTools).mockReset().mockResolvedValue([]);
   vi.mocked(api.adminAnalytics).mockReset().mockResolvedValue({ days: 30, generatedAt: Date.now(), startedAt: null, current: { ...emptyTraffic(), daily: [{ date: "2026-10-15", visitors: 0, pageViews: 0 }] }, previous: null, growth: { members: 0, previousMembers: 0, toolSubmissions: 0, previousToolSubmissions: 0, pendingTools: 0 } });
 });
@@ -50,6 +52,14 @@ function renderAdmin(path = "/admin") {
 }
 
 describe("Admin access and management", () => {
+  it("preserves unsaved bot changes across outer admin tab switches", async () => {
+
+    renderAdmin(); const user = userEvent.setup(); await user.click(await screen.findByRole("tab", { name: "Settings" }));
+    await user.click(await screen.findByRole("switch", { name: "Tag newcomers" }));
+    await user.click(screen.getByRole("tab", { name: "Members" })); expect(screen.queryByRole("switch", { name: "Tag newcomers" })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "Settings" })); expect(screen.getByRole("switch", { name: "Tag newcomers" }).getAttribute("aria-checked")).toBe("false"); expect(screen.getByText("Unsaved bot changes")).toBeTruthy();
+  });
+
   it("paginates private member records and returns to the first page when searching", async () => {
     state.members = Array.from({ length: 45 }, (_, index) => ({ ...state.members[0], login: `member-${index}`, nickname: `Member ${index}`, rank: index + 1 }));
     vi.mocked(api.adminState).mockResolvedValue(state);

@@ -4,6 +4,8 @@ export interface CoordinationPolicy {
   welcomeTimes: string[];
   quietStart: number;
   quietEnd: number;
+  quietStartMinute?: number;
+  quietEndMinute?: number;
   graceDays: number;
   target: number;
   reviewPeers: number;
@@ -196,6 +198,8 @@ export interface MemberCommunityState {
   timezone: string;
   quietStart: number;
   quietEnd: number;
+  quietStartMinute?: number;
+  quietEndMinute?: number;
   groupSchedule: boolean;
   updates: CommunityUpdate[];
   sessions: CommunitySession[];
@@ -209,6 +213,7 @@ export function isMemberCommunityState(value: unknown): value is MemberCommunity
   const state = value as MemberCommunityState;
   const timestamp = (input: unknown) => typeof input === "number" && Number.isFinite(input) && Math.abs(input) <= 8.64e15;
   if (typeof state.timezone !== "string" || typeof state.groupSchedule !== "boolean" || ![state.quietStart, state.quietEnd].every((hour) => Number.isInteger(hour) && hour >= 0 && hour <= 23)) return false;
+  if (![state.quietStartMinute ?? 0, state.quietEndMinute ?? 0].every((minute) => Number.isInteger(minute) && minute >= 0 && minute <= 59)) return false;
   try { new Intl.DateTimeFormat("en", { timeZone: state.timezone }); } catch { return false; }
   if (!Array.isArray(state.updates) || state.updates.length > 60 || !state.updates.every((entry) => entry && typeof entry === "object" && typeof entry.id === "string" && typeof entry.title === "string" && typeof entry.text === "string" && typeof entry.date === "string" && timestamp(entry.createdAt) && (entry.groupSentAt === null || timestamp(entry.groupSentAt)))) return false;
   if (!Array.isArray(state.sessions) || state.sessions.length > 4 || !state.sessions.every((entry) => entry && typeof entry === "object" && typeof entry.id === "string" && typeof entry.title === "string" && timestamp(entry.startsAt) && timestamp(entry.endsAt) && entry.endsAt > entry.startsAt)) return false;
