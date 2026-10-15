@@ -100,9 +100,6 @@ function PodiumSlot({
                 <UserPlusRoundedIcon size={18} aria-hidden />
               </span>
               <p className="mt-2 text-xs font-medium text-t3 sm:text-sm">#{rank} open</p>
-              <span className="mt-1.5 rounded-full bg-alva-surface/60 px-2.5 py-0.5 text-[10px] font-medium text-t4 sm:text-xs">
-                take it
-              </span>
             </>
           )}
         </motion.div>

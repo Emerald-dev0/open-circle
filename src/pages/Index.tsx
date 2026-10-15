@@ -3,7 +3,8 @@ import { MetalText } from "metal-fx";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useMatch, useNavigate } from "react-router-dom";
-import { BranchingPathsUpIcon, FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
+import { FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
+import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import type { PublicMember, PublicRepository } from "@shared/types";
 import { HowItWorks } from "@/components/board/how-it-works";
 import {
@@ -14,7 +15,7 @@ import { RankMe } from "@/components/board/rank-me";
 import { RankTable } from "@/components/board/rank-table";
 import { RepositoryExplorer } from "@/components/board/repository-explorer";
 import { ToolsDirectory } from "@/components/board/tools-directory";
-import { GitHubAccount } from "@/components/github-account";
+import { AccountCorner } from "@/components/account-corner";
 import { SiteFooter } from "@/components/site-footer";
 import { Dock } from "@/components/dock";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,7 +54,7 @@ function repoEntry(r: PublicRepository): LeaderboardEntry {
     href: r.url,
     avatarUrl: r.ownerAvatarUrl || undefined,
     seed: r.ownerLogin.toLowerCase(),
-    secondary: { icon: <BranchingPathsUpIcon size={11} aria-hidden />, value: r.forks, label: "forks" },
+    secondary: { icon: <GitPullRequestIcon size={11} aria-hidden />, value: r.forks, label: "forks" },
   };
 }
 
@@ -183,9 +184,7 @@ const Index = () => {
       <div className="app-backdrop" aria-hidden />
 
       <div className="relative z-10">
-        <header className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-20 sm:right-[max(1.5rem,env(safe-area-inset-right))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
-          <GitHubAccount />
-        </header>
+        <AccountCorner />
 
         <main className="page-container pb-6">
           <section
@@ -259,28 +258,6 @@ const Index = () => {
                     </span>
                   </TabsTrigger>
                 </TabsList>
-                {!toolsOpen && <p
-                  className="flex max-w-full items-center justify-center gap-1.5 text-center text-[11px] text-t3"
-                  role="status"
-                >
-                  <span
-                    className={
-                      isError || board?.statsDelayed
-                        ? "size-1.5 shrink-0 rounded-full bg-[hsl(var(--warn))]"
-                        : "size-1.5 shrink-0 rounded-full bg-[hsl(var(--up))]"
-                    }
-                    aria-hidden
-                  />
-                  {isError
-                    ? board
-                      ? "Reconnecting · showing last rankings"
-                      : "Couldn't connect to the board"
-                    : board?.statsDelayed
-                      ? "GitHub updates delayed"
-                      : isPending
-                        ? "Loading rankings…"
-                        : `Live · GitHub updated ${timeAgo(board!.refreshedAt, now)}`}
-                </p>}
               </div>
 
               {isError && !board && !toolsOpen ? (
@@ -291,9 +268,9 @@ const Index = () => {
                     size="sm"
                     className="w-auto"
                     onClick={() => refetch()}
-                    disabled={isRefetching}
+                    loading={isRefetching}
                   >
-                    <RefreshIcon size={14} aria-hidden />
+                    {!isRefetching && <RefreshIcon size={14} aria-hidden />}
                     {isRefetching ? "Retrying…" : "Try again"}
                   </TextureButton>
                 </div>
@@ -377,7 +354,6 @@ const Index = () => {
             400,
           );
         }}
-        onRules={() => setHowOpen(true)}
       />
 
       <HowItWorks

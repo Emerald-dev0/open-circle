@@ -14,11 +14,15 @@ interface Props {
   value: VoteValue;
   saved: boolean;
   disabled: boolean;
+  /** The vote being saved for this tool, if any. */
+  pendingValue?: VoteValue | null;
   onVote: (value: VoteValue) => void;
   onSave: () => void;
 }
 
-export function ToolRow({ tool, count, value, saved, disabled, onVote, onSave }: Props) {
+export function ToolRow({ tool, count, value, saved, disabled, pendingValue = null, onVote, onSave }: Props) {
+  // Clearing a vote spins the button that was on; a new vote spins its own.
+  const spinning = pendingValue === null ? null : pendingValue === 0 ? value : pendingValue;
   return (
     <motion.li
       layout="position"
@@ -56,11 +60,11 @@ export function ToolRow({ tool, count, value, saved, disabled, onVote, onSave }:
       </div>
       {/* Votes sit on the right of the same line: stacked on phones, a pill from sm up. */}
       <div role="group" aria-label={`Vote on ${tool.name}`} className="flex flex-col items-center gap-0.5 rounded-full bg-white/[0.035] p-0.5 sm:flex-row">
-        <TextureButton type="button" variant={value === 1 ? "primary" : "icon"} size="icon" aria-label={`${value === 1 ? "Remove upvote for" : "Upvote"} ${tool.name}`} aria-pressed={value === 1} disabled={disabled} onClick={() => onVote(value === 1 ? 0 : 1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === 1 && "text-up")}>
+        <TextureButton type="button" variant={value === 1 ? "primary" : "icon"} size="icon" aria-label={`${value === 1 ? "Remove upvote for" : "Upvote"} ${tool.name}`} aria-pressed={value === 1} disabled={disabled} loading={spinning === 1} onClick={() => onVote(value === 1 ? 0 : 1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === 1 && "text-up")}>
           <ArrowUpIcon className="size-4" aria-hidden="true" />
         </TextureButton>
         <span className="min-w-8 py-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0" title={`${formatFull(count)} net votes`} aria-label={`${formatFull(count)} net votes for ${tool.name}`}>{formatCount(count)}</span>
-        <TextureButton type="button" variant={value === -1 ? "primary" : "icon"} size="icon" aria-label={`${value === -1 ? "Remove downvote for" : "Downvote"} ${tool.name}`} aria-pressed={value === -1} disabled={disabled} onClick={() => onVote(value === -1 ? 0 : -1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === -1 && "text-down")}>
+        <TextureButton type="button" variant={value === -1 ? "primary" : "icon"} size="icon" aria-label={`${value === -1 ? "Remove downvote for" : "Downvote"} ${tool.name}`} aria-pressed={value === -1} disabled={disabled} loading={spinning === -1} onClick={() => onVote(value === -1 ? 0 : -1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === -1 && "text-down")}>
           <ArrowDownIcon className="size-4" aria-hidden="true" />
         </TextureButton>
       </div>

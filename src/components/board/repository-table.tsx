@@ -1,4 +1,5 @@
-import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
+import { StarIcon } from "@solar-icons/react/bold-duotone";
+import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
 import { BookmarkIcon as BookmarkFilledIcon } from "@solar-icons/react/bold";
 import { AnimatePresence, motion } from "motion/react";
@@ -22,6 +23,7 @@ export function RepositoryTable({
   voted = new Set<string>(),
   saved = new Set<string>(),
   votingDisabled = false,
+  pendingTarget = null,
   onVote,
   onSave,
 }: {
@@ -33,6 +35,8 @@ export function RepositoryTable({
   voted?: ReadonlySet<string>;
   saved?: ReadonlySet<string>;
   votingDisabled?: boolean;
+  /** `repo:ID` whose vote is being saved. */
+  pendingTarget?: string | null;
   onVote?: (repository: PublicRepository, active: boolean) => void;
   onSave?: (id: string) => void;
 }) {
@@ -85,7 +89,7 @@ export function RepositoryTable({
                       {formatCount(repo.stars)}<span className="sr-only"> stars</span>
                     </span>
                     <span className="inline-flex items-center gap-1 tabular">
-                      <BranchingPathsUpIcon size={12} aria-hidden />
+                      <GitPullRequestIcon size={12} aria-hidden />
                       {formatCount(repo.forks)}<span className="sr-only"> forks</span>
                     </span>
                     <span className="min-w-0 truncate">by {repo.ownerNickname}</span>
@@ -110,27 +114,37 @@ export function RepositoryTable({
                 </div>
 
                 {onVote && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <TextureButton
-                        type="button"
-                        variant={isVoted ? "primary" : "icon"}
-                        size="icon"
-                        aria-label={`${isVoted ? "Remove upvote from" : "Upvote"} ${repo.fullName}`}
-                        aria-pressed={isVoted}
-                        disabled={votingDisabled}
-                        onClick={() => onVote(repo, !isVoted)}
-                        className="h-14 w-11 rounded-full"
-                        innerClassName={cn("flex-col gap-0.5 rounded-full p-0 text-xs tabular", isVoted && "text-up")}
-                      >
-                        <ArrowUpIcon className="size-4" aria-hidden="true" />
-                        <span>{formatCount(counts[target] ?? 0)}</span>
-                      </TextureButton>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isVoted ? "Remove your community upvote" : "Upvote for the circle. GitHub stars stay separate."}
-                    </TooltipContent>
-                  </Tooltip>
+                  // Same pill as tool votes, upvote only: button and count share one soft background.
+                  <div role="group" aria-label={`Vote on ${repo.fullName}`} className="flex flex-col items-center gap-0.5 rounded-full bg-white/[0.035] p-0.5 sm:flex-row">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <TextureButton
+                          type="button"
+                          variant={isVoted ? "primary" : "icon"}
+                          size="icon"
+                          aria-label={`${isVoted ? "Remove upvote from" : "Upvote"} ${repo.fullName}`}
+                          aria-pressed={isVoted}
+                          disabled={votingDisabled}
+                          loading={pendingTarget === target}
+                          onClick={() => onVote(repo, !isVoted)}
+                          className="size-10 w-10 sm:size-11 sm:w-11"
+                          innerClassName={cn("p-0", isVoted && "text-up")}
+                        >
+                          <ArrowUpIcon className="size-4" aria-hidden="true" />
+                        </TextureButton>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isVoted ? "Remove your community upvote" : "Upvote for the circle."}
+                      </TooltipContent>
+                    </Tooltip>
+                    <span
+                      className="min-w-8 pb-1.5 pt-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0 sm:pr-2.5"
+                      title={`${formatFull(counts[target] ?? 0)} upvotes`}
+                      aria-label={`${formatFull(counts[target] ?? 0)} upvotes for ${repo.fullName}`}
+                    >
+                      {formatCount(counts[target] ?? 0)}
+                    </span>
+                  </div>
                 )}
               </motion.li>
             );

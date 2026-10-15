@@ -13,7 +13,7 @@ export function seo(siteUrl: string | undefined): Plugin {
       return html.replaceAll("%SITE_URL%", base);
     },
     generateBundle() {
-      const robots = ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /api/"];
+      const robots = ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/"];
       if (base) robots.push("", `Sitemap: ${base}/sitemap.xml`);
       this.emitFile({ type: "asset", fileName: "robots.txt", source: `${robots.join("\n")}\n` });
 
