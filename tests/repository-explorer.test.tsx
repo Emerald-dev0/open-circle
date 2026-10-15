@@ -10,7 +10,6 @@ import { repository } from "./helpers/fixtures";
 
 const hooks = vi.hoisted(() => ({ community: vi.fn(), vote: vi.fn() }));
 vi.mock("@/hooks/use-community", () => ({ useCommunity: hooks.community, useCommunityVote: hooks.vote }));
-vi.mock("sonner", () => ({ toast: { message: vi.fn() } }));
 
 const repositories: PublicRepository[] = [
   { ...repository({ id: "R_cli", name: "circle-cli", fullName: "spark/circle-cli", url: "https://github.com/spark/circle-cli", stars: 40, updatedAt: "2026-10-12T12:00:00Z" }), rank: 1, ownerLogin: "spark", ownerNickname: "Spark", ownerAvatarUrl: "" },

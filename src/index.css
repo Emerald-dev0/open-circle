@@ -231,3 +231,12 @@ fades), recoloured from brand blue to white.
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Toasts: hug the message and sit centred under the top edge. */
+[data-sonner-toaster][data-x-position="center"] [data-sonner-toast] {
+  width: fit-content;
+  max-width: min(calc(100vw - 2rem), 30rem);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+}

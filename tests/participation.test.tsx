@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -43,9 +44,9 @@ it('focuses feedback, preserves failed submissions, saves useful reviews and req
   vi.mocked(api.participate).mockRejectedValueOnce(new ApiError(503,'offline','The bot is unavailable.'));
   await user.click(screen.getByRole('button',{name:'Submit feedback'}));await screen.findByText('The bot is unavailable.');expect((field as HTMLTextAreaElement).value).toBe(feedback);
   vi.mocked(api.participate).mockResolvedValue(initial);
-  await user.click(screen.getByRole('button',{name:'Submit feedback'}));await screen.findByText('Your contribution is saved and awaits confirmation.');
+  await user.click(screen.getByRole('button',{name:'Submit feedback'}));await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Your contribution is saved and awaits confirmation.',expect.anything()));
   expect(api.participate).toHaveBeenLastCalledWith({action:'review',projectId:'project_1',text:feedback},expect.anything());
-  await user.click(screen.getByRole('button',{name:'Request break'}));await screen.findByText('Your break request is waiting for admin approval.');
+  await user.click(screen.getByRole('button',{name:'Request break'}));await waitFor(()=>expect(toast.success).toHaveBeenCalledWith('Your break request is waiting for admin approval.',expect.anything()));
   expect(api.participate).toHaveBeenLastCalledWith({action:'away',days:7},expect.anything());
 });
 

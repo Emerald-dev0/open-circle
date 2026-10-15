@@ -13,7 +13,6 @@ vi.mock("../src/lib/api", async (original) => ({
   api: { adminSession: vi.fn(), adminSignOut: vi.fn(), adminState: vi.fn(), adminAction: vi.fn(), adminTools: vi.fn() },
 }));
 vi.mock("../src/components/board/tool-moderation", () => ({ ToolModeration: () => <p>Tool review queue</p> }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const clients: QueryClient[] = [];
 const profile = { id: 1, login: "organiser", avatarUrl: "" };

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { BookmarkIcon, MagnifierIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import type { PublicRepository } from "@shared/types";
@@ -94,6 +95,9 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   const hasFilters = Boolean(search || language || savedOnly);
   const emptySaved = savedOnly && savedCount === 0;
 
+  useErrorToast(community.error ? true : null, "Community upvotes could not load.", { id: "upvotes-load", retry: () => community.refetch() });
+  useErrorToast(vote.error, "Your upvote could not be saved. Try again.");
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="space-y-5">
@@ -145,13 +149,6 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
 
         <p className="text-xs text-t3">Community upvotes are separate from GitHub stars. One vote per repository in this browser.</p>
         {community.isPending && <p className="text-xs text-t3" role="status">Loading community upvotes…</p>}
-        {community.error && (
-          <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-t2">
-            <p>Community upvotes could not load.</p>
-            <TextureButton type="button" variant="minimal" size="default" onClick={() => community.refetch()} className="h-11 w-auto" innerClassName="px-3 text-xs">Try again</TextureButton>
-          </div>
-        )}
-        {vote.error && <p role="alert" className="text-xs text-t2">{vote.error instanceof Error ? vote.error.message : "Your upvote could not be saved. Try again."}</p>}
 
         {visible.length > 0 ? (
           <RepositoryTable

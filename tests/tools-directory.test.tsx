@@ -25,7 +25,6 @@ vi.mock("../src/lib/api", async (importOriginal) => ({
   api: { submitTool: vi.fn(), signOut: vi.fn() },
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), message: vi.fn() } }));
 
 const fixtures: CommunityTool[] = [
   { id: "editor", name: "VS Code", url: "https://code.visualstudio.com/", description: "Edit code with extensions.", category: "Development", source: "curated", status: "approved", sourceUrl: "https://code.visualstudio.com/docs", createdAt: 100 },

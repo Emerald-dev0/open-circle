@@ -10,7 +10,6 @@ import type { CommunityState } from "../shared/community";
 import { toast } from "sonner";
 
 vi.mock("../src/lib/api", async (original) => ({ ...await original<typeof import("../src/lib/api")>(), api: { community: vi.fn(), signOut: vi.fn() } }));
-vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
 const clients: QueryClient[] = [];
 const initial: CommunityState = { tools: [], counts: {}, voted: [], toolVotes: { "tool:devdocs": 1 }, signInAvailable: true, profile: { id: 1, login: "octocat", avatarUrl: "https://avatars.githubusercontent.com/u/1" } };
 

@@ -13,6 +13,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { useCommunity } from "@/hooks/use-community";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 type Field = { name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder?: string };
 
@@ -80,6 +81,8 @@ export default function Participation() {
   const [target, setTarget] = useState<{ kind: "review" | "answer"; id: string; title: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => { if (error) toast.error(error, { id: "participation" }); }, [error]);
+  useEffect(() => { if (notice) toast.success(notice, { id: "participation-notice" }); }, [notice]);
   const owner = useRef(profile?.id);
   owner.current = profile?.id;
   const feedbackForm = useRef<HTMLElement>(null);
@@ -109,6 +112,7 @@ export default function Participation() {
     catch (failure) { setError(failure instanceof ApiError ? failure.message : "Couldn't create your linking code. Try again."); return false; }
   }
 
+  useErrorToast(state.error, "Couldn't load participation. Try again.", { id: "participation-load" });
   const mine = (login: string) => !!profile && login.toLowerCase() === profile.login.toLowerCase();
 
   return <div className="relative min-h-dvh overflow-x-clip">
@@ -130,10 +134,6 @@ export default function Participation() {
           <h1 className="text-gradient mt-3 text-[34px] font-[350] leading-[1.05] tracking-[-0.035em] sm:text-5xl">Group participation</h1>
         </div>
 
-        {(error || notice) && <div className="space-y-1 text-center text-sm">
-          {error && <p role="alert" className="text-down">{error}</p>}
-          {notice && <p role="status" className="text-t2">{notice}</p>}
-        </div>}
 
         {!profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
           <div className="flex justify-center py-6">
@@ -146,7 +146,6 @@ export default function Participation() {
         : state.isPending ? <p role="status" className="py-10 text-center text-sm text-t3">Loading your participation…</p>
 
         : state.isError ? <div className="flex flex-col items-center gap-3 py-10 text-center">
-          <p role="alert" className="text-sm text-down">{state.error instanceof ApiError ? state.error.message : "Couldn't load participation. Try again."}</p>
           <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Try again</MetalButton>
         </div>
 

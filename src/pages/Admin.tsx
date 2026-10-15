@@ -20,6 +20,7 @@ import { COMMUNITY_KEY } from "@/hooks/use-community";
 import { ApiError, api } from "@/lib/api";
 import { formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useErrorToast } from "@/hooks/use-error-toast";
 
 const SESSION_KEY = ["admin", "session"];
 const STATE_KEY = ["admin", "state"];
@@ -55,6 +56,7 @@ const Admin = () => {
     queryClient.setQueryData<AdminSession>(SESSION_KEY, { configured: true, profile: null });
   }, [clearPrivate, queryClient]);
   const profile = !session.isError ? session.data?.profile : null;
+  useErrorToast(session.error, "Couldn't check admin access.", { id: "admin-session" });
   useEffect(() => {
     if (!profile) clearPrivate();
     return clearPrivate;
@@ -80,7 +82,6 @@ const Admin = () => {
         </header>
         <main className="mt-8 min-w-0">
           {session.isPending ? <p role="status" className="text-sm text-t3">Checking admin access…</p> : session.isError ? <div className="space-y-3">
-            <p role="alert" className="text-sm text-t2">{session.error.message}</p>
             <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
           </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
         </main>
@@ -92,10 +93,12 @@ const Admin = () => {
 function SignIn({ configured }: { configured: boolean }) {
   const [params] = useSearchParams();
   const error = params.get("signin");
+  useEffect(() => {
+    if (error) toast.error(error === "admin_forbidden" ? "This GitHub account doesn't have admin access. Try an approved account." : "Sign-in couldn't finish. Please try again.", { id: "admin-signin" });
+  }, [error]);
   return <section className="mx-auto flex min-h-[calc(100dvh-12rem)] max-w-md flex-col items-center justify-center gap-5 px-2 text-center" aria-labelledby="admin-title">
     <h1 id="admin-title" className="text-2xl font-medium tracking-tight">OpenCircle admin</h1>
     <p className="text-sm leading-relaxed text-t2">{configured ? "Sign in with an approved GitHub account to manage the community." : "Admin access hasn't been set up. The site owner needs to enable approved GitHub accounts."}</p>
-    {error && <p role="alert" className="text-sm text-down">{error === "admin_forbidden" ? "This GitHub account doesn't have admin access. Try an approved account." : "Sign-in couldn't finish. Please try again."}</p>}
     {configured && <TextureButton asChild className="w-auto"><a href="/api/auth-start?returnTo=%2Fadmin"><GitHubIcon className="size-4" aria-hidden /> Continue with GitHub</a></TextureButton>}
     <Link to="/" className="inline-flex min-h-11 items-center rounded-lg text-sm text-t3 hover:text-foreground">Back to the community</Link>
   </section>;
@@ -124,9 +127,9 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
       if (error instanceof ApiError && ["unauthorized", "admin_disabled"].includes(error.code)) onUnauthorized();
     }
   }, [state.error, tools.error, onUnauthorized]);
+  useErrorToast(state.error, "Couldn't load admin data.", { id: "admin-load" });
   if (state.isPending) return <p role="status" className="text-sm text-t3">Loading admin data…</p>;
   if (state.isError || !state.data) return <div className="space-y-3">
-    <p role="alert" className="text-sm text-t2">{state.error?.message ?? "Couldn't load admin data."}</p>
     <TextureButton className="w-auto" onClick={() => state.refetch()}>Try again</TextureButton>
   </div>;
   const pending = tools.data?.filter((tool) => tool.status !== "approved").length;

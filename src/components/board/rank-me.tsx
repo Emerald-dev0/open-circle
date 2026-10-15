@@ -49,6 +49,7 @@ interface Props {
 export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
   const [input, setInput] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
+  useEffect(() => { if (inputError) toast.error(inputError, { id: "rank-me" }); }, [inputError]);
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
   const errorId = useId();
@@ -108,7 +109,6 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
               if (inputError) setInputError(null);
             }}
             aria-invalid={inputError ? true : undefined}
-            aria-describedby={inputError ? errorId : undefined}
           />
           <Tooltip delayDuration={100}>
             <TooltipTrigger asChild>
@@ -144,13 +144,6 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
         </div>
       </form>
 
-      <AnimatePresence initial={false}>
-        {inputError && (
-          <motion.p key="error" {...reveal} id={errorId} role="alert" className="overflow-hidden pt-2 text-sm text-down">
-            {inputError}
-          </motion.p>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence mode="wait" initial={false}>
         {step.kind === "details" && (
@@ -261,6 +254,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
   const [whatsapp, setWhatsapp] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [errorField, setErrorField] = useState<string | null>(null);
+  useEffect(() => { if (error) toast.error(error, { id: "register" }); }, [error]);
   const [needsJoin, setNeedsJoin] = useState(false);
   const ids = { nickname: useId(), whatsapp: useId(), error: useId(), hint: useId() };
 
@@ -298,7 +292,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 space-y-2" noValidate aria-describedby={error ? ids.error : undefined}>
+    <form onSubmit={submit} className="mt-4 space-y-2" noValidate>
       <div className="grid grid-cols-2 gap-2">
       <label htmlFor={ids.nickname} className="sr-only">
         Nickname
@@ -312,7 +306,6 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         autoComplete="nickname"
         disabled={register.isPending}
         aria-invalid={errorField === "nickname" || undefined}
-        aria-describedby={errorField === "nickname" ? ids.error : undefined}
         onChange={(e) => setNickname(e.target.value)}
       />
 
@@ -329,7 +322,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
           value={whatsapp}
           disabled={register.isPending}
           aria-invalid={errorField === "whatsapp" || undefined}
-          aria-describedby={errorField === "whatsapp" ? `${ids.hint} ${ids.error}` : ids.hint}
+          aria-describedby={ids.hint}
           onChange={(e) => {
             setWhatsapp(e.target.value);
             setNeedsJoin(false);
@@ -342,11 +335,6 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
       </div>
       <p id={ids.hint} className="px-4 text-xs leading-relaxed text-t3">Use your number in the WhatsApp group. We check membership before ranking. Your number stays private. <Link to="/participation" className="text-foreground underline underline-offset-4">Connect your account and give feedback.</Link></p>
 
-      {error && (
-        <p id={ids.error} role="alert" className="px-4 text-xs text-down">
-          {error}
-        </p>
-      )}
 
       {needsJoin && (
         <div className="space-y-2 px-4 py-2">

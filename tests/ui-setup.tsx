@@ -11,6 +11,45 @@ vi.mock("metal-fx", () => ({
   MetalBadge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 }));
 
+// The app shows errors as toasts, never inline. This stand-in renders error
+// toasts into the page as role="alert" so tests can find them; every method
+// stays a spy, and confirmations are asserted through the spy only.
+vi.mock("sonner", () => {
+  const show = (render: boolean) => (message: unknown, options?: { id?: string | number; action?: { label: string; onClick: () => void } }) => {
+    if (!render) return options?.id ?? String(message);
+    let region = document.getElementById("test-toasts");
+    if (!region) {
+      region = document.createElement("div");
+      region.id = "test-toasts";
+      document.body.appendChild(region);
+    }
+    const id = options?.id === undefined ? undefined : String(options.id);
+    if (id) Array.from(region.children).find((el) => (el as HTMLElement).dataset.toastId === id)?.remove();
+    const toast = document.createElement("div");
+    toast.setAttribute("role", "alert");
+    if (id) toast.dataset.toastId = id;
+    toast.textContent = String(message);
+    if (options?.action) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = options.action.label;
+      button.addEventListener("click", () => options.action?.onClick());
+      region.appendChild(button);
+    }
+    region.appendChild(toast);
+    return id ?? toast.textContent;
+  };
+  const toast = Object.assign(vi.fn(show(false)), {
+    error: vi.fn(show(true)),
+    success: vi.fn(show(false)),
+    message: vi.fn(show(false)),
+    info: vi.fn(show(false)),
+    warning: vi.fn(show(false)),
+    dismiss: vi.fn(),
+  });
+  return { toast, Toaster: () => null };
+});
+
 beforeEach(() => {
   storageDocument = new JSDOM("", { url: "https://opencircle.test" });
   vi.stubGlobal("localStorage", storageDocument.window.localStorage);
@@ -38,6 +77,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  document.getElementById("test-toasts")?.remove();
   storageDocument.window.close();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();

@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { AddIcon, MagnifierIcon } from "@solar-icons/react/linear";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -118,6 +119,10 @@ export function ToolsDirectory() {
     setCategory("all");
   }
 
+  useErrorToast(community.isError || null, community.data ? "Couldn't refresh tools." : "Couldn't load the tools.", { id: "tools-load", retry: () => void community.refetch() });
+  useErrorToast(vote.error, "Couldn't update your vote. Try again.");
+  useEffect(() => { if (formError) toast.error(formError.message, { id: "tool-form" }); }, [formError]);
+
   return (
     <section aria-labelledby={`${formId}-heading`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -144,15 +149,15 @@ export function ToolsDirectory() {
           <fieldset disabled={submit.isPending} className="grid gap-4 sm:grid-cols-2 disabled:opacity-60">
             <div>
               <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-name`}>Name</label>
-              <input id={`${formId}-name`} name="name" className="field text-base" value={input.name} maxLength={60} autoComplete="off" aria-invalid={formError?.field === "name"} aria-describedby={formError?.field === "name" ? `${formId}-error` : undefined} onChange={(event) => setInput({ ...input, name: event.target.value })} />
+              <input id={`${formId}-name`} name="name" className="field text-base" value={input.name} maxLength={60} autoComplete="off" aria-invalid={formError?.field === "name"} onChange={(event) => setInput({ ...input, name: event.target.value })} />
             </div>
             <div>
               <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-url`}>URL</label>
-              <input id={`${formId}-url`} name="url" type="url" inputMode="url" className="field text-base" value={input.url} maxLength={2048} placeholder="https://" autoComplete="url" aria-invalid={formError?.field === "url"} aria-describedby={formError?.field === "url" ? `${formId}-error` : undefined} onChange={(event) => setInput({ ...input, url: event.target.value })} />
+              <input id={`${formId}-url`} name="url" type="url" inputMode="url" className="field text-base" value={input.url} maxLength={2048} placeholder="https://" autoComplete="url" aria-invalid={formError?.field === "url"} onChange={(event) => setInput({ ...input, url: event.target.value })} />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-description`}>Description</label>
-              <textarea id={`${formId}-description`} name="description" className="field min-h-24 resize-y rounded-2xl py-3 text-base" value={input.description} maxLength={240} rows={3} placeholder="What does it help you do?" aria-invalid={formError?.field === "description"} aria-describedby={formError?.field === "description" ? `${formId}-error` : undefined} onChange={(event) => setInput({ ...input, description: event.target.value })} />
+              <textarea id={`${formId}-description`} name="description" className="field min-h-24 resize-y rounded-2xl py-3 text-base" value={input.description} maxLength={240} rows={3} placeholder="What does it help you do?" aria-invalid={formError?.field === "description"} onChange={(event) => setInput({ ...input, description: event.target.value })} />
             </div>
             <div>
               <label className="mb-2 block text-xs text-t2" htmlFor={`${formId}-category`}>Category</label>
@@ -165,7 +170,7 @@ export function ToolsDirectory() {
                 options={CATEGORY_OPTIONS}
                 disabled={submit.isPending}
                 aria-invalid={formError?.field === "category"}
-                aria-describedby={formError?.field === "category" ? `${formId}-error` : undefined}
+               
                 onValueChange={(value) => setInput({ ...input, category: value as ToolInput["category"] })}
               />
             </div>
@@ -173,7 +178,6 @@ export function ToolsDirectory() {
               <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" disabled={submit.isPending || !community.data || community.isError}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
             </div>
           </fieldset>
-          {formError && <p id={`${formId}-error`} role="alert" className="mt-3 text-sm text-down">{formError.message}</p>}
         </form>
       )}
 
@@ -189,14 +193,11 @@ export function ToolsDirectory() {
       {community.isLoading && !community.data ? (
         <p role="status" className="py-12 text-center text-sm text-t3">Loading tools…</p>
       ) : community.isError && !community.data ? (
-        <div role="alert" className="py-10 text-center">
-          <p className="mb-4 text-sm text-t2">Couldn't load the tools. Try again.</p>
+        <div className="py-10 text-center">
           <TextureButton variant="minimal" className="h-11 w-auto" onClick={() => void community.refetch()}>Retry tools</TextureButton>
         </div>
       ) : (
         <>
-          {community.isError && <div role="alert" className="mb-3 flex flex-wrap items-center gap-3 text-xs text-t3">Couldn't refresh tools.<TextureButton type="button" variant="secondary" className="h-11 w-auto" onClick={() => void community.refetch()}>Retry</TextureButton></div>}
-          {vote.error && <p role="alert" className="mb-3 text-sm text-down">{vote.error instanceof Error ? vote.error.message : "Couldn't update your vote. Try again."}</p>}
           {tools.length ? (
             <ul aria-label="Tools" className="mt-5 flex flex-col gap-2">
               {tools.map((tool) => {

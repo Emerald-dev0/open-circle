@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useErrorToast } from "@/hooks/use-error-toast";
 import { CheckReadIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -29,13 +30,15 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
   }, [community.error, action.error, onUnauthorized]);
   const tools = [...community.data ?? []].filter((tool) => status === "all" || tool.status === status).sort((a, b) => Number(a.status === "approved") - Number(b.status === "approved") || a.name.localeCompare(b.name));
 
+  useErrorToast(community.isError || null, "Couldn't load shared tools.", { id: "tools-moderation-load", retry: () => community.refetch() });
+  useErrorToast(action.error, "That didn't work. Try again.");
+
   return (
     <section aria-labelledby="moderate-tools-title">
       <h2 id="moderate-tools-title" className="text-lg font-medium">Tool review</h2>
       <SharedSelect aria-label="Tool status" className="mt-3 sm:w-52" value={status} onValueChange={setStatus} options={[{ value: "all", label: "All submissions" }, { value: "pending", label: "Pending review" }, { value: "approved", label: "Approved" }]} />
       {community.isPending ? <p className="mt-3 text-sm text-t3">Loading tools…</p> : community.isError ? (
         <div className="mt-3 space-y-2">
-          <p role="alert" className="text-sm text-down">Couldn't load shared tools.</p>
           <TextureButton size="sm" variant="minimal" className="w-auto" onClick={() => community.refetch()}>Try again</TextureButton>
         </div>
       ) : tools.length === 0 ? <p className="mt-3 text-sm text-t3">{community.data?.length ? "No tools match this filter." : "No community submissions yet."}</p> : (
@@ -61,7 +64,6 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
           ))}
         </ul>
       )}
-      {action.isError && <p role="alert" className="mt-3 text-sm text-down">{action.error.message}</p>}
     </section>
   );
 }
