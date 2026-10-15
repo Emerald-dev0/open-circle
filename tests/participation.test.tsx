@@ -18,7 +18,7 @@ const initial:ParticipationState={activity:{linked:true,login:'Alice',enabled:tr
 const clients:QueryClient[]=[];
 function mount(data=initial){
   vi.mocked(api.participation).mockResolvedValue(data);
-  const client=new QueryClient({defaultOptions:{queries:{retry:false,gcTime:Infinity,refetchOnWindowFocus:false},mutations:{retry:false}}});clients.push(client);
+  const client=new QueryClient({defaultOptions:{queries:{retry:false,retryDelay:0,gcTime:Infinity,refetchOnWindowFocus:false},mutations:{retry:false}}});clients.push(client);
   client.setQueryData(COMMUNITY_KEY,community);
   render(<QueryClientProvider client={client}><TooltipProvider><MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><Participation/></MemoryRouter></TooltipProvider></QueryClientProvider>);
   return client;
@@ -124,4 +124,66 @@ it('paginates projects, help and feedback independently while keeping later-page
   vi.mocked(api.participate).mockResolvedValue(data);
   await user.click(within(screen.getByText('Feedback 10').closest('li')!).getByRole('button',{name:'Confirm useful'}));
   await waitFor(()=>expect(api.participate).toHaveBeenCalledWith({action:'confirm',id:'feedback_10',approve:true},expect.anything()));
+});
+
+it('keeps the phone draft and issued code through failed background checks, then detects a successful link',async()=>{
+  const user=userEvent.setup();
+  const unlinked={...initial,activity:{...initial.activity,linked:false,login:null}};
+  const client=mount(unlinked);
+  const chat='https://wa.me/15550000000?text=%2Flink%20ABC123';
+  vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000,botChatUrl:chat});
+  const phone=await screen.findByLabelText('Your WhatsApp group number');
+  await user.type(phone,'+234 803 123 4567');
+  await user.click(screen.getByRole('button',{name:'Get linking code'}));
+  await screen.findByText('/link ABC123');
+  vi.mocked(api.participation).mockRejectedValue(new ApiError(503,'unknown','Something went wrong. Try again.'));
+  await act(async()=>{await client.refetchQueries({queryKey:['participation',1]});});
+  expect(screen.getByText('/link ABC123')).toBeTruthy();
+  expect(screen.getByRole('link',{name:'Open bot chat'}).getAttribute('href')).toBe(chat);
+  expect((screen.getByLabelText('Your WhatsApp group number') as HTMLInputElement).value).toBe('+234 803 123 4567');
+  vi.mocked(api.community).mockRejectedValue(new ApiError(503,'unknown','Something went wrong. Try again.'));
+  await act(async()=>{await client.refetchQueries({queryKey:COMMUNITY_KEY});});
+  expect(screen.getByText('/link ABC123')).toBeTruthy();
+  vi.mocked(api.community).mockResolvedValue(community);
+  await act(async()=>{await client.refetchQueries({queryKey:COMMUNITY_KEY});});
+  vi.mocked(api.participation).mockResolvedValue(initial);
+  await user.click(screen.getByRole('button',{name:'Check link'}));
+  await screen.findByText('Your activity');
+  expect(screen.queryByText('/link ABC123')).toBeNull();
+  expect(api.linkWhatsapp).toHaveBeenCalledTimes(1);
+});
+
+it('offers retry when sign-in cannot be checked instead of claiming sign-in is being set up',async()=>{
+  vi.mocked(api.community).mockRejectedValue(new ApiError(503,'unknown','Something went wrong. Try again.'));
+  const client=new QueryClient({defaultOptions:{queries:{retry:false,retryDelay:0,gcTime:Infinity,refetchOnWindowFocus:false}}});clients.push(client);
+  render(<QueryClientProvider client={client}><TooltipProvider><MemoryRouter future={{v7_startTransition:true,v7_relativeSplatPath:true}}><Participation/></MemoryRouter></TooltipProvider></QueryClientProvider>);
+  await waitFor(()=>expect(client.getQueryState(COMMUNITY_KEY)?.status).toBe('error'));
+  expect(screen.queryByText('GitHub sign-in is being set up.')).toBeNull();
+  expect(api.participation).not.toHaveBeenCalled();
+  vi.mocked(api.community).mockResolvedValue({...community,profile:null});
+  await userEvent.click(within(screen.getByRole('main')).getByRole('button',{name:'Try again'}));
+  await screen.findByRole('link',{name:'Sign in with GitHub'});
+});
+
+it('hides cached private participation if access is rejected',async()=>{
+  const client=mount();
+  await screen.findByText('Your activity');
+  vi.mocked(api.participation).mockRejectedValue(new ApiError(401,'github_required','Sign in with GitHub to manage your group participation.'));
+  await act(async()=>{await client.refetchQueries({queryKey:['participation',1]});});
+  await waitFor(()=>expect(screen.queryByText('Your activity')).toBeNull());
+  expect(within(screen.getByRole('main')).getByRole('button',{name:'Try again'})).toBeTruthy();
+});
+
+it('clears the code and private activity when a background sign-in check rejects access',async()=>{
+  const user=userEvent.setup();
+  const client=mount({...initial,activity:{...initial.activity,linked:false,login:null}});
+  vi.mocked(api.linkWhatsapp).mockResolvedValue({id:'challenge',code:'ABC123',expiresAt:Date.now()+600_000});
+  await user.type(await screen.findByLabelText('Your WhatsApp group number'),'+234 803 123 4567');
+  await user.click(screen.getByRole('button',{name:'Get linking code'}));
+  await screen.findByText('/link ABC123');
+  vi.mocked(api.community).mockRejectedValue(new ApiError(401,'github_required','Sign in again.'));
+  await act(async()=>{await client.refetchQueries({queryKey:COMMUNITY_KEY});});
+  await waitFor(()=>expect(screen.queryByText('/link ABC123')).toBeNull());
+  expect(screen.queryByLabelText('Your WhatsApp group number')).toBeNull();
+  await waitFor(()=>expect(client.getQueriesData({queryKey:['participation']}).every(([,data])=>data===undefined)).toBe(true));
 });

@@ -77,11 +77,16 @@ function FormFooter({ children }: { children: React.ReactNode }) {
 
 const statusTone = (status: string) => (status === "approved" || status === "open" || status === "confirmed" ? "ok" : status === "pending" ? "warn" : "muted") as "ok" | "warn" | "muted";
 
+function isTemporaryFailure(error: Error | null) {
+  return !(error instanceof ApiError) || error.status === 0 || error.status === 408 || error.status === 429 || error.status >= 500;
+}
+
 export default function Participation() {
   usePageMeta();
   const page = pageFor("/participation");
   const community = useCommunity();
-  const profile = community.data?.profile;
+  const communityUnavailable = community.isError && (!community.data || !isTemporaryFailure(community.error));
+  const profile = communityUnavailable ? undefined : community.data?.profile;
   const key = ["participation", profile?.id ?? null];
   const client = useQueryClient();
   const state = useQuery({ queryKey: key, queryFn: ({ signal }) => api.participation(signal), enabled: !!profile, refetchInterval: pollApi(15_000), retry: false });
@@ -124,7 +129,8 @@ export default function Participation() {
     catch (failure) { setError(failure instanceof ApiError ? failure.message : "Couldn't create your linking code. Try again."); return false; }
   }
 
-  useErrorToast(state.error, "Couldn't load participation. Try again.", { id: "participation-load" });
+  useErrorToast(community.error, "Couldn't check your sign-in. Try again.", { id: "participation-sign-in", retry: () => { void community.refetch(); } });
+  useErrorToast(state.error, "Couldn't load participation. Try again.", { id: "participation-load", retry: () => { void state.refetch(); } });
   const mine = (login: string) => !!profile && login.toLowerCase() === profile.login.toLowerCase();
 
   return <div className="relative min-h-dvh overflow-x-clip">
@@ -140,7 +146,9 @@ export default function Participation() {
 
         <CommunityGuide />
 
-        {community.isPending ? <ParticipationSkeleton checkingSignIn /> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
+        {community.isPending ? <ParticipationSkeleton checkingSignIn /> : communityUnavailable ? <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => community.refetch()} disabled={community.isFetching}>Try again</MetalButton>
+        </div> : !profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
           <div className="flex justify-center py-6">
             {community.data?.signInAvailable
               ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href="/api/auth-start?returnTo=%2Fparticipation"><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
@@ -150,7 +158,7 @@ export default function Participation() {
 
         : state.isPending ? <ParticipationSkeleton />
 
-        : state.isError ? <div className="flex flex-col items-center gap-3 py-10 text-center">
+        : state.isError && (!data || !isTemporaryFailure(state.error)) ? <div className="flex flex-col items-center gap-3 py-10 text-center">
           <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Try again</MetalButton>
         </div>
 
