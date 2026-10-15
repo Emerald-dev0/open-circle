@@ -1,6 +1,6 @@
 import { useEffect } from "react";
+import { LogoutIcon } from "@solar-icons/react/linear";
 import { useIsMutating } from "@tanstack/react-query";
-import { FiLogOut } from "react-icons/fi";
 import { toast } from "sonner";
 import { GitHubIcon } from "@/components/brand-icons";
 import { TextureButton } from "@/components/ui/texture-button";
@@ -29,7 +29,7 @@ export function GitHubAccount() {
           <span className="min-w-0 max-w-40 truncate sm:max-w-56" title={`@${profile.login}`}>@{profile.login}</span>
           <img src={profile.avatarUrl} alt="" className="size-10 shrink-0 rounded-full" width={40} height={40} />
           <TextureButton variant="icon" size="icon" className="size-10" aria-label="Sign out of GitHub" disabled={signOut.isPending || voting} onClick={() => signOut.mutate()}>
-            <FiLogOut className="size-4" aria-hidden="true" />
+            <LogoutIcon className="size-4" aria-hidden="true" />
           </TextureButton>
         </div>
       ) : community.data?.signInAvailable ? (

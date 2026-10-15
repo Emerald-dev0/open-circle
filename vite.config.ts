@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import pkg from "./package.json";
 import { devApi } from "./server/vite-dev-api";
+import { seo } from "./server/vite-seo";
+import { DEFAULT_SITE_URL } from "./shared/brand";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode, isSsrBuild }) => {
@@ -11,7 +13,7 @@ export default defineConfig(({ mode, isSsrBuild }) => {
   for (const [key, value] of Object.entries(env)) process.env[key] ??= value;
 
   return {
-    plugins: [react(), devApi()],
+    plugins: [react(), devApi(), ...(isSsrBuild ? [] : [seo(env.SITE_URL || DEFAULT_SITE_URL)])],
     // The server bundle serves dist/, so it needs no copy of public/.
     publicDir: isSsrBuild ? false : "public",
     define: {

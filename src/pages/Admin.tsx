@@ -1,14 +1,15 @@
 import type * as React from "react";
+import { GitHubIcon } from "@/components/brand-icons";
 import { MetalText } from "metal-fx";
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { CopyIcon, EyeClosedIcon, EyeIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/bold-duotone";
-import { FiGithub } from "react-icons/fi";
 import { BRAND_NAME } from "@shared/brand";
 import type { AdminAction, AdminConfig, AdminMember, AdminSession, AdminState, Weights } from "@shared/types";
 import { MetalButton } from "@/components/metal-button";
+import { Chip, Panel, PanelHeader, Row } from "@/components/panel";
 import { ToolModeration } from "@/components/board/tool-moderation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SharedSelect } from "@/components/ui/select";
@@ -95,7 +96,7 @@ function SignIn({ configured }: { configured: boolean }) {
     <h1 id="admin-title" className="text-2xl font-medium tracking-tight">OpenCircle admin</h1>
     <p className="text-sm leading-relaxed text-t2">{configured ? "Sign in with an approved GitHub account to manage the community." : "Admin access hasn't been set up. The site owner needs to enable approved GitHub accounts."}</p>
     {error && <p role="alert" className="text-sm text-down">{error === "admin_forbidden" ? "This GitHub account doesn't have admin access. Try an approved account." : "Sign-in couldn't finish. Please try again."}</p>}
-    {configured && <TextureButton asChild className="w-auto"><a href="/api/auth-start?returnTo=%2Fadmin"><FiGithub className="size-4" aria-hidden /> Continue with GitHub</a></TextureButton>}
+    {configured && <TextureButton asChild className="w-auto"><a href="/api/auth-start?returnTo=%2Fadmin"><GitHubIcon className="size-4" aria-hidden /> Continue with GitHub</a></TextureButton>}
     <Link to="/" className="inline-flex min-h-11 items-center rounded-lg text-sm text-t3 hover:text-foreground">Back to the community</Link>
   </section>;
 }
@@ -156,55 +157,6 @@ const WEIGHT_FIELDS: { key: keyof Weights; label: string }[] = [
   { key: "activity", label: "Per contribution since joining" },
   { key: "upvotes", label: "Points per repo upvote" },
 ];
-
-/** Outer frame holding a header card and a body card, like a status console. */
-function Panel({ header, children }: { header: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="rounded-[30px] bg-white/[0.06] p-1.5 sm:rounded-[34px] sm:p-2">
-      <div className="rounded-[24px] bg-[hsl(218_31%_7%)] px-4 py-4 sm:rounded-[28px] sm:px-6 sm:py-5">{header}</div>
-      <div className="mt-1.5 rounded-[24px] bg-[hsl(218_31%_7%)] px-4 sm:mt-2 sm:rounded-[28px] sm:px-6">{children}</div>
-    </section>
-  );
-}
-
-function PanelHeader({ title, subtitle, chip }: { title: string; subtitle?: string; chip?: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0">
-        <h2 className="text-lg font-medium tracking-tight sm:text-xl">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-t3">{subtitle}</p>}
-      </div>
-      {chip}
-    </div>
-  );
-}
-
-function Chip({ tone, children }: { tone: "ok" | "warn" | "muted"; children: React.ReactNode }) {
-  const dot = tone === "ok" ? "bg-[hsl(var(--up))]" : tone === "warn" ? "bg-[hsl(var(--warn))]" : "bg-t4";
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-t2">
-      <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />
-      {children}
-    </span>
-  );
-}
-
-/** One key/value line. Stacks on phones when the value is a wide control. */
-function Row({ label, htmlFor, stack, children }: { label: string; htmlFor?: string; stack?: boolean; children: React.ReactNode }) {
-  return (
-    <div
-      className={cn(
-        "flex gap-2 border-b border-white/[0.06] py-3.5 last:border-0 sm:items-center sm:gap-6",
-        stack ? "flex-col sm:flex-row" : "items-center justify-between",
-      )}
-    >
-      <label htmlFor={htmlFor} className="shrink-0 text-[13px] text-t3 sm:w-48">
-        {label}
-      </label>
-      <div className={cn("min-w-0", stack ? "w-full sm:flex-1" : "flex justify-end")}>{children}</div>
-    </div>
-  );
-}
 
 function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boolean; onSave: (c: AdminConfig) => void }) {
   const [draft, setDraft] = useState(config);

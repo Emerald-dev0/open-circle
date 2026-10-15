@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FiGlobe } from "react-icons/fi";
+import { GlobalIcon } from "@solar-icons/react/linear";
 
 export function ToolFavicon({ url }: { url: string }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -8,7 +8,7 @@ export function ToolFavicon({ url }: { url: string }) {
   return (
     <span className="flex size-6 shrink-0 items-center justify-center" aria-hidden="true">
       {failedUrl === url ? (
-        <FiGlobe className="size-5 text-t3" />
+        <GlobalIcon className="size-5 text-t3" />
       ) : (
         <img
           src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=64`}

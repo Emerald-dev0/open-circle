@@ -1,30 +1,74 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { MetalText } from "metal-fx";
+import { toast } from "sonner";
+import { AltArrowLeftIcon, CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
+import { GitHubIcon } from "@/components/brand-icons";
 import { GitHubAccount } from "@/components/github-account";
+import { MetalButton } from "@/components/metal-button";
+import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
-import { TextureButton } from "@/components/ui/texture-button";
 import { useCommunity } from "@/hooks/use-community";
 import { api, ApiError } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
-type Field = { name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string };
+type Field = { name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder?: string };
 
-function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit }: { title: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void }) {
+/**
+ * Compact form. `inline` puts the fields and button on one line from sm up
+ * with screen-reader-only labels; otherwise labels sit above each field.
+ */
+function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit, inline = false }: { title?: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void; inline?: boolean }) {
   const prefix = useId();
-  return <form className="space-y-3" onChange={onEdit} onSubmit={async (event) => {
+  return <form className={cn("space-y-2.5", inline && "sm:flex sm:items-end sm:gap-2 sm:space-y-0")} onChange={onEdit} onSubmit={async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     if (await submit(new FormData(form)) && reset) form.reset();
   }}>
-    <h3 className="font-medium">{title}</h3>
-    {fields.map((field) => <label key={field.name} htmlFor={`${prefix}-${field.name}`} className="block space-y-1">
-      <span className="block text-sm text-t3">{field.label}</span>
-      {field.type === "textarea" ? <textarea id={`${prefix}-${field.name}`} name={field.name} className="field min-h-28 rounded-2xl py-3" required minLength={field.min} maxLength={field.max} disabled={busy} /> : <input id={`${prefix}-${field.name}`} name={field.name} className="field" type={field.type ?? "text"} required min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
+    {title && !inline && <p className="text-sm font-medium text-t2">{title}</p>}
+    {fields.map((field) => <label key={field.name} htmlFor={`${prefix}-${field.name}`} className={cn("block", inline ? "min-w-0 sm:flex-1" : "space-y-1.5")}>
+      <span className={inline ? "sr-only" : "block text-xs text-t3"}>{field.label}</span>
+      {field.type === "textarea"
+        ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required minLength={field.min} maxLength={field.max} disabled={busy} />
+        : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
-    <TextureButton type="submit" disabled={busy}>{busy ? "Saving…" : button}</TextureButton>
+    <MetalButton type="submit" disabled={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
   </form>;
 }
+
+/** x of y with a thin bar. */
+function Progress({ label, value, total }: { label: string; value: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+  return <div className="space-y-2 border-b border-white/[0.06] py-4 last:border-0">
+    <div className="flex items-baseline justify-between gap-3 text-sm">
+      <span className="text-t3">{label}</span>
+      <span className="tabular font-medium text-foreground">{value}<span className="text-t4"> / {total}</span></span>
+    </div>
+    <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]" role="progressbar" aria-label={label} aria-valuenow={value} aria-valuemin={0} aria-valuemax={total}>
+      <div className="h-full rounded-full bg-gradient-to-r from-white/60 to-white transition-[width] duration-500" style={{ width: `${pct}%` }} />
+    </div>
+  </div>;
+}
+
+/** A list row: content left, action right; stacks on phones. */
+function Item({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
+  return <li className="flex flex-col gap-3 border-b border-white/[0.06] py-4 last:border-0 sm:flex-row sm:items-center sm:justify-between">
+    <div className="min-w-0 space-y-1">{children}</div>
+    {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
+  </li>;
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="py-6 text-center text-sm text-t4">{children}</p>;
+}
+
+function FormFooter({ children }: { children: React.ReactNode }) {
+  return <div className="border-t border-white/[0.06] py-4">{children}</div>;
+}
+
+const statusTone = (status: string) => (status === "approved" || status === "open" || status === "confirmed" ? "ok" : status === "pending" ? "warn" : "muted") as "ok" | "warn" | "muted";
 
 export default function Participation() {
   const community = useCommunity();
@@ -65,52 +109,136 @@ export default function Participation() {
     catch (failure) { setError(failure instanceof ApiError ? failure.message : "Couldn't create your linking code. Try again."); return false; }
   }
 
+  const mine = (login: string) => !!profile && login.toLowerCase() === profile.login.toLowerCase();
+
   return <div className="relative min-h-dvh overflow-x-clip">
     <div className="app-backdrop" aria-hidden />
     <div className="relative z-10">
-      <header className="page-container flex flex-wrap items-center justify-between gap-4 pt-6">
-        <TextureButton asChild variant="secondary" size="sm"><Link to="/">Back to the board</Link></TextureButton><GitHubAccount />
+      <header className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 pt-5">
+        <Link to="/" className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-t3 transition-colors hover:text-foreground">
+          <AltArrowLeftIcon size={18} aria-hidden /> Back to the board
+        </Link>
+        {/* Signed out, the panel below carries the one sign-in button. */}
+        {profile && <GitHubAccount />}
       </header>
-      <main className="page-container space-y-8 pb-10 pt-10 sm:pt-16">
-        <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">Group participation</h1>
-        {!profile ? <section className="surface space-y-4 rounded-[28px] p-5 sm:p-6">
-          <p className="text-t2">Sign in to connect your WhatsApp account, give project feedback and see your activity.</p>
-          {community.data?.signInAvailable ? <TextureButton asChild><a href="/api/auth-start?returnTo=%2Fparticipation">Sign in with GitHub</a></TextureButton> : <p className="text-sm text-t3">{community.isPending ? "Checking sign-in…" : "GitHub sign-in is being set up."}</p>}
-        </section> : state.isPending ? <p role="status" className="text-t3">Loading your participation…</p> : state.isError ? <div className="space-y-3">
-          <p role="alert" className="text-down">{state.error instanceof ApiError ? state.error.message : "Couldn't load participation. Try again."}</p><TextureButton onClick={() => state.refetch()} disabled={state.isFetching}>Try again</TextureButton>
-        </div> : data && <>
-          {error && <p role="alert" className="text-down">{error}</p>}{notice && <p role="status" className="text-t2">{notice}</p>}
-          {!data.activity.linked ? <section className="surface space-y-4 rounded-[28px] p-5 sm:p-6">
-            <p className="text-sm text-t3">Use your number in Open Source Circle. Send the code from that account so your participation belongs to you.</p>
-            <ParticipationForm title="Connect your WhatsApp account" button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
-            {challenge && <div className="space-y-2" role="status"><p>Send this in the WhatsApp group from your number:</p><code className="block break-all rounded-xl bg-white/[0.06] p-3 text-lg">/link {challenge.code}</code><p className="text-sm text-t3">The code expires in 10 minutes. This page checks automatically after you send it.</p><TextureButton variant="secondary" size="sm" onClick={() => state.refetch()} disabled={state.isFetching}>Check link</TextureButton></div>}
-          </section> : <>
-            <section className="surface space-y-3 rounded-[28px] p-5 sm:p-6">
-              <h2 className="text-xl font-medium">Your activity</h2>
-              <p className="text-t2">{data.activity.contributions}/{data.activity.target} confirmed contributions · project feedback for {data.activity.reviewPeers}/{data.activity.requiredReviewPeers} members.</p>
-              <p className="text-sm text-t3">{data.activity.pendingContributions} contributions await confirmation. Tracking pauses during bot outages and approved breaks.</p>
-              {!data.activity.tracking && <p role="status" className="text-sm text-t3">{data.activity.enabled ? "Tracking is paused while the bot checks group access." : "Coordination is paused. You can still submit feedback."}</p>}
-              {data.activity.graceRemainingDays > 0 && <p className="text-sm text-t3">You have {data.activity.graceRemainingDays} days left in the settling-in period.</p>}
-              {data.activity.removalReview && <p className="text-sm text-t3">An admin is reviewing your participation. Pending feedback and approved breaks are checked before any removal.</p>}
-            </section>
-            <section className="space-y-4"><h2 className="text-xl font-medium">Projects to review</h2>
-              {data.projects.length ? <ul className="divide-y divide-white/[0.08]">{data.projects.map((project) => <li key={project.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 space-y-1"><a href={project.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium underline-offset-4 hover:underline">{project.title}</a><p className="break-words text-sm text-t3">{project.owner} · {project.reviews} confirmed reviews · {project.status}</p>{project.assignedTo.some((login) => login.toLowerCase() === profile.login.toLowerCase()) && <p className="text-sm text-t2">You are assigned to review this project.</p>}</div>
-                {project.status === "approved" && project.owner.toLowerCase() !== profile.login.toLowerCase() && <TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => setTarget({ kind: "review", id: project.id, title: project.title })}>Give feedback</TextureButton>}
-                {project.owner.toLowerCase() === profile.login.toLowerCase() && project.status !== "closed" && <TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</TextureButton>}
-              </li>)}</ul> : <p className="text-sm text-t3">No approved projects are waiting for feedback yet.</p>}
-              <ParticipationForm title="Share your project" button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")) })} />
-            </section>
-            {target && <section ref={feedbackForm} className="surface space-y-3 rounded-[28px] p-5 sm:p-6"><ParticipationForm title={`Feedback for ${target.title}`} button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000 }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} /><TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => setTarget(null)}>Cancel</TextureButton></section>}
-            <section className="space-y-4"><h2 className="text-xl font-medium">Help requests</h2>
-              {data.help.length ? <ul className="divide-y divide-white/[0.08]">{data.help.map((help) => <li key={help.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="break-words">{help.question}</p><p className="text-sm text-t3">{help.owner} · {help.status}</p></div>{help.status === "open" && help.owner.toLowerCase() !== profile.login.toLowerCase() && <TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => setTarget({ kind: "answer", id: help.id, title: help.owner })}>Help with this</TextureButton>}{help.status === "open" && help.owner.toLowerCase() === profile.login.toLowerCase() && <TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</TextureButton>}</li>)}</ul> : <p className="text-sm text-t3">No open help requests.</p>}
+
+      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-10 sm:space-y-6 sm:pt-16">
+        <div className="flex flex-col items-center pb-2 text-center sm:pb-4">
+          <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
+            <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">Open Source Circle</MetalText>
+          </span>
+          <h1 className="text-gradient mt-3 text-[34px] font-[350] leading-[1.05] tracking-[-0.035em] sm:text-5xl">Group participation</h1>
+        </div>
+
+        {(error || notice) && <div className="space-y-1 text-center text-sm">
+          {error && <p role="alert" className="text-down">{error}</p>}
+          {notice && <p role="status" className="text-t2">{notice}</p>}
+        </div>}
+
+        {!profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>
+          <div className="flex justify-center py-6">
+            {community.data?.signInAvailable
+              ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href="/api/auth-start?returnTo=%2Fparticipation"><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
+              : <p className="text-sm text-t3">{community.isPending ? "Checking sign-in…" : "GitHub sign-in is being set up."}</p>}
+          </div>
+        </Panel>
+
+        : state.isPending ? <p role="status" className="py-10 text-center text-sm text-t3">Loading your participation…</p>
+
+        : state.isError ? <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <p role="alert" className="text-sm text-down">{state.error instanceof ApiError ? state.error.message : "Couldn't load participation. Try again."}</p>
+          <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Try again</MetalButton>
+        </div>
+
+        : data && (!data.activity.linked ? <Panel header={<PanelHeader title="Connect your WhatsApp account" subtitle="Use your number in Open Source Circle, then send the code from that account." chip={<Chip tone="muted">Step {challenge ? 2 : 1} of 2</Chip>} />}>
+          <div className="py-4">
+            <ParticipationForm inline button="Get linking code" fields={[{ name: "phone", label: "Your WhatsApp group number", type: "tel", placeholder: "+234 803 123 4567" }]} busy={busy} submit={linkPhone} reset={false} onEdit={() => setChallenge(null)} />
+          </div>
+          {challenge && <div className="space-y-3 border-t border-white/[0.06] py-4" role="status">
+            <p className="text-sm text-t3">Send this in the WhatsApp group from your number:</p>
+            <div className="flex items-center gap-2 rounded-full bg-white/[0.06] py-1.5 pl-4 pr-1.5">
+              <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
+              <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-t4">Expires in 10 minutes. This page checks automatically.</p>
+              <MetalButton variant="minimal" size="sm" className="w-auto" onClick={() => state.refetch()} disabled={state.isFetching}>Check link</MetalButton>
+            </div>
+          </div>}
+        </Panel>
+
+        : <>
+          <Panel header={<PanelHeader title="Your activity" subtitle={`${data.activity.pendingContributions} contributions await confirmation`} chip={<Chip tone={data.activity.tracking ? "ok" : "warn"}>{data.activity.tracking ? "Tracking" : "Paused"}</Chip>} />}>
+            <Progress label="Confirmed contributions" value={data.activity.contributions} total={data.activity.target} />
+            <Progress label="Members you've given feedback" value={data.activity.reviewPeers} total={data.activity.requiredReviewPeers} />
+            {(!data.activity.tracking || data.activity.graceRemainingDays > 0 || data.activity.removalReview) && <div className="space-y-1.5 py-4 text-xs text-t4">
+              {!data.activity.tracking && <p role="status">{data.activity.enabled ? "Tracking is paused while the bot checks group access." : "Coordination is paused. You can still submit feedback."}</p>}
+              {data.activity.graceRemainingDays > 0 && <p>{data.activity.graceRemainingDays} days left in your settling-in period.</p>}
+              {data.activity.removalReview && <p>An admin is reviewing your participation. Pending feedback and approved breaks are checked before any removal.</p>}
+            </div>}
+          </Panel>
+
+          {target && <section ref={feedbackForm}>
+            <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
+              <div className="py-4">
+                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000 }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
+                <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
+              </div>
+            </Panel>
+          </section>}
+
+          <Panel header={<PanelHeader title="Projects to review" subtitle={`${data.projects.length} in the circle`} />}>
+            {data.projects.length ? <ul>{data.projects.map((project) => <Item key={project.id} action={<>
+              {project.status === "approved" && !mine(project.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "review", id: project.id, title: project.title })}>Give feedback</MetalButton>}
+              {mine(project.owner) && project.status !== "closed" && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: project.id })}>Close project</MetalButton>}
+            </>}>
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={project.url} target="_blank" rel="noopener noreferrer" className="break-words font-medium hover:underline hover:underline-offset-4">{project.title}</a>
+                <Chip tone={statusTone(project.status)}>{project.status}</Chip>
+              </div>
+              <p className="text-xs text-t4">@{project.owner} · {project.reviews} confirmed reviews</p>
+              {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
+            </Item>)}</ul> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
+            <FormFooter>
+              <ParticipationForm inline button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")) })} />
+            </FormFooter>
+          </Panel>
+
+          <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
+            {data.help.length ? <ul>{data.help.map((help) => <Item key={help.id} action={<>
+              {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget({ kind: "answer", id: help.id, title: help.owner })}>Help with this</MetalButton>}
+              {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
+            </>}>
+              <p className="break-words text-sm text-foreground">{help.question}</p>
+              <p className="text-xs text-t4">@{help.owner} · {help.status}</p>
+            </Item>)}</ul> : <Empty>No open help requests.</Empty>}
+            <FormFooter>
               <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500 }]} submit={(form) => submit({ action: "help", question: String(form.get("question")) })} />
-            </section>
-            <section className="space-y-4"><h2 className="text-xl font-medium">Feedback</h2>{data.contributions.length ? <ul className="divide-y divide-white/[0.08]">{data.contributions.map((entry) => <li key={entry.id} className="space-y-2 py-4"><p className="text-sm text-t3">{entry.by} → {entry.for} · {entry.status}</p><p className="break-words text-t2">{entry.text}</p>{entry.status === "pending" && entry.for.toLowerCase() === profile.login.toLowerCase() && <div className="flex flex-wrap gap-2"><TextureButton size="sm" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: true })}>Confirm useful</TextureButton><TextureButton variant="secondary" size="sm" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: false })}>Needs more detail</TextureButton></div>}</li>)}</ul> : <p className="text-sm text-t3">Your submitted and received feedback will appear here.</p>}</section>
-            <section className="surface space-y-3 rounded-[28px] p-5 sm:p-6"><h2 className="text-xl font-medium">Need a break?</h2>{data.activity.awayUntil && data.activity.awayUntil > Date.now() ? <p className="text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p> : data.activity.awayRequestedDays ? <p className="text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p> : <ParticipationForm title="Request time away" button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}</section>
-          </>}
-        </>}
-      </main><SiteFooter />
+            </FormFooter>
+          </Panel>
+
+          <Panel header={<PanelHeader title="Feedback" subtitle="Given and received." />}>
+            {data.contributions.length ? <ul>{data.contributions.map((entry) => <Item key={entry.id} action={entry.status === "pending" && mine(entry.for) ? <>
+              <MetalButton size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: true })}>Confirm useful</MetalButton>
+              <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "confirm", id: entry.id, approve: false })}>Needs more detail</MetalButton>
+            </> : undefined}>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-t4"><span>@{entry.by} → @{entry.for}</span><Chip tone={statusTone(entry.status)}>{entry.status}</Chip></div>
+              <p className="break-words text-sm text-t2">{entry.text}</p>
+            </Item>)}</ul> : <Empty>Your submitted and received feedback will appear here.</Empty>}
+          </Panel>
+
+          <Panel header={<PanelHeader title="Need a break?" subtitle="Approved breaks pause tracking." />}>
+            <div className="py-4">
+              {data.activity.awayUntil && data.activity.awayUntil > Date.now()
+                ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
+                : data.activity.awayRequestedDays
+                  ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
+                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
+            </div>
+          </Panel>
+        </>)}
+      </main>
+      <SiteFooter />
     </div>
   </div>;
 }

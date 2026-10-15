@@ -16,5 +16,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["api", "server", "shared"],
-  "exclude": ["server/vite-dev-api.ts"]
+  "exclude": ["server/vite-dev-api.ts", "server/vite-seo.ts"]
 }

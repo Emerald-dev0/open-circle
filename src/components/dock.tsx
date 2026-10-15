@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MetalText } from "metal-fx";
 import { motion, useSpring, useTransform } from "motion/react";
-import { CupStarIcon, InfoCircleIcon } from "@solar-icons/react/bold-duotone";
+import { CupStarIcon, InfoCircleIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { WhatsAppIcon } from "@/components/brand-icons";
 import { toast } from "sonner";
 import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
@@ -76,6 +77,7 @@ export function Dock({
   onRank: () => void;
   onRules: () => void;
 }) {
+  const navigate = useNavigate();
   const inv = invite ?? { url: DEFAULT_INVITE_URL, open: true, note: DEFAULT_INVITE_NOTE };
 
   return (
@@ -101,6 +103,9 @@ export function Dock({
         >
           <DockIcon label="Rank me" onClick={onRank}>
             <CupStarIcon size="100%" aria-hidden />
+          </DockIcon>
+          <DockIcon label="Group participation" onClick={() => navigate("/participation")}>
+            <UsersGroupRoundedIcon size="100%" aria-hidden />
           </DockIcon>
           <DockIcon label="How ranking works" onClick={onRules}>
             <InfoCircleIcon size="100%" aria-hidden />

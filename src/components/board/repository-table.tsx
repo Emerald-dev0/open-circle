@@ -1,5 +1,6 @@
 import { BranchingPathsUpIcon, StarIcon } from "@solar-icons/react/bold-duotone";
-import { FiArrowUp, FiBookmark, FiGitBranch } from "react-icons/fi";
+import { ArrowUpIcon, BookmarkIcon } from "@solar-icons/react/linear";
+import { BookmarkIcon as BookmarkFilledIcon } from "@solar-icons/react/bold";
 import { motion, useReducedMotion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -111,7 +112,7 @@ export function RepositoryTable({
                     <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-t3 md:hidden">
                       {repo.language && <span className="break-words [overflow-wrap:anywhere]">{repo.language}</span>}
                       <span className="inline-flex items-center gap-1 tabular">
-                        <FiGitBranch className="size-3 shrink-0" aria-hidden="true" />
+                        <BranchingPathsUpIcon className="size-3 shrink-0" aria-hidden="true" />
                         {formatCount(repo.forks)}<span className="sr-only"> forks</span>
                       </span>
                     </span>
@@ -141,7 +142,7 @@ export function RepositoryTable({
                             className="h-11 min-w-11 w-auto tabular"
                             innerClassName="gap-1.5 px-3 text-xs"
                           >
-                            <FiArrowUp className="size-4" aria-hidden="true" />
+                            <ArrowUpIcon className="size-4" aria-hidden="true" />
                             <span>{formatCount(counts[`repo:${repo.id}`] ?? 0)}</span>
                           </TextureButton>
                         </TooltipTrigger>
@@ -163,7 +164,7 @@ export function RepositoryTable({
                             className="size-11"
                             innerClassName="p-3"
                           >
-                            <FiBookmark className={cn("size-4", saved.has(repo.id) && "fill-current")} aria-hidden="true" />
+                            {saved.has(repo.id) ? <BookmarkFilledIcon className="size-4" aria-hidden="true" /> : <BookmarkIcon className="size-4" aria-hidden="true" />}
                           </TextureButton>
                         </TooltipTrigger>
                         <TooltipContent>

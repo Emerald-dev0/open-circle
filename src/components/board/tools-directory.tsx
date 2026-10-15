@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { AddIcon, MagnifierIcon } from "@solar-icons/react/linear";
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
-import { FiPlus, FiSearch } from "react-icons/fi";
 import { toast } from "sonner";
 import { TOOL_CATEGORIES, type ToolInput } from "@shared/community";
 import { parseToolInput } from "@shared/tool-validation";
@@ -132,7 +132,7 @@ export function ToolsDirectory() {
             disabled={submit.isPending || !community.data || community.isError}
             onClick={() => { setSharing(!sharing); setSentForReview(false); }}
           >
-            <FiPlus aria-hidden="true" className="size-3.5" />
+            <AddIcon aria-hidden="true" className="size-3.5" />
             {sharing ? "Close form" : "Share a tool"}
           </TextureButton>
       </div>
@@ -179,7 +179,7 @@ export function ToolsDirectory() {
 
       <div className="mt-5 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-[minmax(0,1fr)_11rem_10rem]">
         <div className="relative min-w-0 min-[400px]:col-span-2 sm:col-span-1">
-          <FiSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
+          <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
           <input className="field pl-11 text-base" type="search" aria-label="Search tools" placeholder="Search tools" value={search} onChange={(event) => setSearch(event.target.value)} />
         </div>
         <SharedSelect className="text-sm" aria-label="Filter tools by category" value={category} options={FILTER_OPTIONS} onValueChange={setCategory} />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FiBookmark, FiSearch } from "react-icons/fi";
+import { BookmarkIcon, MagnifierIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import type { PublicRepository } from "@shared/types";
 import { SharedSelect } from "@/components/ui/select";
@@ -99,7 +99,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
       <div className="space-y-5">
         <div className="space-y-3">
           <div className="relative">
-            <FiSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
+            <MagnifierIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
             <input
               type="search"
               aria-label="Search repositories"
@@ -133,7 +133,7 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
               className="h-11 w-full min-[400px]:col-span-2 sm:col-span-1 sm:w-auto"
               innerClassName="gap-1.5 px-3.5 text-xs"
             >
-              <FiBookmark className="size-3.5" aria-hidden="true" />
+              <BookmarkIcon className="size-3.5" aria-hidden="true" />
               Saved {formatFull(savedCount)}
             </TextureButton>
           </div>

@@ -1,6 +1,9 @@
 /** Rename the product here; every page title and header reads from it. */
 export const BRAND_NAME = "OpenCircle";
 
+/** Public address; used for canonical, Open Graph and sitemap URLs. SITE_URL env overrides it. */
+export const DEFAULT_SITE_URL = "https://opencircle.cc";
+
 /** The group invite. Admin can override it at runtime from /admin. */
 export const DEFAULT_INVITE_URL = "https://chat.whatsapp.com/HanHO4T0w0kJGcipYZTB8q?mode=gi_t";
 

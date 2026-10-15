@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { FiCheck, FiTrash2 } from "react-icons/fi";
+import { CheckReadIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
@@ -49,12 +49,12 @@ export function ToolModeration({ onUnauthorized }: { onUnauthorized?: () => void
               </div>
               <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 {tool.status !== "approved" && <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-11 w-auto" innerClassName="px-3.5" disabled={action.isPending} aria-label={`Approve ${tool.name}`} onClick={() => action.mutate({ id: tool.id, approve: true })}>
-                  <FiCheck aria-hidden="true" className="size-4" /> Approve
+                  <CheckReadIcon aria-hidden="true" className="size-4" /> Approve
                 </MetalButton>}
                 <TextureButton variant="minimal" className="h-11 w-auto" innerClassName="px-3.5" disabled={action.isPending} aria-label={`${tool.status === "approved" ? "Remove" : "Reject"} ${tool.name}`} onClick={() => {
                   if (window.confirm(`${tool.status === "approved" ? "Remove" : "Reject"} ${tool.name}? Its votes will also be removed.`)) action.mutate({ id: tool.id, approve: false });
                 }}>
-                  <FiTrash2 aria-hidden="true" className="size-4" /> {tool.status === "approved" ? "Remove" : "Reject"}
+                  <TrashBinMinimalisticIcon aria-hidden="true" className="size-4" /> {tool.status === "approved" ? "Remove" : "Reject"}
                 </TextureButton>
               </div>
             </li>
