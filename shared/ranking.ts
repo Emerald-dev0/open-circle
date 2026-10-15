@@ -1,16 +1,12 @@
 import type { Weights } from "./types.js";
 
-/**
- * Stars and followers carry the board. Repos and recent activity are capped
- * tie-breakers that keep dormant accounts from owning the podium forever.
- */
 export const DEFAULT_WEIGHTS: Weights = {
   stars: 5,
   followers: 4,
   repos: 1,
   reposCap: 50,
   activity: 1,
-  activityCap: 100,
+  upvotes: 1,
 };
 
 interface Scorable {
@@ -18,6 +14,7 @@ interface Scorable {
   followers: number;
   repos: number;
   activity: number;
+  upvotes?: number;
 }
 
 export function scoreOf(s: Scorable, w: Weights): number {
@@ -25,8 +22,15 @@ export function scoreOf(s: Scorable, w: Weights): number {
     s.stars * w.stars +
     s.followers * w.followers +
     Math.min(s.repos, w.reposCap) * w.repos +
-    Math.min(s.activity, w.activityCap) * w.activity
+    s.activity * w.activity +
+    (s.upvotes ?? 0) * w.upvotes
   );
+}
+
+export function contributionStart(joinedAt: number): number {
+  const day = new Date(joinedAt);
+  day.setUTCHours(0, 0, 0, 0);
+  return day.getTime();
 }
 
 interface Standing {

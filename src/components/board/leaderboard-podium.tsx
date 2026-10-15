@@ -12,6 +12,8 @@ export type LeaderboardEntry = {
   /** GitHub login, shown as @handle. */
   handle: string;
   stars: number;
+  activity?: number;
+  upvotes?: number;
   href: string;
   /** The member's GitHub avatar; DiceBear stands in when it's missing. */
   avatarUrl?: string;
@@ -46,7 +48,7 @@ function PodiumSlot({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -6, scale: 0.96 }}
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
-          className={cn("relative mb-2 flex flex-col items-center rounded-2xl px-1 pt-1 sm:mb-3 sm:px-1.5", flash && "animate-row-flash")}
+          className={cn("relative mb-2 flex min-w-0 max-w-full flex-col items-center rounded-2xl px-1 pt-1 sm:mb-3 sm:px-1.5", flash && "animate-row-flash")}
         >
           {rank === 1 && (
             <CrownStarIcon size={24} className="mb-1 text-[#F5C451] sm:mb-1.5" aria-hidden />
@@ -58,8 +60,8 @@ function PodiumSlot({
                 href={entry.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex flex-col items-center"
-                aria-label={`${entry.name}, rank ${rank}, ${formatFull(entry.points)} ${unit}. Open on GitHub`}
+                className="group flex min-w-0 max-w-full flex-col items-center"
+                aria-label={`${entry.name}, rank ${rank}, ${formatFull(entry.points)} ${unit === "pts" ? "points" : unit}. Open on GitHub`}
               >
                 <Avatar
                   className={cn(
@@ -73,17 +75,22 @@ function PodiumSlot({
                   </AvatarFallback>
                 </Avatar>
 
-                <p className="mt-1.5 max-w-[84px] truncate text-center text-xs font-medium text-foreground sm:max-w-[140px] sm:text-sm">
+                <p className="mt-1.5 w-full max-w-[84px] truncate text-center text-xs font-medium text-foreground sm:max-w-[140px] sm:text-sm">
                   {entry.name}
                 </p>
-                <p className="max-w-[88px] truncate text-center text-[10px] text-t4 group-hover:text-t3 sm:max-w-[140px] sm:text-xs">
+                <p className="w-full max-w-[88px] truncate text-center text-[10px] text-t4 group-hover:text-t3 sm:max-w-[140px] sm:text-xs">
                   @{entry.handle}
                 </p>
               </a>
 
-              <span className="mt-1 rounded-full bg-alva-surface px-2 py-0.5 text-[10px] sm:mt-1.5 sm:px-2.5 font-medium text-muted-foreground tabular sm:text-xs">
-                {entry.points.toLocaleString()} {unit}
+              <span className="mt-1 max-w-full truncate rounded-full bg-alva-surface px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular sm:mt-1.5 sm:px-2.5 sm:text-xs" title={`${formatFull(entry.points)} ${unit === "pts" ? "points" : unit}`}>
+                <span className="sr-only">{formatFull(entry.points)} {unit === "pts" ? "points" : unit}</span>
+                <span className="sm:hidden" aria-hidden="true">{formatCount(entry.points)} {unit}</span>
+                <span className="hidden sm:inline" aria-hidden="true">{formatFull(entry.points)} {unit}</span>
               </span>
+              {entry.activity !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.activity)} contributions since joining OpenCircle · ${formatFull(entry.upvotes ?? 0)} repo upvotes`}>
+                {formatCount(entry.activity)} contributions
+              </span>}
               <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-t3 tabular sm:mt-1 sm:text-xs">
                 {entry.secondary?.icon ?? <StarIcon size={11} aria-hidden />}
                 {formatCount(entry.secondary?.value ?? entry.stars)}

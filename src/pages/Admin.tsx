@@ -1,40 +1,30 @@
 import type * as React from "react";
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
-import { toast } from "sonner";
-import { CopyIcon, EyeClosedIcon, EyeIcon, LockIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/bold-duotone";
 import { MetalText } from "metal-fx";
+import { useCallback, useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
+import { CopyIcon, EyeClosedIcon, EyeIcon, TrashBinMinimalisticIcon } from "@solar-icons/react/bold-duotone";
+import { FiGithub } from "react-icons/fi";
 import { BRAND_NAME } from "@shared/brand";
-import type { AdminAction, AdminConfig, AdminMember, AdminState, Weights } from "@shared/types";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
+import type { AdminAction, AdminConfig, AdminMember, AdminSession, AdminState, Weights } from "@shared/types";
 import { MetalButton } from "@/components/metal-button";
+import { ToolModeration } from "@/components/board/tool-moderation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { SharedSelect } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TextureButton } from "@/components/ui/texture-button";
+import { COMMUNITY_KEY } from "@/hooks/use-community";
 import { ApiError, api } from "@/lib/api";
 import { formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const SECRET_KEY = "devechleon:admin";
+const SESSION_KEY = ["admin", "session"];
+const STATE_KEY = ["admin", "state"];
+const TOOLS_KEY = ["admin", "tools"];
+const isPrivateQuery = (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === "admin" && query.queryKey[1] !== "session";
 
-function readSecret() {
-  try {
-    return sessionStorage.getItem(SECRET_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeSecret(secret: string) {
-  try {
-    if (secret) sessionStorage.setItem(SECRET_KEY, secret);
-    else sessionStorage.removeItem(SECRET_KEY);
-  } catch {
-    // The secret just won't survive a reload.
-  }
-}
-
-/** Keeps admin out of search results; the server sends X-Robots-Tag too. */
 function useNoIndex() {
   useEffect(() => {
     const meta = document.createElement("meta");
@@ -43,6 +33,7 @@ function useNoIndex() {
     document.head.appendChild(meta);
     const title = document.title;
     document.title = `Admin · ${BRAND_NAME}`;
+    try { sessionStorage.removeItem("devechleon:admin"); } catch { return () => { meta.remove(); document.title = title; }; }
     return () => {
       meta.remove();
       document.title = title;
@@ -52,142 +43,109 @@ function useNoIndex() {
 
 const Admin = () => {
   useNoIndex();
-  const [secret, setSecret] = useState(readSecret);
+  const queryClient = useQueryClient();
+  const session = useQuery({ queryKey: SESSION_KEY, queryFn: ({ signal }) => api.adminSession(signal), retry: false, gcTime: 0, refetchInterval: 30_000, refetchIntervalInBackground: false });
+  const clearPrivate = useCallback(() => {
+    void queryClient.cancelQueries({ predicate: isPrivateQuery });
+    queryClient.removeQueries({ predicate: isPrivateQuery });
+  }, [queryClient]);
+  const expire = useCallback(() => {
+    clearPrivate();
+    queryClient.setQueryData<AdminSession>(SESSION_KEY, { configured: true, profile: null });
+  }, [clearPrivate, queryClient]);
+  const profile = !session.isError ? session.data?.profile : null;
+  useEffect(() => {
+    if (!profile) clearPrivate();
+    return clearPrivate;
+  }, [profile, clearPrivate]);
+  const signOut = useMutation({
+    mutationFn: api.adminSignOut,
+    onSuccess: expire,
+    onError: (error) => toast.error(error.message),
+  });
 
   return (
     <div className="relative min-h-dvh">
       <div className="app-backdrop" aria-hidden />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-16">
-        <header className="flex h-16 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 rounded-lg">
-            <MetalText font="650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#F4F7FB" theme="dark">
-              {BRAND_NAME}
-            </MetalText>
-            <span className="text-sm text-t4">admin</span>
+      <div className="page-container relative z-10 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]">
+        <header className="flex min-h-16 flex-wrap items-center justify-between gap-2 py-2">
+          <Link to="/" className="flex min-h-11 items-center gap-2 rounded-lg">
+            <MetalText font="650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#F4F7FB" theme="dark">{BRAND_NAME}</MetalText>
           </Link>
-          {secret && (
-            <TextureButton
-              variant="minimal"
-              size="sm"
-              className="w-auto"
-              onClick={() => {
-                writeSecret("");
-                setSecret("");
-              }}
-            >
-              Lock
-            </TextureButton>
-          )}
+          {profile && <div className="flex min-w-0 items-center gap-3">
+            <span className="max-w-40 truncate text-sm text-t2" title={`@${profile.login}`}>@{profile.login}</span>
+            <TextureButton variant="minimal" size="sm" className="w-auto" disabled={signOut.isPending} onClick={() => signOut.mutate()}>{signOut.isPending ? "Signing out…" : "Sign out"}</TextureButton>
+          </div>}
         </header>
-        {secret ? (
-          <Dashboard
-            secret={secret}
-            onUnauthorized={() => {
-              writeSecret("");
-              setSecret("");
-            }}
-          />
-        ) : (
-          <Unlock
-            onUnlock={(s) => {
-              writeSecret(s);
-              setSecret(s);
-            }}
-          />
-        )}
+        <main className="mt-8 min-w-0">
+          {session.isPending ? <p role="status" className="text-sm text-t3">Checking admin access…</p> : session.isError ? <div className="space-y-3">
+            <p role="alert" className="text-sm text-t2">{session.error.message}</p>
+            <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
+          </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
+        </main>
       </div>
     </div>
   );
 };
 
-function Unlock({ onUnlock }: { onUnlock: (secret: string) => void }) {
-  const [value, setValue] = useState("");
-  const [visible, setVisible] = useState(false);
-  return (
-    <form
-      className="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center text-center"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (value.trim()) onUnlock(value.trim());
-      }}
-    >
-      <LockIcon size={28} className="text-t3" aria-hidden />
-      <h1 className="mt-3 text-xl font-medium tracking-tight">Admin</h1>
-      <div className="mt-6 w-full max-w-xs space-y-2">
-        <label htmlFor="admin-secret" className="sr-only">
-          Admin secret
-        </label>
-        <div className="relative">
-          <input
-            id="admin-secret"
-            type={visible ? "text" : "password"}
-            autoComplete="current-password"
-            placeholder="Admin secret"
-            className="field pr-11"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            autoFocus
-          />
-          <button
-            type="button"
-            onClick={() => setVisible((v) => !v)}
-            aria-label={visible ? "Hide secret" : "Show secret"}
-            aria-pressed={visible}
-            className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-t4 transition-colors hover:text-foreground"
-          >
-            {visible ? <EyeClosedIcon size={18} aria-hidden /> : <EyeIcon size={18} aria-hidden />}
-          </button>
-        </div>
-        <TextureButton type="submit" className="h-11">Unlock</TextureButton>
-      </div>
-    </form>
-  );
+function SignIn({ configured }: { configured: boolean }) {
+  const [params] = useSearchParams();
+  const error = params.get("signin");
+  return <section className="mx-auto flex min-h-[calc(100dvh-12rem)] max-w-md flex-col items-center justify-center gap-5 px-2 text-center" aria-labelledby="admin-title">
+    <h1 id="admin-title" className="text-2xl font-medium tracking-tight">OpenCircle admin</h1>
+    <p className="text-sm leading-relaxed text-t2">{configured ? "Sign in with an approved GitHub account to manage the community." : "Admin access hasn't been set up. The site owner needs to enable approved GitHub accounts."}</p>
+    {error && <p role="alert" className="text-sm text-down">{error === "admin_forbidden" ? "This GitHub account doesn't have admin access. Try an approved account." : "Sign-in couldn't finish. Please try again."}</p>}
+    {configured && <TextureButton asChild className="w-auto"><a href="/api/auth-start?returnTo=%2Fadmin"><FiGithub className="size-4" aria-hidden /> Continue with GitHub</a></TextureButton>}
+    <Link to="/" className="inline-flex min-h-11 items-center rounded-lg text-sm text-t3 hover:text-foreground">Back to the community</Link>
+  </section>;
 }
 
-function Dashboard({ secret, onUnauthorized }: { secret: string; onUnauthorized: () => void }) {
+function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
   const queryClient = useQueryClient();
-  const key = ["admin", secret];
-  const state = useQuery({ queryKey: key, queryFn: () => api.adminState(secret), retry: false });
+  const state = useQuery({ queryKey: STATE_KEY, queryFn: ({ signal }) => api.adminState(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
+  const tools = useQuery({ queryKey: TOOLS_KEY, queryFn: ({ signal }) => api.adminTools(signal), retry: false, gcTime: 0, refetchInterval: 30_000 });
   const action = useMutation({
-    mutationFn: (a: AdminAction) => api.adminAction(secret, a),
+    mutationFn: (a: AdminAction) => api.adminAction(a),
     onSuccess: (next: AdminState) => {
-      queryClient.setQueryData(key, next);
-      queryClient.invalidateQueries({ queryKey: ["board"] });
+      if (!queryClient.getQueryData<AdminSession>(SESSION_KEY)?.profile) return;
+      queryClient.setQueryData(STATE_KEY, next);
+      void queryClient.invalidateQueries({ queryKey: ["board"] });
+      void queryClient.invalidateQueries({ queryKey: COMMUNITY_KEY });
+      toast.success("Saved.");
     },
-    onError: (err) => toast.error(err instanceof ApiError ? err.message : "That didn't work."),
-  });
-
-  const error = state.error;
-  useEffect(() => {
-    if (error instanceof ApiError && error.status === 401) {
+    onError: (error) => {
+      if (error instanceof ApiError && [401, 403, 503].includes(error.status) && ["unauthorized", "admin_disabled", "admin_origin"].includes(error.code)) onUnauthorized();
       toast.error(error.message);
-      onUnauthorized();
+    },
+  });
+  useEffect(() => {
+    for (const error of [state.error, tools.error]) {
+      if (error instanceof ApiError && ["unauthorized", "admin_disabled"].includes(error.code)) onUnauthorized();
     }
-  }, [error, onUnauthorized]);
-
-  if (state.isPending) return <p className="mt-10 text-sm text-t3">Loading…</p>;
-  if (state.isError || !state.data) {
-    return (
-      <p className="surface-quiet mt-10 rounded-2xl p-5 text-sm text-t2">
-        {state.error instanceof ApiError ? state.error.message : "Couldn't load admin data."}
-      </p>
-    );
-  }
-
-  return (
-    <div className="mt-2 space-y-4 sm:space-y-6">
-      <Settings
-        config={state.data.config}
-        saving={action.isPending}
-        onSave={(config) => action.mutate({ action: "config", config }, { onSuccess: () => toast.success("Saved.") })}
-      />
-      <Members
-        members={state.data.members}
-        busy={action.isPending}
-        onAction={(a) => action.mutate(a)}
-      />
+  }, [state.error, tools.error, onUnauthorized]);
+  if (state.isPending) return <p role="status" className="text-sm text-t3">Loading admin data…</p>;
+  if (state.isError || !state.data) return <div className="space-y-3">
+    <p role="alert" className="text-sm text-t2">{state.error?.message ?? "Couldn't load admin data."}</p>
+    <TextureButton className="w-auto" onClick={() => state.refetch()}>Try again</TextureButton>
+  </div>;
+  const pending = tools.data?.filter((tool) => tool.status !== "approved").length;
+  const hidden = state.data.members.filter((member) => member.hidden).length;
+  return <div className="min-w-0 space-y-6">
+    <div className="space-y-2">
+      <h1 className="text-3xl font-medium tracking-tight">Manage OpenCircle</h1>
+      <p className="text-sm text-t3">{formatFull(state.data.members.length - hidden)} visible members · {formatFull(hidden)} hidden{pending !== undefined ? ` · ${formatFull(pending)} tools awaiting review` : ""}</p>
     </div>
-  );
+    <Tabs defaultValue="members">
+      <TabsList aria-label="Admin sections" className="mb-6 h-auto w-full justify-start rounded-full sm:w-auto">
+        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="members">Members</TabsTrigger>
+        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
+        <TabsTrigger className="min-h-11 flex-1 rounded-full data-[state=active]:bg-white/[0.1] sm:flex-none" value="settings">Settings</TabsTrigger>
+      </TabsList>
+      <TabsContent value="members"><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></TabsContent>
+      <TabsContent value="tools"><ToolModeration onUnauthorized={onUnauthorized} /></TabsContent>
+      <TabsContent value="settings"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /></TabsContent>
+    </Tabs>
+  </div>;
 }
 
 const WEIGHT_FIELDS: { key: keyof Weights; label: string }[] = [
@@ -195,8 +153,8 @@ const WEIGHT_FIELDS: { key: keyof Weights; label: string }[] = [
   { key: "followers", label: "Per follower" },
   { key: "repos", label: "Per repo" },
   { key: "reposCap", label: "Repo cap" },
-  { key: "activity", label: "Per contribution (30 days)" },
-  { key: "activityCap", label: "Contribution cap" },
+  { key: "activity", label: "Per contribution since joining" },
+  { key: "upvotes", label: "Points per repo upvote" },
 ];
 
 /** Outer frame holding a header card and a body card, like a status console. */
@@ -255,6 +213,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
   const setInvite = (patch: Partial<AdminConfig["invite"]>) => setDraft({ ...draft, invite: { ...draft.invite, ...patch } });
 
   return (
+    <form onSubmit={(event) => { event.preventDefault(); onSave(draft); }}>
     <Panel
       header={
         <PanelHeader
@@ -264,10 +223,13 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
         />
       }
     >
-      <Row label="Invite link" htmlFor="invite-url" stack>
+      <Row label="WhatsApp invite link" htmlFor="invite-url" stack>
         <div className="relative">
           <input
             id="invite-url"
+            type="url"
+            required
+            maxLength={300}
             className="field h-10 pr-11 text-sm"
             value={draft.invite.url}
             onChange={(e) => setInvite({ url: e.target.value })}
@@ -283,7 +245,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
                 toast.error("Couldn't copy. Select the link and copy it manually.");
               }
             }}
-            className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-t4 transition-colors hover:text-foreground"
+            className="absolute right-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-t4 transition-colors hover:text-foreground"
           >
             <CopyIcon size={16} aria-hidden />
           </button>
@@ -292,7 +254,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
       <Row label="Invite open" htmlFor="invite-open">
         <Switch id="invite-open" checked={draft.invite.open} onCheckedChange={(open) => setInvite({ open })} />
       </Row>
-      <Row label="Paused message" htmlFor="invite-note" stack>
+      <Row label="Message shown when the link is off" htmlFor="invite-note" stack>
         <textarea
           id="invite-note"
           rows={3}
@@ -307,6 +269,7 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
           <input
             id={`w-${key}`}
             type="number"
+            required
             min={0}
             max={10000}
             step="any"
@@ -318,15 +281,16 @@ function Settings({ config, saving, onSave }: { config: AdminConfig; saving: boo
       ))}
       <div className="flex justify-end gap-2 py-4">
         {dirty && (
-          <MetalButton variant="minimal" className="h-10 w-auto" innerClassName="px-5" onClick={() => setDraft(config)}>
+          <MetalButton wrapperClassName="overflow-clip rounded-full" type="button" variant="minimal" className="h-10 w-auto" innerClassName="px-5" onClick={() => setDraft(config)}>
             Cancel
           </MetalButton>
         )}
-        <MetalButton className="h-10 w-auto" innerClassName="px-6" disabled={saving || !dirty} onClick={() => onSave(draft)}>
+        <MetalButton wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-6" disabled={saving || !dirty} type="submit" aria-label="Save settings">
           {saving ? "Saving…" : "Save"}
         </MetalButton>
       </div>
     </Panel>
+    </form>
   );
 }
 
@@ -339,6 +303,12 @@ function Members({
   busy: boolean;
   onAction: (a: AdminAction) => void;
 }) {
+  const [search, setSearch] = useState("");
+  const [visibility, setVisibility] = useState("all");
+  const filtered = members.filter((member) => {
+    const match = `${member.nickname} ${member.login} ${member.whatsapp}`.toLowerCase().includes(search.trim().toLowerCase());
+    return match && (visibility === "all" || member.hidden === (visibility === "hidden"));
+  });
   const now = Date.now();
   const hidden = members.filter((m) => m.hidden).length;
   return (
@@ -351,14 +321,18 @@ function Members({
         />
       }
     >
-      {members.length === 0 ? (
-        <p className="py-8 text-center text-sm text-t3">No one has registered yet.</p>
+      <div className="flex flex-col gap-3 py-4 sm:flex-row">
+        <label className="min-w-0 flex-1"><span className="sr-only">Search members</span><input type="search" className="field" placeholder="Search name, GitHub or phone" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <SharedSelect aria-label="Member visibility" className="sm:w-40" value={visibility} onValueChange={setVisibility} options={[{ value: "all", label: "All members" }, { value: "visible", label: "Visible" }, { value: "hidden", label: "Hidden" }]} />
+      </div>
+      {filtered.length === 0 ? (
+        <p role="status" className="py-8 text-center text-sm text-t3">{members.length ? "No members match these filters." : "No one has registered yet."}</p>
       ) : (
         <ul>
-          {members.map((m) => (
+          {filtered.map((m) => (
             <li
               key={m.login}
-              className={cn("flex items-center gap-3 border-b border-white/[0.06] py-3 last:border-0", m.hidden && "opacity-55")}
+              className={cn("grid grid-cols-[1.5rem_2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-white/[0.06] py-3 last:border-0 sm:flex", m.hidden && "opacity-55")}
             >
               <span className="w-6 shrink-0 font-mono text-xs tabular text-t4">{m.rank || "—"}</span>
               <Avatar className="size-9 shrink-0">
@@ -370,23 +344,20 @@ function Members({
                   <span className="truncate">{m.nickname}</span>
                   {m.hidden && <span className="shrink-0 text-[11px] font-normal text-warn">hidden</span>}
                 </p>
-                <p className="truncate font-mono text-[11px] text-t4">
-                  <a href={githubUrl(m.login)} target="_blank" rel="noopener noreferrer" className="hover:text-t2">
+                <p className="flex flex-wrap gap-x-2 gap-y-1 break-words font-mono text-[11px] text-t4 [overflow-wrap:anywhere]">
+                  <a href={githubUrl(m.login)} target="_blank" rel="noopener noreferrer" className="min-w-0 hover:text-t2">
                     @{m.login}
                   </a>
-                  <span className="hidden sm:inline">
-                    {" · "}
-                    {m.whatsapp} · {timeAgo(m.createdAt, now)}
-                  </span>
+                  <span className="tabular">{m.whatsapp}</span>
+                  <span>joined {timeAgo(m.createdAt, now)}</span>
                 </p>
-                <p className="truncate font-mono text-[11px] text-t4 sm:hidden">{m.whatsapp}</p>
               </div>
-              <span className="hidden shrink-0 text-right text-sm tabular text-t2 sm:block">{formatFull(m.score)}</span>
-              <div className="flex shrink-0 gap-1">
+              <span className="col-span-2 min-w-0 break-words text-sm tabular text-t2 sm:shrink-0 sm:text-right">{formatFull(m.score)}</span>
+              <div className="flex shrink-0 justify-end gap-1">
                 <TextureButton
                   variant="icon"
                   size="icon"
-                  className="w-auto"
+                  className="size-11"
                   disabled={busy}
                   aria-label={m.hidden ? `Show ${m.nickname}` : `Hide ${m.nickname}`}
                   onClick={() => onAction({ action: m.hidden ? "unhide" : "hide", login: m.login })}
@@ -396,7 +367,7 @@ function Members({
                 <TextureButton
                   variant="icon"
                   size="icon"
-                  className="w-auto"
+                  className="size-11"
                   disabled={busy}
                   aria-label={`Remove ${m.nickname}`}
                   onClick={() => {

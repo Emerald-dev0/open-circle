@@ -1,0 +1,67 @@
+import { createHash } from 'node:crypto';
+import { createServer } from 'node:http';
+import { afterEach, expect, it, vi } from 'vitest';
+import { GET, POST } from '../api/participation';
+import { MemoryCommunityStore } from '../server/community-memory';
+import { coordinationRequest } from '../server/participation';
+import { TestStore } from './helpers/test-store';
+
+let community: MemoryCommunityStore;
+let board: TestStore;
+vi.mock('../server/db',()=>({getStore:()=>board}));
+vi.mock('../server/community-store',()=>({getCommunityStore:()=>community}));
+afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();});
+
+it('uses the signed-in GitHub identity through HTTP and protects personal responses, origin and outages',async()=>{
+  community=new MemoryCommunityStore(null); board=new TestStore();
+  vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');
+  const token='a'.repeat(64);
+  await community.createSession(createHash('sha256').update(token).digest('hex'),{id:1,login:'Alice',avatarUrl:''},Date.now()+60_000);
+  const calls:{path:string;body:Record<string,unknown>}[]=[];
+  let status=200;
+  let payload:unknown={activity:{linked:false},projects:[],help:[],contributions:[]};
+  const service=createServer(async(req,res)=>{
+    expect(req.headers.authorization).toBe(`Bearer ${'t'.repeat(40)}`);
+    const chunks:Buffer[]=[]; for await(const chunk of req) chunks.push(Buffer.from(chunk));
+    calls.push({path:req.url!,body:JSON.parse(Buffer.concat(chunks).toString())});
+    res.writeHead(status,{'content-type':'application/json'});res.end(JSON.stringify(payload));
+  });
+  await new Promise<void>(resolve=>service.listen(0,'127.0.0.1',resolve));
+  const address=service.address(); if(!address||typeof address==='string') throw new Error('No service address');
+  vi.stubEnv('WHATSAPP_MEMBERSHIP_URL',`http://127.0.0.1:${address.port}/api/v1/membership`);
+  vi.stubEnv('WHATSAPP_MEMBERSHIP_TOKEN','t'.repeat(40));
+  const request=(body?:unknown,origin='https://opencircle.test')=>new Request('https://opencircle.test/api/participation',{method:body===undefined?'GET':'POST',headers:{cookie:`opencircle_github=${token}`,origin,'content-type':'application/json','x-vercel-forwarded-for':'192.0.2.40'},body:body===undefined?undefined:JSON.stringify(body)});
+  try {
+    expect((await GET(new Request('https://opencircle.test/api/participation'))).status).toBe(401);
+    const own=await GET(request()); expect(own.status).toBe(200);expect(own.headers.get('cache-control')).toBe('private, no-store');
+    payload={id:'link_1',code:'ABC123',expiresAt:Date.now()+600_000};
+    expect((await POST(request({action:'link',phone:'0803 123 4567',login:'Other'}))).status).toBe(201);
+    expect(calls.at(-1)).toEqual({path:'/api/v1/coordination/link',body:{login:'Alice',phone:'+2348031234567'}});
+    expect((await POST(request({action:'link',phone:'bad'}))).status).toBe(400);
+    expect((await POST(request({action:'help',question:'A question'},'https://foreign.test'))).status).toBe(403);
+    payload={activity:{linked:true},projects:[],help:[],contributions:[]};
+    expect((await POST(request({action:'help',question:'How can I improve this?',login:'Other'}))).status).toBe(200);
+    expect(calls.at(-1)?.body.login).toBe('Alice');
+    status=409;payload={error:'Already reviewed.'};
+    await expect(coordinationRequest('action',{})).rejects.toMatchObject({status:409,message:'Already reviewed.'});
+    status=401;payload={error:'private service token detail'};
+    const unavailable=await GET(request());expect(unavailable.status).toBe(503);expect(await unavailable.text()).not.toContain('private service token');
+    status=200;payload={unexpected:true};
+    await expect(coordinationRequest('profile',{})).rejects.toMatchObject({status:503});
+    vi.stubEnv('NODE_ENV','production');
+    await expect(coordinationRequest('profile',{})).rejects.toMatchObject({status:503});
+  } finally {await new Promise<void>((resolve,reject)=>service.close(error=>error?reject(error):resolve()));}
+});
+
+it('returns from OAuth to participation and rejects arbitrary return destinations',async()=>{
+  vi.stubEnv('GITHUB_OAUTH_CLIENT_ID','test-client');vi.stubEnv('GITHUB_OAUTH_CLIENT_SECRET','test-secret');vi.stubEnv('GITHUB_OAUTH_REDIRECT_URI','https://opencircle.test/api/auth-callback');
+  const {beginGitHubSignIn,finishGitHubSignIn}=await import('../server/github-auth');
+  const store=new MemoryCommunityStore(null);
+  for(const returnTo of ['/participation','https://foreign.test']) {
+    const started=beginGitHubSignIn(new Request(`https://opencircle.test/api/auth-start?returnTo=${encodeURIComponent(returnTo)}`));
+    const state=new URL(started.headers.get('location')!).searchParams.get('state');
+    vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({access_token:'test',token_type:'bearer'}))).mockResolvedValueOnce(new Response(JSON.stringify({id:1,login:'Alice',type:'User'}))));
+    const result=await finishGitHubSignIn(new Request(`https://opencircle.test/api/auth-callback?code=code&state=${state}`,{headers:{cookie:started.headers.get('set-cookie')!.split(';')[0]}}),store);
+    expect(result.headers.get('location')).toBe(returnTo==='/participation'?'/participation':'/tools');
+  }
+});

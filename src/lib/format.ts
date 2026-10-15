@@ -3,7 +3,7 @@ const full = new Intl.NumberFormat("en");
 
 /** 1,234 below 10k; 12.4K above, so table cells stay narrow on phones. */
 export function formatCount(n: number): string {
-  return n < 10_000 ? full.format(n) : compact.format(n);
+  return Math.abs(n) < 10_000 ? full.format(n) : compact.format(n);
 }
 
 export function formatFull(n: number): string {
@@ -29,6 +29,10 @@ export function ordinal(n: number): string {
 
 export function githubUrl(login: string): string {
   return `https://github.com/${login}`;
+}
+
+export function githubAvatarUrl(login: string): string {
+  return `https://github.com/${encodeURIComponent(login)}.png?size=160`;
 }
 
 /** DiceBear face for when a GitHub avatar fails to load. https://www.dicebear.com */

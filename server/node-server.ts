@@ -7,23 +7,39 @@
  */
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import * as admin from "../api/admin.js";
+import * as adminSession from "../api/admin-session.js";
+import * as auth from "../api/auth.js";
+import * as authStart from "../api/auth-start.js";
+import * as authCallback from "../api/auth-callback.js";
+import * as community from "../api/community.js";
+import * as tools from "../api/tools.js";
+import * as vote from "../api/vote.js";
 import * as board from "../api/board.js";
 import * as preview from "../api/preview.js";
 import * as register from "../api/register.js";
+import * as participation from "../api/participation.js";
 import { readBody } from "./vite-dev-api.js";
+import { handle } from "./http.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
   admin: admin as Record<string, Handler>,
+  "admin-session": adminSession as Record<string, Handler>,
+  auth: auth as Record<string, Handler>,
+  "auth-start": authStart as Record<string, Handler>,
+  "auth-callback": authCallback as Record<string, Handler>,
+  community: community as Record<string, Handler>,
+  tools: tools as Record<string, Handler>,
+  vote: vote as Record<string, Handler>,
   board: board as Record<string, Handler>,
   preview: preview as Record<string, Handler>,
   register: register as Record<string, Handler>,
+  participation: participation as Record<string, Handler>,
 };
 
-const DIST = path.resolve(process.cwd(), "dist");
-const INDEX = path.join(DIST, "index.html");
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
@@ -36,51 +52,81 @@ const TYPES: Record<string, string> = {
   ".ico": "image/x-icon",
 };
 
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+export function createAppServer(distDirectory = path.resolve(process.cwd(), "dist")) {
+  const DIST = distDirectory;
+  const INDEX = path.join(DIST, "index.html");
+  return createServer(async (req, res) => {
+    const callback = process.env.GITHUB_OAUTH_REDIRECT_URI ?? "";
+    const callbackUrl = URL.canParse(callback) ? new URL(callback) : null;
+    const configuredOrigin = callbackUrl && ["https:", "http:"].includes(callbackUrl.protocol) ? callbackUrl.origin : undefined;
+    const requestBase = configuredOrigin ?? `http://${req.headers.host ?? "localhost"}`;
+    if (!URL.canParse(req.url ?? "/", requestBase)) { res.writeHead(400).end(); return; }
+    const url = new URL(req.url ?? "/", requestBase);
+    res.setHeader("x-content-type-options", "nosniff");
 
-  const api = /^\/api\/([a-z-]+)\/?$/.exec(url.pathname);
-  if (api) {
-    const handler = routes[api[1]]?.[req.method ?? "GET"];
-    if (!handler) {
-      res.writeHead(routes[api[1]] ? 405 : 404).end();
+    const api = /^\/api\/([a-z-]+)\/?$/.exec(url.pathname);
+    if (api) {
+      const handler = routes[api[1]]?.[req.method ?? "GET"];
+      if (!handler) {
+        res.writeHead(routes[api[1]] ? 405 : 404).end();
+        return;
+      }
+      try {
+        const headers = new Headers();
+        for (const [key, value] of Object.entries(req.headers)) {
+          if (typeof value === "string") headers.set(key, value);
+        }
+        const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",").at(-1)?.trim() : undefined;
+        headers.set("x-vercel-forwarded-for", (process.env.TRUST_PROXY === "1" ? forwarded : undefined) ?? req.socket.remoteAddress ?? "unknown");
+        const method = req.method ?? "GET";
+        const response = await handle(async () => {
+          const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req);
+          return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
+        });
+        res.statusCode = response.status;
+        response.headers.forEach((value, key) => {
+          // Vercel-only CDN directive; meaningless here.
+          if (key !== "vercel-cdn-cache-control" && key !== "set-cookie") res.setHeader(key, value);
+        });
+        const cookies = response.headers.getSetCookie();
+        if (cookies.length) res.setHeader("set-cookie", cookies);
+        if (response.status === 413) res.setHeader("connection", "close");
+        res.end(Buffer.from(await response.arrayBuffer()));
+      } catch (err) {
+        console.error(err);
+        if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: { code: "internal", message: "Something broke on our side." } }));
+      }
       return;
     }
-    try {
-      const headers = new Headers();
-      for (const [key, value] of Object.entries(req.headers)) {
-        if (typeof value === "string") headers.set(key, value);
+
+    // Static files, falling back to index.html for client-side routes.
+    let pathname: string;
+    try { pathname = decodeURIComponent(url.pathname); } catch { res.writeHead(400).end(); return; }
+    const file = path.join(DIST, path.normalize(pathname).replace(/^(\.\.[/\\])+/, ""));
+    const target = file.startsWith(`${DIST}${path.sep}`) && existsSync(file) && statSync(file).isFile() ? file : INDEX;
+    const ext = path.extname(target);
+    res.setHeader("content-type", TYPES[ext] ?? "application/octet-stream");
+    if (target.includes(`${path.sep}assets${path.sep}`) || target.includes(`${path.sep}fonts${path.sep}`)) {
+      res.setHeader("cache-control", "public, max-age=31536000, immutable");
+    } else if (target === INDEX) {
+      res.setHeader("cache-control", "no-cache");
+      if (url.pathname.startsWith("/admin")) {
+        res.setHeader("x-robots-tag", "noindex, nofollow");
+        res.setHeader("cache-control", "no-store");
+        res.setHeader("x-frame-options", "DENY");
+        res.setHeader("referrer-policy", "same-origin");
+        res.setHeader("content-security-policy", "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
       }
-      const method = req.method ?? "GET";
-      const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req);
-      const response = await handler(new Request(url, { method, headers, body }));
-      res.statusCode = response.status;
-      response.headers.forEach((value, key) => {
-        // Vercel-only CDN directive; meaningless here.
-        if (key !== "vercel-cdn-cache-control") res.setHeader(key, value);
-      });
-      res.end(Buffer.from(await response.arrayBuffer()));
-    } catch (err) {
-      console.error(err);
-      if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "internal", message: "Something broke on our side." } }));
     }
-    return;
-  }
+    createReadStream(target).on("error", () => {
+      if (!res.headersSent) res.writeHead(503, { "content-type": "text/plain; charset=utf-8" });
+      res.end("The app is temporarily unavailable.");
+    }).pipe(res);
+  });
+}
 
-  // Static files, falling back to index.html for client-side routes.
-  const file = path.join(DIST, path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, ""));
-  const target = file.startsWith(DIST) && existsSync(file) && statSync(file).isFile() ? file : INDEX;
-  const ext = path.extname(target);
-  res.setHeader("content-type", TYPES[ext] ?? "application/octet-stream");
-  if (target.includes(`${path.sep}assets${path.sep}`) || target.includes(`${path.sep}fonts${path.sep}`)) {
-    res.setHeader("cache-control", "public, max-age=31536000, immutable");
-  } else if (target === INDEX) {
-    res.setHeader("cache-control", "no-cache");
-    if (url.pathname.startsWith("/admin")) res.setHeader("x-robots-tag", "noindex, nofollow");
-  }
-  createReadStream(target).pipe(res);
-});
-
-const port = Number(process.env.PORT) || 3000;
-server.listen(port, () => console.log(`Devechleon listening on :${port}`));
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const port = Number(process.env.PORT) || 3000;
+  createAppServer().listen(port, () => console.log(`OpenCircle listening on :${port}`));
+}

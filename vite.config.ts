@@ -6,7 +6,7 @@ import { devApi } from "./server/vite-dev-api";
 
 // https://vite.dev/config/
 export default defineConfig(({ mode, isSsrBuild }) => {
-  // The dev API reads GITHUB_TOKEN, ADMIN_SECRET etc. from process.env, like Vercel does.
+  // The dev API reads GITHUB_TOKEN, ADMIN_GITHUB_IDS etc. from process.env, like Vercel does.
   const env = loadEnv(mode, process.cwd(), "");
   for (const [key, value] of Object.entries(env)) process.env[key] ??= value;
 

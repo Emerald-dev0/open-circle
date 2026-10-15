@@ -1,11 +1,13 @@
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../shared/brand.js";
 import {
   compareStanding,
+  contributionStart,
   DEFAULT_WEIGHTS,
   scoreOf,
 } from "../shared/ranking.js";
 import type {
   Board,
+  GithubRepository,
   GithubStats,
   Preview,
   PublicMember,
@@ -19,9 +21,12 @@ import {
 } from "../shared/validation.js";
 import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
 import { HttpError } from "./http.js";
+import { getCommunityStore } from "./community-store.js";
 import type { AppConfig, MemberRecord, Store } from "./store.js";
+import { requireWhatsappMembership } from "./whatsapp.js";
 
 const REFRESH_EVERY_MS = 60_000;
+const RANKING_VERSION = 2;
 // Held for this long after a failed refresh, so a rate-limited GitHub isn't retried on every poll.
 const REFRESH_LOCK_S = 50;
 // With more members than this, each tick refreshes the stalest ones and the rest wait their turn.
@@ -52,25 +57,37 @@ function statsFields(stats: GithubStats): Partial<MemberRecord> {
     followers: stats.followers,
     repos: stats.repos,
     activity: stats.activity,
+    activitySince: stats.activitySince,
     projects: stats.projects ?? [],
   };
+}
+
+function repositoryUpvotes(projects: GithubRepository[], counts: Record<string, number>): number {
+  return [...new Set(projects.map((repo) => repo.id))]
+    .reduce((total, id) => total + (counts[`repo:${id}`] ?? 0), 0);
 }
 
 /** Ranks every visible member, records rank movement, and writes the public snapshot. */
 export async function rebuildBoard(
   store: Store,
-  opts: { refreshedAt?: number; statsDelayed?: boolean } = {},
+  opts: { refreshedAt?: number; statsDelayed?: boolean; voteCounts?: Record<string, number> } = {},
 ): Promise<Board> {
-  const [records, config, previous] = await Promise.all([
+  const [records, config, previous, votes] = await Promise.all([
     store.listMembers(),
     loadConfig(store),
     store.getBoard(),
+    opts.voteCounts ?? getCommunityStore().readVotes("").then((result) => result.counts),
   ]);
   const now = Date.now();
 
   const ranked = records
     .filter((m) => !m.hidden)
-    .map((m) => ({ m, score: scoreOf(m, config.weights) }))
+    .map((record) => {
+      const activity = record.activitySince === contributionStart(record.createdAt) ? record.activity : 0;
+      const upvotes = repositoryUpvotes(record.projects ?? [], votes);
+      const m = { ...record, activity, upvotes };
+      return { m, score: scoreOf(m, config.weights) };
+    })
     .sort((a, b) =>
       compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }),
     );
@@ -102,6 +119,7 @@ export async function rebuildBoard(
       followers: m.followers,
       repos: m.repos,
       activity: m.activity,
+      upvotes: m.upvotes,
       rank,
       delta: recent ? prevRank - rank : 0,
       isNew: now - m.createdAt < NEW_WINDOW_MS,
@@ -135,11 +153,12 @@ export async function rebuildBoard(
     .map((repo, i) => ({ ...repo, rank: i + 1 }));
 
   const board: Board = {
+    rankingVersion: RANKING_VERSION,
     members,
     repositories,
     updatedAt: now,
     refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
-    statsDelayed: opts.statsDelayed ?? previous?.statsDelayed ?? false,
+    statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt)) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
     invite: config.invite,
     weights: config.weights,
   };
@@ -151,13 +170,13 @@ async function refreshStats(store: Store): Promise<Board> {
   const now = Date.now();
   const due = (await store.listMembers())
     .filter((m) => !m.hidden)
-    .filter((m) => now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
+    .filter((m) => m.activitySince !== contributionStart(m.createdAt) || now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
     .sort((a, b) => a.statsUpdatedAt - b.statsUpdatedAt)
     .slice(0, REFRESH_LIMIT);
 
   let delayed = false;
   if (due.length > 0) {
-    const outcome = await lookupMany(due.map((m) => m.login));
+    const outcome = await lookupMany(due.map((m) => m.login), new Map(due.map((m) => [m.login, m.createdAt])));
     if (outcome.error) {
       console.warn(
         `GitHub refresh: ${outcome.error.code}: ${outcome.error.message}`,
@@ -206,7 +225,9 @@ export async function readBoard(
   background: (work: Promise<unknown>) => void = () => {},
 ): Promise<Board> {
   const saved = await store.getBoard();
-  const board = saved?.repositories ? saved : await rebuildBoard(store);
+  const board = saved?.repositories && saved.rankingVersion === RANKING_VERSION
+    ? saved
+    : await rebuildBoard(store, saved ? { refreshedAt: 0 } : {});
   if (
     Date.now() - board.refreshedAt >= REFRESH_EVERY_MS &&
     (await store.tryLock("refresh", REFRESH_LOCK_S))
@@ -241,9 +262,9 @@ function requireUser(lookup: Lookup, login: string): GithubStats {
   );
 }
 
-async function fetchUser(login: string): Promise<GithubStats> {
+async function fetchUser(login: string, joinedAt = Date.now()): Promise<GithubStats> {
   try {
-    return requireUser(await lookupOne(login), login);
+    return requireUser(await lookupOne(login, joinedAt), login);
   } catch (err) {
     if (err instanceof GithubError) {
       console.warn(`GitHub lookup: ${err.code}: ${err.message}`);
@@ -260,15 +281,23 @@ async function fetchUser(login: string): Promise<GithubStats> {
 export async function previewProfile(
   store: Store,
   input: string,
+  phone = "",
 ): Promise<Preview> {
   const parsed = parseGithubInput(input);
   if (!parsed.ok)
     throw new HttpError(400, "invalid_github", parsed.error, "github");
-  const [profile, config] = await Promise.all([
-    fetchUser(parsed.value),
+  const whatsapp = parseWhatsappNumber(phone);
+  if (!whatsapp.ok)
+    throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
+  await requireWhatsappMembership(whatsapp.value);
+  const existing = await store.getMember(parsed.value.toLowerCase());
+  const [profile, config, votes] = await Promise.all([
+    fetchUser(parsed.value, existing?.createdAt),
     loadConfig(store),
+    getCommunityStore().readVotes(""),
   ]);
-  return { profile, score: scoreOf(profile, config.weights) };
+  const upvotes = repositoryUpvotes(profile.projects ?? [], votes.counts);
+  return { profile, score: scoreOf({ ...profile, upvotes }, config.weights) };
 }
 
 function field(body: unknown, key: string): string {
@@ -289,6 +318,8 @@ export async function register(
   const whatsapp = parseWhatsappNumber(field(body, "whatsapp"));
   if (!whatsapp.ok)
     throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
+
+  await requireWhatsappMembership(whatsapp.value);
 
   const existing = await store.getMember(github.value.toLowerCase());
   if (existing) {
@@ -311,8 +342,8 @@ export async function register(
     );
   }
 
-  const stats = await fetchUser(github.value);
   const now = Date.now();
+  const stats = await fetchUser(github.value, now);
   const record: MemberRecord = {
     login: stats.login.toLowerCase(),
     displayLogin: stats.login,
@@ -324,6 +355,7 @@ export async function register(
     followers: stats.followers,
     repos: stats.repos,
     activity: stats.activity,
+    activitySince: stats.activitySince,
     projects: stats.projects ?? [],
     hidden: false,
     createdAt: now,

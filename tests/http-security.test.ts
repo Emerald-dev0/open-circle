@@ -140,5 +140,17 @@ describe("Production persistence", () => {
     expect(getStore()).toBe(getStore());
   });
 
+  it("selects Neon Postgres before legacy Redis when DATABASE_URL is configured", async () => {
+    vi.resetModules();
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("DATABASE_URL", "postgresql://user:password@localhost/opencircle");
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "https://redis.opencircle.test");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "test-token");
+    const { getStore } = await import("../server/db");
+    const { PostgresStore } = await import("../server/store-postgres");
 
+    expect(getStore()).toBeInstanceOf(PostgresStore);
+    expect(getStore()).toBe(getStore());
+  });
 });

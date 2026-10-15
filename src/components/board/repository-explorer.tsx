@@ -1,0 +1,183 @@
+import { useEffect, useMemo, useState } from "react";
+import { FiBookmark, FiSearch } from "react-icons/fi";
+import { toast } from "sonner";
+import type { PublicRepository } from "@shared/types";
+import { SharedSelect } from "@/components/ui/select";
+import { TextureButton } from "@/components/ui/texture-button";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useCommunity, useCommunityVote } from "@/hooks/use-community";
+import { formatFull } from "@/lib/format";
+import { RepositoryTable } from "./repository-table";
+
+const SAVED_KEY = "opencircle:saved-repositories:v1";
+const EMPTY_COUNTS: Record<string, number> = {};
+const SORT_LABELS = {
+  stars: "stars",
+  votes: "community upvotes",
+  updated: "recent updates",
+};
+
+type Sort = keyof typeof SORT_LABELS;
+
+function readSaved(): Set<string> {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "[]");
+    return new Set(Array.isArray(value) ? value.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function RepositoryExplorer({ repositories }: { repositories: PublicRepository[] }) {
+  const community = useCommunity();
+  const vote = useCommunityVote();
+  const [search, setSearch] = useState("");
+  const [language, setLanguage] = useState("");
+  const [sort, setSort] = useState<Sort>("stars");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [saved, setSaved] = useState(readSaved);
+  const [limit, setLimit] = useState(50);
+  const counts = community.data?.counts ?? EMPTY_COUNTS;
+  const voted = useMemo(() => new Set(community.data?.voted ?? []), [community.data?.voted]);
+  const languages = useMemo(
+    () => [...new Set(repositories.flatMap((repo) => repo.language ? [repo.language] : []))].sort(),
+    [repositories],
+  );
+  const savedCount = repositories.filter((repo) => saved.has(repo.id)).length;
+
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key === SAVED_KEY || event.key === null) setSaved(readSaved());
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const visible = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return repositories.filter((repo) =>
+      (!savedOnly || saved.has(repo.id)) &&
+      (!language || repo.language === language) &&
+      (!query || [repo.name, repo.fullName, repo.ownerLogin, repo.ownerNickname, repo.description ?? ""].some((value) => value.toLowerCase().includes(query))),
+    ).sort((a, b) => {
+      if (sort === "votes") {
+        const difference = (counts[`repo:${b.id}`] ?? 0) - (counts[`repo:${a.id}`] ?? 0);
+        if (difference) return difference;
+      }
+      if (sort === "updated") {
+        const difference = (Date.parse(b.updatedAt) || 0) - (Date.parse(a.updatedAt) || 0);
+        if (difference) return difference;
+      }
+      return b.stars - a.stars || b.forks - a.forks || a.fullName.localeCompare(b.fullName);
+    }).map((repo, index) => ({ ...repo, rank: index + 1 }));
+  }, [repositories, savedOnly, saved, language, search, sort, counts]);
+
+  function toggleSaved(id: string) {
+    const next = new Set(saved);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSaved(next);
+    try {
+      localStorage.setItem(SAVED_KEY, JSON.stringify([...next]));
+    } catch {
+      toast.message("Saved for this visit. Browser storage is unavailable.");
+    }
+  }
+
+  function resetFilters() {
+    setSearch("");
+    setLanguage("");
+    setSavedOnly(false);
+    setLimit(50);
+  }
+
+  const hasFilters = Boolean(search || language || savedOnly);
+  const emptySaved = savedOnly && savedCount === 0;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="space-y-5">
+        <div className="space-y-3">
+          <div className="relative">
+            <FiSearch className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-t3" aria-hidden="true" />
+            <input
+              type="search"
+              aria-label="Search repositories"
+              placeholder="Search repositories or builders"
+              value={search}
+              onChange={(event) => { setSearch(event.target.value); setLimit(50); }}
+              className="field pl-11 text-base sm:text-[15px]"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <SharedSelect
+              aria-label="Filter by language"
+              value={language || "all"}
+              onValueChange={(value) => { setLanguage(value === "all" ? "" : value); setLimit(50); }}
+              options={[{ value: "all", label: "All languages" }, ...languages.map((item) => ({ value: item, label: item }))]}
+              className="min-w-0"
+            />
+            <SharedSelect
+              aria-label="Sort repositories"
+              value={sort}
+              onValueChange={(value) => { setSort(value as Sort); setLimit(50); }}
+              options={[{ value: "stars", label: "Most stars" }, { value: "votes", label: "Community upvotes" }, { value: "updated", label: "Recently updated" }]}
+              className="min-w-0"
+            />
+            <TextureButton
+              type="button"
+              variant={savedOnly ? "primary" : "minimal"}
+              size="default"
+              aria-pressed={savedOnly}
+              onClick={() => { setSavedOnly(!savedOnly); setLimit(50); }}
+              className="h-11 w-full min-[400px]:col-span-2 sm:col-span-1 sm:w-auto"
+              innerClassName="gap-1.5 px-3.5 text-xs"
+            >
+              <FiBookmark className="size-3.5" aria-hidden="true" />
+              Saved {formatFull(savedCount)}
+            </TextureButton>
+          </div>
+          <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 text-xs text-t3">
+            <p role="status">{formatFull(visible.length)} of {formatFull(repositories.length)} {repositories.length === 1 ? "repository" : "repositories"}</p>
+            {hasFilters && <TextureButton type="button" variant="minimal" size="default" onClick={resetFilters} className="h-11 w-auto" innerClassName="px-3 text-xs">Reset filters</TextureButton>}
+          </div>
+        </div>
+
+        <p className="text-xs text-t3">Community upvotes are separate from GitHub stars. One vote per repository in this browser.</p>
+        {community.isPending && <p className="text-xs text-t3" role="status">Loading community upvotes…</p>}
+        {community.error && (
+          <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-t2">
+            <p>Community upvotes could not load.</p>
+            <TextureButton type="button" variant="minimal" size="default" onClick={() => community.refetch()} className="h-11 w-auto" innerClassName="px-3 text-xs">Try again</TextureButton>
+          </div>
+        )}
+        {vote.error && <p role="alert" className="text-xs text-t2">{vote.error instanceof Error ? vote.error.message : "Your upvote could not be saved. Try again."}</p>}
+
+        {visible.length > 0 ? (
+          <RepositoryTable
+            repositories={visible}
+            limit={limit}
+            onShowAll={() => setLimit(visible.length)}
+            label={`Repositories ranked by ${SORT_LABELS[sort]}`}
+            counts={counts}
+            voted={voted}
+            saved={saved}
+            votingDisabled={!community.data || vote.isPending || Boolean(community.error)}
+            onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
+            onSave={toggleSaved}
+          />
+        ) : (
+          <div className="surface-quiet rounded-[28px] px-5 py-8 text-center">
+            <p className="text-sm text-foreground">{repositories.length === 0 ? "No repositories yet." : emptySaved ? "No saved repositories yet." : "No repositories match your filters."}</p>
+            <p className="mt-2 text-xs text-t3">{repositories.length === 0 ? "Member projects appear here after GitHub updates." : emptySaved ? "Save repositories to keep them here on this device." : "Try another search or browse all repositories."}</p>
+            {hasFilters && (
+              <TextureButton type="button" variant="minimal" size="default" className="mt-4 h-11 w-auto" innerClassName="px-3.5 text-xs" onClick={resetFilters}>
+                Browse all repositories
+              </TextureButton>
+            )}
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+}

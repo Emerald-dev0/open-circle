@@ -10,7 +10,7 @@ import { Movement } from "./movement";
 
 // Phone: rank · member · score. From md up, every column in PRD §11.3 order.
 const GRID =
-  "grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-2.5 md:gap-x-4 md:grid-cols-[2rem_minmax(0,1.4fr)_minmax(0,1fr)_4.75rem_3.75rem_4.75rem_3.25rem_3.25rem]";
+  "grid grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-2 md:gap-x-3 md:grid-cols-[2rem_minmax(0,1.4fr)_minmax(0,1fr)_4.75rem_3.75rem_4.75rem_3.25rem_5.5rem_3.25rem]";
 
 function Row({
   member,
@@ -34,7 +34,7 @@ function Row({
       transition={{ layout: { type: "spring", stiffness: 420, damping: 38 }, opacity: { duration: 0.25 } }}
       className={cn(
         GRID,
-        "scroll-mt-24 rounded-full px-3 py-2 md:px-5 md:py-2.5",
+        "scroll-mt-24 rounded-full px-3 py-2.5 md:px-5",
         isMe ? "bg-white/[0.09]" : index % 2 === 1 && "surface-quiet",
         flash && "animate-row-flash",
       )}
@@ -49,9 +49,9 @@ function Row({
           href={githubUrl(member.login)}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex min-w-0 items-center gap-2.5 rounded-lg"
+          className="group flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
         >
-          <Avatar className="size-7 shrink-0 sm:size-8">
+          <Avatar className="size-6 shrink-0 min-[400px]:size-8">
             <AvatarImage src={member.avatarUrl || diceBearAvatarUrl(id)} alt="" loading="lazy" />
             <AvatarFallback className="bg-alva-card text-[10px] font-medium">
               {member.nickname.slice(0, 2).toUpperCase()}
@@ -67,6 +67,7 @@ function Row({
               )}
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
+            <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.activity)} contributions · {formatCount(member.upvotes)} upvotes</span>
           </span>
         </a>
       </div>
@@ -84,7 +85,11 @@ function Row({
       </div>
 
       <div role="cell" className="text-right md:text-left">
-        <span className="block text-sm font-medium tabular text-foreground">{formatFull(member.score)}</span>
+        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.activity)} contributions since joining · ${formatFull(member.upvotes)} repo upvotes`}>
+          <span className="sr-only">{formatFull(member.score)} points</span>
+          <span className="md:hidden" aria-hidden="true">{formatCount(member.score)}</span>
+          <span className="hidden md:inline" aria-hidden="true">{formatFull(member.score)}</span>
+        </span>
         <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-t4 tabular md:hidden">
           <StarIcon size={10} aria-hidden />
           {formatCount(member.stars)}
@@ -94,6 +99,10 @@ function Row({
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.stars)}</div>
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.followers)}</div>
       <div role="cell" className="hidden text-sm tabular text-t3 md:block">{formatCount(member.repos)}</div>
+      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title="Contributions since joining OpenCircle">
+        {formatCount(member.activity)}
+        <span className="block text-[11px] text-t3">{formatCount(member.upvotes)} upvotes</span>
+      </div>
       <div role="cell" className="hidden text-sm md:block">
         <Movement delta={member.delta} isNew={member.isNew} />
       </div>
@@ -132,7 +141,7 @@ export function RankTable({
     <div>
       <div role="table" aria-label="Ranks 4 and below" aria-rowcount={members.length + 1}>
         <div role="rowgroup">
-          <div role="row" className={cn(GRID, "px-4 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-t4 md:px-3")}>
+          <div role="row" className={cn(GRID, "px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-t4 md:px-5")}>
             <span role="columnheader">#</span>
             <span role="columnheader">Member</span>
             <span role="columnheader" className="hidden md:block">GitHub</span>
@@ -140,6 +149,7 @@ export function RankTable({
             <span role="columnheader" className="hidden md:block">Stars</span>
             <span role="columnheader" className="hidden md:block">Followers</span>
             <span role="columnheader" className="hidden md:block">Repos</span>
+            <span role="columnheader" className="hidden md:block">Contributions</span>
             <span role="columnheader" className="hidden md:block">Move</span>
           </div>
         </div>

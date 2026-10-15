@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 // (padding over a gradient) still gives the bevel. Metal-wrapped buttons get
 // their edge from MetalFx instead, see metal-button.tsx.
 const buttonVariantsOuter = cva(
-  "inline-flex shrink-0 cursor-pointer select-none no-underline disabled:cursor-not-allowed disabled:opacity-60",
+  "touch-target inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer select-none no-underline disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:min-w-0",
   {
     variants: {
       variant: {
@@ -42,7 +42,7 @@ const buttonVariantsOuter = cva(
 )
 
 const innerDivVariants = cva(
-  "text-muted-foreground flex h-full w-full items-center justify-center whitespace-nowrap font-medium",
+  "text-muted-foreground flex w-full self-stretch items-center justify-center whitespace-nowrap font-medium",
   {
     variants: {
       variant: {

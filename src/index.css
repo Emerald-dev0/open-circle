@@ -90,6 +90,7 @@ fades), recoloured from brand blue to white.
   html {
     background: hsl(var(--background));
     -webkit-tap-highlight-color: transparent;
+    scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
 
   body {
@@ -110,6 +111,12 @@ fades), recoloured from brand blue to white.
 }
 
 @layer components {
+  .page-container {
+    @apply mx-auto w-full max-w-3xl;
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
   /* Page wash: a white radial from above and light rising from the bottom edge. */
   .app-backdrop {
     position: fixed;
@@ -154,7 +161,7 @@ fades), recoloured from brand blue to white.
   }
 
   .field {
-    @apply h-11 w-full rounded-full px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-[hsl(var(--t4))];
+    @apply h-11 min-w-0 w-full rounded-full px-4 text-base text-foreground outline-none transition-colors placeholder:text-[hsl(var(--t4))] sm:text-[15px];
     background: hsl(220 60% 85% / 0.06);
   }
   .field:hover {
@@ -196,6 +203,23 @@ fades), recoloured from brand blue to white.
   .text-down { color: hsl(var(--down)); }
   .text-warn { color: hsl(var(--warn)); }
   .tabular { font-variant-numeric: tabular-nums; }
+}
+
+@media (pointer: coarse) {
+  input.field,
+  textarea.field {
+    font-size: 1rem;
+  }
+
+  button.field.text-sm {
+    font-size: 0.875rem;
+  }
+
+  button.touch-target,
+  a.touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

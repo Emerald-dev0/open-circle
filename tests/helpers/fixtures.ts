@@ -1,5 +1,5 @@
 import type { Board, GithubRepository, PublicMember } from "../../shared/types";
-import { DEFAULT_WEIGHTS } from "../../shared/ranking";
+import { contributionStart, DEFAULT_WEIGHTS } from "../../shared/ranking";
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../../shared/brand";
 import type { MemberRecord } from "../../server/store";
 
@@ -30,6 +30,7 @@ export function memberRecord(overrides: Partial<MemberRecord> = {}): MemberRecor
     followers: 2,
     repos: 1,
     activity: 9,
+    activitySince: contributionStart(overrides.createdAt ?? Date.now()),
     projects: [repository()],
     hidden: false,
     createdAt: Date.now(),
@@ -51,6 +52,7 @@ export function publicMember(overrides: Partial<PublicMember> = {}): PublicMembe
     followers: 2,
     repos: 1,
     activity: 9,
+    upvotes: 0,
     rank: 1,
     delta: 0,
     isNew: true,
@@ -60,6 +62,7 @@ export function publicMember(overrides: Partial<PublicMember> = {}): PublicMembe
 
 export function boardFixture(overrides: Partial<Board> = {}): Board {
   return {
+    rankingVersion: 2,
     members: [],
     repositories: [],
     updatedAt: Date.now(),
@@ -100,7 +103,7 @@ export function githubOwner(overrides: Record<string, unknown> = {}) {
       nodes: [githubRepository(10, { id: "R_open-kit", name: "open-kit", nameWithOwner: "Octocat/open-kit", url: "https://github.com/Octocat/open-kit", description: "Tools built by the circle", forkCount: 2 })],
       pageInfo: { hasNextPage: false, endCursor: null },
     },
-    contributionsCollection: {
+    activity0: {
       totalCommitContributions: 4,
       totalIssueContributions: 1,
       totalPullRequestContributions: 2,

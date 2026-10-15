@@ -9,6 +9,52 @@ afterEach(() => {
 });
 
 describe("GitHub profile and repository lookup", () => {
+  it("uses each member's joining day instead of a rolling 30-day window", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-14T12:00:00Z"));
+    const fetchMock = vi.fn().mockResolvedValue(githubJson({ data: {
+      u0: githubOwner(), u1: githubOwner({ login: "Second" }),
+    } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const outcome = await lookupMany(["Octocat", "second"], new Map([
+      ["octocat", Date.parse("2026-08-01T18:15:00Z")],
+      ["second", Date.parse("2026-09-20T08:00:00Z")],
+    ]));
+
+    const { variables, query } = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(variables).toMatchObject({
+      f0_0: "2026-08-01T00:00:00.000Z", f1_0: "2026-09-20T00:00:00.000Z",
+      t0_0: "2026-10-14T12:00:00.000Z", t1_0: "2026-10-14T12:00:00.000Z",
+    });
+    expect(query).toContain("avatarUrl(size: 160)");
+    expect(outcome.results.get("octocat")).toMatchObject({ kind: "user", stats: {
+      activity: 9, activitySince: Date.parse("2026-08-01T00:00:00Z"), avatarUrl: "https://avatars.githubusercontent.com/u/1",
+    } });
+  });
+
+  it("keeps counting beyond a year using consecutive non-overlapping GitHub ranges", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-14T12:00:00Z"));
+    const fetchMock = vi.fn().mockResolvedValue(githubJson({ data: { u0: githubOwner({ activity1: {
+      totalCommitContributions: 130, totalIssueContributions: 0, totalPullRequestContributions: 0,
+      totalPullRequestReviewContributions: 0, totalRepositoryContributions: 0,
+    } }) } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await lookupOne("octocat", Date.parse("2025-08-01T19:00:00Z"));
+
+    const { variables } = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(variables).toMatchObject({
+      f0_0: "2025-08-01T00:00:00.000Z", t0_0: "2026-07-31T23:59:59.999Z",
+      f0_1: "2026-08-01T00:00:00.000Z", t0_1: "2026-10-14T12:00:00.000Z",
+    });
+    expect(result).toMatchObject({ kind: "user", stats: { activity: 139 } });
+  });
+
+  it.each([null, {}, { totalCommitContributions: -1 }])("rejects incomplete contribution data instead of resetting the score", async (activity0) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(githubJson({ data: { u0: githubOwner({ activity0 }) } })));
+    await expect(lookupOne("octocat")).rejects.toMatchObject({ code: "upstream" });
+  });
+
   it("loads every repository beyond the first 100 and sums all owned public stars", async () => {
     const first = Array.from({ length: 100 }, (_, i) => githubRepository(i + 1));
     const second = Array.from({ length: 25 }, (_, i) => githubRepository(i + 101));

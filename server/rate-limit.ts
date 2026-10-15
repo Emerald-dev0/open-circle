@@ -10,7 +10,7 @@ const LIMITS = {
 };
 const WINDOW_SECONDS = 60;
 
-function clientKey(req: Request): string {
+export function clientKey(req: Request): string {
   const forwarded =
     req.headers.get("x-vercel-forwarded-for") ??
     req.headers.get("x-forwarded-for") ??

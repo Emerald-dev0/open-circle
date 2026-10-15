@@ -1,12 +1,15 @@
 import type {
   AdminAction,
   AdminState,
+  AdminSession,
   ApiErrorBody,
   Board,
   Preview,
   RegisterInput,
   RegisterResult,
 } from "@shared/types";
+import type { CommunityState, CommunityTool, ToolInput, ToolVoteInput, ToolVoteResult, VoteInput, VoteResult } from "@shared/community";
+import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 
 export class ApiError extends Error {
   constructor(
@@ -38,16 +41,37 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  participation: (signal?: AbortSignal) => request<ParticipationState>("/api/participation", { signal }),
+  linkWhatsapp: (phone: string) => request<LinkChallenge>("/api/participation", { method: "POST", body: JSON.stringify({ action: "link", phone }) }),
+  participate: (input: ParticipationAction) => request<ParticipationState>("/api/participation", { method: "POST", body: JSON.stringify(input) }),
   board: () => request<Board>("/api/board"),
-  preview: (login: string) => request<Preview>(`/api/preview?u=${encodeURIComponent(login.toLowerCase())}`),
+  community: (signal?: AbortSignal) => request<CommunityState>("/api/community", { signal }),
+  vote: (input: VoteInput) => request<VoteResult>("/api/vote", { method: "POST", body: JSON.stringify(input) }),
+  toolVote: (input: ToolVoteInput) => request<ToolVoteResult>("/api/vote", { method: "POST", body: JSON.stringify(input) }),
+  signOut: () => request<{ ok: boolean }>("/api/auth", { method: "POST", body: "{}" }),
+  submitTool: (input: ToolInput) => request<CommunityTool>("/api/tools", { method: "POST", body: JSON.stringify(input) }),
+  adminSession: (signal?: AbortSignal) => request<AdminSession>("/api/admin-session", { signal, cache: "no-store" }),
+  adminSignOut: () => request<{ ok: boolean }>("/api/admin-session", { method: "DELETE", headers: { "x-opencircle-admin": "1" }, body: "{}" }),
+  adminTools: (signal?: AbortSignal) => request<CommunityTool[]>("/api/tools", { signal, cache: "no-store" }),
+  approveTool: (id: string) => request<{ ok: boolean }>("/api/tools", {
+    method: "PATCH",
+    headers: { "x-opencircle-admin": "1" },
+    body: JSON.stringify({ id, action: "approve" }),
+  }),
+  removeTool: (id: string) => request<{ ok: boolean }>("/api/tools", {
+    method: "DELETE",
+    headers: { "x-opencircle-admin": "1" },
+    body: JSON.stringify({ id }),
+  }),
+  preview: (input: RegisterInput) => request<Preview>("/api/preview", { method: "POST", body: JSON.stringify(input) }),
   register: (input: RegisterInput) =>
     request<RegisterResult>("/api/register", { method: "POST", body: JSON.stringify(input) }),
-  adminState: (secret: string) =>
-    request<AdminState>("/api/admin", { headers: { authorization: `Bearer ${secret}` } }),
-  adminAction: (secret: string, action: AdminAction) =>
+  adminState: (signal?: AbortSignal) =>
+    request<AdminState>("/api/admin", { signal, cache: "no-store" }),
+  adminAction: (action: AdminAction) =>
     request<AdminState>("/api/admin", {
       method: "POST",
-      headers: { authorization: `Bearer ${secret}` },
+      headers: { "x-opencircle-admin": "1" },
       body: JSON.stringify(action),
     }),
 };

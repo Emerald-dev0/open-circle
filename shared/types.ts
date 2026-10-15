@@ -5,8 +5,7 @@ export interface Weights {
   /** Repos past this count earn nothing, so 200 empty repos can't farm points. */
   reposCap: number;
   activity: number;
-  /** Contributions past this count earn nothing. */
-  activityCap: number;
+  upvotes: number;
 }
 
 export interface GithubStats {
@@ -19,8 +18,9 @@ export interface GithubStats {
   followers: number;
   /** Owned, non-fork public repos. */
   repos: number;
-  /** Public contributions (commits, PRs, reviews, issues, new repos) in the last 30 days. */
+  /** Public contributions (commits, PRs, reviews, issues, new repos) since the UTC day of joining. */
   activity: number;
+  activitySince: number;
   projects?: GithubRepository[];
 }
 
@@ -53,6 +53,7 @@ export interface PublicMember {
   followers: number;
   repos: number;
   activity: number;
+  upvotes: number;
   rank: number;
   /** Places gained (+) or lost (−) on the last move, if it happened in the last 24h. */
   delta: number;
@@ -68,6 +69,7 @@ export interface InviteConfig {
 }
 
 export interface Board {
+  rankingVersion?: number;
   members: PublicMember[];
   repositories: PublicRepository[];
   /** When this snapshot was written. Clients never replace a newer one with an older one. */
@@ -111,6 +113,11 @@ export interface AdminConfig {
 export interface AdminState {
   members: AdminMember[];
   config: AdminConfig;
+}
+
+export interface AdminSession {
+  configured: boolean;
+  profile: { id: number; login: string; avatarUrl: string } | null;
 }
 
 export type AdminAction =

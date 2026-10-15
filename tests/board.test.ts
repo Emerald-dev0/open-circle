@@ -6,6 +6,11 @@ import { handle, json } from "../server/http";
 import type { Board } from "../shared/types";
 import { boardFixture, githubJson, githubOwner, githubRepository, memberRecord, repository } from "./helpers/fixtures";
 import { TestStore } from "./helpers/test-store";
+import { contributionStart, DEFAULT_WEIGHTS, scoreOf } from "../shared/ranking";
+
+vi.mock("../server/whatsapp", () => ({ requireWhatsappMembership: vi.fn().mockResolvedValue(undefined) }));
+const community = vi.hoisted(() => ({ counts: {} as Record<string, number> }));
+vi.mock("../server/community-store", () => ({ getCommunityStore: () => ({ readVotes: async () => ({ counts: community.counts, voted: [] }) }) }));
 
 const input = { github: "Octocat", nickname: "Octo", whatsapp: "0803 123 4567" };
 
@@ -21,7 +26,10 @@ function githubProfiles() {
   return fetchMock;
 }
 
-beforeEach(() => vi.stubEnv("GITHUB_TOKEN", "test-token"));
+beforeEach(() => {
+  vi.stubEnv("GITHUB_TOKEN", "test-token");
+  community.counts = {};
+});
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -29,11 +37,26 @@ afterEach(() => {
 });
 
 describe("OpenCircle member registration", () => {
-  it("previews a username before collecting details and does not register during preview", async () => {
+  it("previews an existing member with the same contribution dates and upvote weights as their board score", async () => {
+    const fetchMock = githubProfiles();
+    const store = new TestStore();
+    const createdAt = Date.parse("2026-08-01T18:00:00Z");
+    await store.createMember(memberRecord({ createdAt }));
+    community.counts = { "repo:R_open-kit": 2, "tool:R_open-kit": 100 };
+    const board = await rebuildBoard(store);
+
+    const preview = await previewProfile(store, "Octocat", input.whatsapp);
+
+    expect(preview.score).toBe(board.members[0].score);
+    expect(preview.score).toBe(70);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).variables.f0_0).toBe("2026-08-01T00:00:00.000Z");
+  });
+
+  it("previews a username with a group number without registering during preview", async () => {
     githubProfiles();
     const store = new TestStore();
 
-    const preview = await previewProfile(store, "https://github.com/Octocat/");
+    const preview = await previewProfile(store, "https://github.com/Octocat/", input.whatsapp);
 
     expect(preview.profile.login).toBe("Octocat");
     expect(preview.score).toBe(68);
@@ -52,6 +75,7 @@ describe("OpenCircle member registration", () => {
     expect(result.board.members).toMatchObject([{ login: "Octocat", nickname: "Octo Cat", rank: 1, score: 68 }]);
     expect(result.board.repositories).toMatchObject([{ fullName: "Octocat/open-kit", rank: 1, stars: 10, ownerNickname: "Octo Cat" }]);
     expect(await store.getMember("octocat")).toMatchObject({ whatsapp: "+2348031234567", nickname: "Octo Cat" });
+    expect(await store.getMember("octocat")).toMatchObject({ activitySince: contributionStart(Date.now()) });
     expect(JSON.stringify(result)).not.toContain('"whatsapp":');
     expect(JSON.stringify(result)).not.toContain("8031234567");
     expect(result.board.invite.url).toBe("https://chat.whatsapp.com/HanHO4T0w0kJGcipYZTB8q?mode=gi_t");
@@ -132,6 +156,61 @@ describe("OpenCircle member registration", () => {
 });
 
 describe("Member and repository board updates", () => {
+  it("lets contributions above 100 and repo upvotes move a member ahead of more-starred accounts", async () => {
+    const store = new TestStore();
+    await store.createMember(memberRecord({ stars: 0, activity: 110, projects: [repository()] }));
+    await store.createMember(memberRecord({ login: "second", displayLogin: "Second", nickname: "Second", whatsapp: "+447700900123", stars: 20, activity: 20, projects: [] }));
+
+    expect((await rebuildBoard(store)).members[0].login).toBe("Second");
+    const updated = await rebuildBoard(store, { voteCounts: { "repo:R_open-kit": 11, "repo:unlisted": 1000, "tool:R_open-kit": 1000 } });
+
+    expect(updated.members[0]).toMatchObject({ login: "Octocat", activity: 110, upvotes: 11, score: 130, delta: 1 });
+    expect(updated.members[1]).toMatchObject({ login: "Second", upvotes: 0, score: 129 });
+    expect(updated.repositories[0].stars).toBe(10);
+    expect(scoreOf({ stars: 0, followers: 0, repos: 0, activity: 1000, upvotes: 2 }, DEFAULT_WEIGHTS)).toBe(1002);
+  });
+
+  it("backfills older members from their original joining day without treating old 30-day totals as cumulative", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    const legacy = memberRecord({ createdAt: Date.parse("2026-08-01T18:00:00Z"), activity: 99 });
+    delete legacy.activitySince;
+    await store.createMember(legacy);
+    await store.setBoard(boardFixture({ rankingVersion: undefined }));
+    const fetchMock = githubProfiles();
+    const work: Promise<unknown>[] = [];
+
+    const pending = await readBoard(store, (promise) => { work.push(promise); });
+    expect(pending.members[0].activity).toBe(0);
+    expect(pending.statsDelayed).toBe(true);
+    await Promise.all(work);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).variables.f0_0).toBe("2026-08-01T00:00:00.000Z");
+    expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 68 });
+    expect((await store.getBoard())?.statsDelayed).toBe(false);
+  });
+
+  it("replaces cumulative totals on refresh without double counting or moving the joining date", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    const createdAt = Date.parse("2026-08-01T18:00:00Z");
+    await store.createMember(memberRecord({ createdAt }));
+    await rebuildBoard(store);
+    const fetchMock = githubProfiles();
+
+    for (let i = 0; i < 2; i++) {
+      vi.setSystemTime(Date.now() + 86_400_000);
+      const work: Promise<unknown>[] = [];
+      await readBoard(store, (promise) => { work.push(promise); });
+      await Promise.all(work);
+      expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 68 });
+    }
+    expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).variables.f0_0))
+      .toEqual(["2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z"]);
+  });
+
   it("ranks repositories by stars, then forks, then name rather than by owner score", async () => {
     const store = new TestStore();
     await store.createMember(memberRecord({ projects: [repository({ id: "R_z", name: "z", fullName: "Octocat/z", stars: 5, forks: 2 }), repository({ id: "R_a", name: "a", fullName: "Octocat/a", stars: 5, forks: 2 })] }));
@@ -238,10 +317,10 @@ describe("Member and repository board updates", () => {
     expect(updated?.statsDelayed).toBe(false);
   });
 
-  it("rejects admin reads without the exact server secret", () => {
+  it("keeps admin disabled when only the retired server secret is configured", async () => {
     vi.stubEnv("ADMIN_SECRET", "private-admin-key");
-    expect(() => authorize(new Request("https://example.test/api/admin"))).toThrow();
-    expect(() => authorize(new Request("https://example.test/api/admin", { headers: { authorization: "Bearer wrong" } }))).toThrow();
-    expect(() => authorize(new Request("https://example.test/api/admin", { headers: { authorization: "Bearer private-admin-key" } }))).not.toThrow();
+    vi.stubEnv("ADMIN_GITHUB_IDS", "");
+    await expect(authorize(new Request("https://example.test/api/admin"))).rejects.toMatchObject({ status: 503 });
+    await expect(authorize(new Request("https://example.test/api/admin", { headers: { authorization: "Bearer private-admin-key" } }))).rejects.toMatchObject({ status: 503 });
   });
 });

@@ -20,5 +20,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "server/vite-dev-api.ts"]
+  "include": ["vite.config.ts", "server/vite-dev-api.ts", "scripts", "neon.ts"]
 }

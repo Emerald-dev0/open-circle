@@ -21,7 +21,7 @@ export const MetalButton = React.forwardRef<HTMLButtonElement, MetalButtonProps>
       theme="dark"
       variant="button"
       strength={0.95}
-      className={cn("!bg-transparent", wrapperClassName)}
+      className={cn("shrink-0 !bg-transparent !opacity-100 !visible", wrapperClassName)}
     >
       <TextureButton
         ref={ref}

@@ -88,7 +88,11 @@ export function devApi(): Plugin {
           });
 
           res.statusCode = response.status;
-          response.headers.forEach((value, key) => res.setHeader(key, value));
+          response.headers.forEach((value, key) => {
+            if (key !== "set-cookie") res.setHeader(key, value);
+          });
+          const cookies = response.headers.getSetCookie();
+          if (cookies.length) res.setHeader("set-cookie", cookies);
           if (response.status === 413) res.setHeader("connection", "close");
           res.end(Buffer.from(await response.arrayBuffer()));
         } catch (err) {

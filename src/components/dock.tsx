@@ -9,7 +9,7 @@ import type { InviteConfig } from "@shared/types";
 import { LiquidGlass } from "@/components/liquid-glass";
 
 const BRAND_FONT = "650 15px/1 Aspekta, ui-sans-serif, system-ui, sans-serif";
-const SLOT = 40;
+const SLOT = 44;
 const PEAK_SCALE = 1.5;
 
 /**
@@ -81,15 +81,15 @@ export function Dock({
   return (
     <nav
       aria-label="Main"
-      className="fixed inset-x-0 bottom-[max(14px,env(safe-area-inset-bottom))] z-40 flex justify-center px-3"
+      className="fixed inset-x-0 bottom-[max(14px,env(safe-area-inset-bottom))] z-40 flex justify-center pl-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))]"
     >
       {/* The name sits in its own pill, butted up against the icon dock. */}
-      <div className="flex items-center gap-1">
+      <div className="flex max-w-full items-center gap-1">
         <LiquidGlass radius={9999} className="flex items-center p-1.5">
           <button
             type="button"
             onClick={onRank}
-            className="flex h-10 items-center self-center rounded-full px-3 sm:px-4"
+            className="flex h-11 items-center self-center rounded-full px-2 sm:px-4"
             aria-label={`${BRAND_NAME}, back to top`}
           >
             <MetalText font={BRAND_FONT} color="#F4F7FB" theme="dark">{BRAND_NAME}</MetalText>

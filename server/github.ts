@@ -1,4 +1,5 @@
 import type { GithubRepository, GithubStats } from "../shared/types.js";
+import { contributionStart } from "../shared/ranking.js";
 
 export type GithubErrorCode =
   | "not_configured"
@@ -26,6 +27,10 @@ const ENDPOINT = "https://api.github.com/graphql";
 const BATCH_SIZE = 4;
 const CONCURRENCY = 3;
 const TIMEOUT_MS = 20_000;
+const CONTRIBUTION_FIELDS = [
+  "totalCommitContributions", "totalIssueContributions", "totalPullRequestContributions",
+  "totalPullRequestReviewContributions", "totalRepositoryContributions",
+] as const;
 
 const REPO_FIELDS = `
   totalCount
@@ -45,11 +50,6 @@ fragment Owner on RepositoryOwner {
     name
     followers { totalCount }
     repositories(${REPO_ARGS}) { ${REPO_FIELDS} }
-    contributionsCollection(from: $from) {
-      totalCommitContributions totalIssueContributions
-      totalPullRequestContributions totalPullRequestReviewContributions
-      totalRepositoryContributions
-    }
   }
 }`;
 
@@ -78,7 +78,7 @@ interface OwnerNode {
   name?: string | null;
   followers?: { totalCount: number };
   repositories?: RepoConnection;
-  contributionsCollection?: Record<string, number>;
+  [key: `activity${number}`]: Record<string, number> | null;
 }
 interface GraphqlResponse {
   data?: Record<string, OwnerNode | null> | null;
@@ -191,17 +191,34 @@ async function lookupBatch(
   logins: string[],
   token: string,
   deadline: number,
+  joinedAt: ReadonlyMap<string, number>,
+  now: number,
 ): Promise<Outcome> {
-  const params = logins.map((_, i) => `$l${i}: String!`).join(", ");
-  const fields = logins
-    .map((_, i) => `u${i}: repositoryOwner(login: $l${i}) { ...Owner }`)
-    .join("\n");
-  const variables: Record<string, string> = {
-    from: new Date(Date.now() - 30 * 86_400_000).toISOString(),
-  };
-  logins.forEach((login, i) => (variables[`l${i}`] = login));
+  const params: string[] = [];
+  const variables: Record<string, string> = {};
+  const starts = logins.map((login) => contributionStart(Math.min(joinedAt.get(login.toLowerCase()) ?? now, now)));
+  const windows = starts.map((start) => {
+    const ranges: { from: number; to: number }[] = [];
+    for (let from = start; from <= now; from += 365 * 86_400_000) {
+      ranges.push({ from, to: Math.min(from + 365 * 86_400_000 - 1, now) });
+    }
+    return ranges;
+  });
+  const fields = logins.map((login, i) => {
+    params.push(`$l${i}: String!`);
+    variables[`l${i}`] = login;
+    const activity = windows[i].map((range, j) => {
+      params.push(`$f${i}_${j}: DateTime!`, `$t${i}_${j}: DateTime!`);
+      variables[`f${i}_${j}`] = new Date(range.from).toISOString();
+      variables[`t${i}_${j}`] = new Date(range.to).toISOString();
+      return `activity${j}: contributionsCollection(from: $f${i}_${j}, to: $t${i}_${j}) {
+        ${CONTRIBUTION_FIELDS.join(" ")}
+      }`;
+    }).join("\n");
+    return `u${i}: repositoryOwner(login: $l${i}) { ...Owner ... on User { ${activity} } }`;
+  }).join("\n");
   const body = await queryGithub(
-    `query(${params}, $from: DateTime!) { ${fields} } ${OWNER_FRAGMENT}`,
+    `query(${params.join(", ")}) { ${fields} } ${OWNER_FRAGMENT}`,
     variables,
     token,
     deadline,
@@ -226,7 +243,13 @@ async function lookupBatch(
       else {
         try {
           const projects = await allProjects(node, token, deadline);
-          const contributions = node.contributionsCollection ?? {};
+          const activity = windows[i].reduce((total, _, j) => {
+            const contributions = node[`activity${j}`];
+            if (!contributions || CONTRIBUTION_FIELDS.some((field) => !Number.isSafeInteger(contributions[field]) || contributions[field] < 0)) {
+              throw new GithubError("upstream", "GitHub couldn't load contributions.");
+            }
+            return total + CONTRIBUTION_FIELDS.reduce((sum, field) => sum + contributions[field], 0);
+          }, 0);
           result = {
             kind: "user",
             stats: {
@@ -236,10 +259,8 @@ async function lookupBatch(
               stars: projects.reduce((sum, repo) => sum + repo.stars, 0),
               followers: node.followers?.totalCount ?? 0,
               repos: node.repositories?.totalCount ?? 0,
-              activity: Object.values(contributions).reduce(
-                (sum, count) => sum + count,
-                0,
-              ),
+              activity,
+              activitySince: starts[i],
               projects,
             },
           };
@@ -265,7 +286,7 @@ async function lookupBatch(
   return { results, error };
 }
 
-export async function lookupMany(logins: string[]): Promise<Outcome> {
+export async function lookupMany(logins: string[], joinedAt: ReadonlyMap<string, number> = new Map()): Promise<Outcome> {
   const token = process.env.GITHUB_TOKEN;
   if (!token)
     return {
@@ -278,11 +299,12 @@ export async function lookupMany(logins: string[]): Promise<Outcome> {
   const results = new Map<string, Lookup>();
   let error: GithubError | undefined;
   const deadline = Date.now() + 35_000;
+  const now = Date.now();
   for (let i = 0; i < batches.length; i += CONCURRENCY) {
     const settled = await Promise.allSettled(
       batches
         .slice(i, i + CONCURRENCY)
-        .map((b) => lookupBatch(b, token, deadline)),
+        .map((b) => lookupBatch(b, token, deadline, joinedAt, now)),
     );
     for (const outcome of settled) {
       if (outcome.status === "fulfilled") {
@@ -300,8 +322,8 @@ export async function lookupMany(logins: string[]): Promise<Outcome> {
   return { results, error };
 }
 
-export async function lookupOne(login: string): Promise<Lookup> {
-  const { results, error } = await lookupMany([login]);
+export async function lookupOne(login: string, joinedAt = Date.now()): Promise<Lookup> {
+  const { results, error } = await lookupMany([login], new Map([[login.toLowerCase(), joinedAt]]));
   const result = results.get(login.toLowerCase());
   if (result && result.kind !== "error") return result;
   if (error) throw error;

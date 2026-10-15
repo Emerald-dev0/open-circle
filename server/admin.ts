@@ -1,18 +1,29 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { AdminConfig, AdminState, Board, Weights } from "../shared/types.js";
 import { formatNigerianNumber } from "../shared/validation.js";
 import { loadConfig, rebuildBoard } from "./board.js";
 import { HttpError } from "./http.js";
 import type { Store } from "./store.js";
+import { adminProfile, adminUserIds, requireAdminOrigin } from "./admin-session.js";
+import { getCommunityStore } from "./community-store.js";
+import { getStore } from "./db.js";
+import { githubSignInAvailable } from "./github-auth.js";
+import { clientKey } from "./rate-limit.js";
 
-export function authorize(req: Request) {
-  const secret = process.env.ADMIN_SECRET;
-  if (!secret) throw new HttpError(503, "admin_disabled", "Set ADMIN_SECRET to turn on the admin page.");
-  const given = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
-  const digest = (s: string) => createHash("sha256").update(s).digest();
-  if (!timingSafeEqual(digest(given), digest(secret))) {
-    throw new HttpError(401, "unauthorized", "That admin secret is wrong.");
-  }
+export function adminConfigured(): boolean {
+  return githubSignInAvailable() && adminUserIds().size > 0;
+}
+
+export async function authorize(req: Request) {
+  if (!adminConfigured()) throw new HttpError(503, "admin_disabled", "Admin access hasn't been configured yet.");
+  requireAdminOrigin(req, !["GET", "HEAD"].includes(req.method));
+  const store = getStore();
+  if (!await store.rateLimit(`admin:ip:${clientKey(req)}`, 120, 60))
+    throw new HttpError(429, "rate_limited", "Too many admin requests. Wait a minute and try again.", undefined, { "retry-after": "60" });
+  const profile = await adminProfile(req, getCommunityStore());
+  if (!profile) throw new HttpError(401, "unauthorized", "Sign in with an approved GitHub account to continue.");
+  if (!await store.rateLimit(`admin:account:${profile.id}`, 120, 60))
+    throw new HttpError(429, "rate_limited", "Too many admin requests. Wait a minute and try again.", undefined, { "retry-after": "60" });
+  return profile;
 }
 
 export async function adminState(store: Store, board?: Board): Promise<AdminState> {
@@ -34,6 +45,7 @@ export async function adminState(store: Store, board?: Board): Promise<AdminStat
         followers: r.followers,
         repos: r.repos,
         activity: r.activity,
+        upvotes: pub?.upvotes ?? 0,
         rank: pub?.rank ?? 0,
         delta: pub?.delta ?? 0,
         isNew: pub?.isNew ?? false,
@@ -48,7 +60,7 @@ export async function adminState(store: Store, board?: Board): Promise<AdminStat
   return { members, config };
 }
 
-const WEIGHT_KEYS: (keyof Weights)[] = ["stars", "followers", "repos", "reposCap", "activity", "activityCap"];
+const WEIGHT_KEYS: (keyof Weights)[] = ["stars", "followers", "repos", "reposCap", "activity", "upvotes"];
 
 function validConfig(input: unknown): AdminConfig {
   const c = input as Partial<AdminConfig> | null;
@@ -75,6 +87,12 @@ function validConfig(input: unknown): AdminConfig {
 export async function adminAction(store: Store, body: unknown): Promise<AdminState> {
   const action = (body as { action?: string } | null)?.action;
   const login = String((body as { login?: unknown } | null)?.login ?? "").toLowerCase();
+
+  if (["hide", "unhide", "remove"].includes(action ?? "")) {
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(login))
+      throw new HttpError(400, "invalid_member", "Choose a registered member.");
+    if (!await store.getMember(login)) throw new HttpError(404, "not_found", "That member is no longer registered.");
+  }
 
   switch (action) {
     case "hide":

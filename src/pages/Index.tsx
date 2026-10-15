@@ -12,13 +12,16 @@ import {
 } from "@/components/board/leaderboard-podium";
 import { RankMe } from "@/components/board/rank-me";
 import { RankTable } from "@/components/board/rank-table";
-import { RepositoryTable } from "@/components/board/repository-table";
+import { RepositoryExplorer } from "@/components/board/repository-explorer";
+import { ToolsDirectory } from "@/components/board/tools-directory";
+import { GitHubAccount } from "@/components/github-account";
 import { SiteFooter } from "@/components/site-footer";
 import { Dock } from "@/components/dock";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TextureButton } from "@/components/ui/texture-button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBoard } from "@/hooks/use-board";
+import { useCommunity } from "@/hooks/use-community";
 import { formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
 
@@ -32,6 +35,8 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     points: m.score,
     handle: m.login,
     stars: m.stars,
+    activity: m.activity,
+    upvotes: m.upvotes,
     href: githubUrl(m.login),
     avatarUrl: m.avatarUrl || undefined,
     seed: id,
@@ -112,7 +117,12 @@ const Index = () => {
   const repositoriesOpen =
     useMatch("/repositories") !== null ||
     new URLSearchParams(location.search).get("tab") === "repositories";
+  const toolsOpen =
+    useMatch("/tools") !== null ||
+    new URLSearchParams(location.search).get("tab") === "tools";
+  const activeTab = toolsOpen ? "tools" : repositoriesOpen ? "repositories" : "developers";
   const { data: board, isPending, isError, refetch, isRefetching } = useBoard();
+  const { data: community } = useCommunity();
   const [me, setMe] = useState<string | null>(readMe);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -120,19 +130,19 @@ const Index = () => {
   const flashTimer = useRef<number | undefined>(undefined);
 
   const members = useMemo(() => board?.members ?? [], [board]);
+  const currentMember = members.find((member) => member.login.toLowerCase() === me);
   const podium = useMemo(() => members.slice(0, 3).map(toEntry), [members]);
   const rest = useMemo(() => members.slice(3), [members]);
   const repoPodium = useMemo(() => (board?.repositories ?? []).slice(0, 3).map(repoEntry), [board]);
   const repositories = board?.repositories ?? [];
+  const toolCount = community?.tools.length ?? 0;
 
   // Visiting /how-it-works opens the explainer over the board.
   const setHowOpen = (open: boolean) =>
     navigate(
       open
-        ? `/how-it-works${repositoriesOpen ? "?tab=repositories" : ""}`
-        : repositoriesOpen
-          ? "/repositories"
-          : "/",
+        ? `/how-it-works${activeTab !== "developers" ? `?tab=${activeTab}` : ""}`
+        : activeTab === "developers" ? "/" : `/${activeTab}`,
       { replace: !open },
     );
 
@@ -173,9 +183,13 @@ const Index = () => {
       <div className="app-backdrop" aria-hidden />
 
       <div className="relative z-10">
-        <main className="mx-auto max-w-3xl px-4 pb-6">
+        <header className="absolute right-[max(1rem,env(safe-area-inset-right))] top-[calc(1rem+env(safe-area-inset-top))] z-20 sm:right-[max(1.5rem,env(safe-area-inset-right))] sm:top-[calc(1.5rem+env(safe-area-inset-top))]">
+          <GitHubAccount />
+        </header>
+
+        <main className="page-container pb-6">
           <section
-            className="flex flex-col items-center pt-10 text-center sm:pt-24"
+            className="flex flex-col items-center pt-[calc(5rem+env(safe-area-inset-top))] text-center sm:pt-[calc(7rem+env(safe-area-inset-top))]"
             aria-labelledby="pitch"
           >
             <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
@@ -185,11 +199,11 @@ const Index = () => {
             </span>
             <h1
               id="pitch"
-              className="text-gradient mt-3 text-[30px] font-[350] leading-[1.05] tracking-[-0.035em] min-[400px]:text-[34px] sm:mt-4 sm:text-[64px] sm:leading-[1.02] sm:tracking-[-0.04em]"
+              className="text-gradient mt-3 max-w-full text-balance text-[30px] font-[350] leading-[1.05] tracking-[-0.035em] min-[400px]:text-[34px] sm:mt-4 sm:text-[64px] sm:leading-[1.02] sm:tracking-[-0.04em]"
             >
-              Paste your username.
+              {currentMember ? "You're on the board." : "Paste your username."}
               <br />
-              Take your place.
+              {currentMember ? `Ranked #${formatFull(currentMember.rank)}.` : "Take your place."}
             </h1>
 
             <div className="mt-6 w-full max-w-xl sm:mt-10">
@@ -215,38 +229,45 @@ const Index = () => {
               Community leaderboard
             </h2>
             <Tabs
-              value={repositoriesOpen ? "repositories" : "developers"}
+              value={activeTab}
               onValueChange={(value) => {
                 setShowAll(false);
-                navigate(value === "repositories" ? "/repositories" : "/");
+                navigate(value === "developers" ? "/" : `/${value}`);
               }}
             >
               <div className="mb-5 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
-                <TabsList aria-label="Leaderboard type">
-                  <TabsTrigger value="developers">
-                    {!repositoriesOpen && <TabPill />}
+                <TabsList aria-label="Leaderboard type" className="grid h-auto w-full grid-cols-[1fr_1.15fr_0.7fr] min-[480px]:inline-flex min-[480px]:w-auto">
+                  <TabsTrigger value="developers" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                    {activeTab === "developers" && <TabPill />}
                     <span className="relative">Developers</span>{" "}
-                    <span className="relative ml-2 text-xs tabular text-t3">
+                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
                       {formatFull(members.length)}
                     </span>
                   </TabsTrigger>
-                  <TabsTrigger value="repositories">
-                    {repositoriesOpen && <TabPill />}
+                  <TabsTrigger value="repositories" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                    {activeTab === "repositories" && <TabPill />}
                     <span className="relative">Repositories</span>{" "}
-                    <span className="relative ml-2 text-xs tabular text-t3">
+                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
                       {formatFull(repositories.length)}
                     </span>
                   </TabsTrigger>
+                  <TabsTrigger value="tools" className="min-h-11 min-w-0 px-2 text-xs sm:px-3 sm:text-sm">
+                    {activeTab === "tools" && <TabPill />}
+                    <span className="relative">Tools</span>{" "}
+                    <span className="relative ml-2 hidden text-xs tabular text-t3 min-[480px]:inline">
+                      {formatFull(toolCount)}
+                    </span>
+                  </TabsTrigger>
                 </TabsList>
-                <p
-                  className="flex items-center gap-1.5 text-[11px] text-t3"
+                {!toolsOpen && <p
+                  className="flex max-w-full items-center justify-center gap-1.5 text-center text-[11px] text-t3"
                   role="status"
                 >
                   <span
                     className={
                       isError || board?.statsDelayed
-                        ? "size-1.5 rounded-full bg-[hsl(var(--warn))]"
-                        : "size-1.5 rounded-full bg-[hsl(var(--up))]"
+                        ? "size-1.5 shrink-0 rounded-full bg-[hsl(var(--warn))]"
+                        : "size-1.5 shrink-0 rounded-full bg-[hsl(var(--up))]"
                     }
                     aria-hidden
                   />
@@ -259,10 +280,10 @@ const Index = () => {
                       : isPending
                         ? "Loading rankings…"
                         : `Live · GitHub updated ${timeAgo(board!.refreshedAt, now)}`}
-                </p>
+                </p>}
               </div>
 
-              {isError && !board ? (
+              {isError && !board && !toolsOpen ? (
                 <div className="surface-quiet flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
                   <p className="text-sm text-t2">Couldn't load the board.</p>
                   <TextureButton
@@ -318,20 +339,10 @@ const Index = () => {
                   <TableSkeleton />
                 ) : repositories.length > 0 ? (
                   <>
-                  <LeaderboardPodium
-                    entries={repoPodium}
-                    unit="stars"
-                    ariaLabel="Top three repositories"
-                  />
-                  <div className="mt-4 sm:mt-6">
-                  {repositories.length > 3 && (
-                  <RepositoryTable
-                    repositories={repositories.slice(3)}
-                    limit={showAll ? Number.POSITIVE_INFINITY : TABLE_LIMIT}
-                    onShowAll={() => setShowAll(true)}
-                  />
-                  )}
-                  </div>
+                    <LeaderboardPodium entries={repoPodium} unit="stars" ariaLabel="Top three repositories" />
+                    <div className="mt-4 sm:mt-6">
+                      <RepositoryExplorer repositories={repositories} />
+                    </div>
                   </>
                 ) : (
                   !isError && (
@@ -343,6 +354,9 @@ const Index = () => {
                   )
                 )}
                 </TabPanel>
+              </TabsContent>
+              <TabsContent value="tools">
+                <ToolsDirectory />
               </TabsContent>
             </Tabs>
           </section>
