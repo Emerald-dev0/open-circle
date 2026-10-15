@@ -7,11 +7,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
-import Participation from "./pages/Participation";
 import { TrafficTracker } from "./components/traffic-tracker";
 import { portfolioSlugFromHostname } from "@shared/portfolio";
 
 const Portfolio = lazy(() => import("./pages/Portfolio"));
+const Participation = lazy(() => import("./pages/Participation"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const portfolioSlug = portfolioSlugFromHostname(window.location.hostname);
 
