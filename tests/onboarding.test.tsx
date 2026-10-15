@@ -374,7 +374,7 @@ describe("Community leaderboard pages", () => {
 
     await screen.findByText("You're in.");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("You're on the board.Ranked #55.");
-    expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/");
+    await waitFor(() => expect(screen.getByRole("status", { name: "Current path" }).textContent).toBe("/"));
     await waitFor(() => expect(document.getElementById("member-octocat")).toBeTruthy());
     const row = document.getElementById("member-octocat")!;
     expect(screen.getByRole("columnheader", { name: "Contributions" })).toBeTruthy();
