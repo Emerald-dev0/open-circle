@@ -1,12 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MetalText } from "metal-fx";
 import { toast } from "sonner";
-import { AltArrowLeftIcon, CopyIcon } from "@solar-icons/react/linear";
+import { CopyIcon } from "@solar-icons/react/linear";
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import { GitHubIcon } from "@/components/brand-icons";
 import { GitHubAccount } from "@/components/github-account";
+import { Notch } from "@/components/notch";
 import { MetalButton } from "@/components/metal-button";
 import { Chip, Panel, PanelHeader } from "@/components/panel";
 import { SiteFooter } from "@/components/site-footer";
@@ -118,21 +117,11 @@ export default function Participation() {
   return <div className="relative min-h-dvh overflow-x-clip">
     <div className="app-backdrop" aria-hidden />
     <div className="relative z-10">
-      <header className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 pt-5">
-        <Link to="/" className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-t3 transition-colors hover:text-foreground">
-          <AltArrowLeftIcon size={18} aria-hidden /> Back to the board
-        </Link>
-        {/* Signed out, the panel below carries the one sign-in button. */}
-        {profile && <GitHubAccount />}
-      </header>
+      {/* Signed out, the panel below carries the one sign-in button. */}
+      <Notch title="Participation">{profile && <GitHubAccount />}</Notch>
 
-      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-10 sm:space-y-6 sm:pt-16">
-        <div className="flex flex-col items-center pb-2 text-center sm:pb-4">
-          <span className="surface-quiet inline-flex items-center rounded-full px-3.5 py-1.5">
-            <MetalText font="500 12px/1 Aspekta, ui-sans-serif, system-ui, sans-serif" color="#E2E2E2" theme="dark">Open Source Circle</MetalText>
-          </span>
-          <h1 className="text-gradient mt-3 text-[34px] font-[350] leading-[1.05] tracking-[-0.035em] sm:text-5xl">Group participation</h1>
-        </div>
+      <main className="mx-auto max-w-3xl space-y-4 px-4 pb-10 pt-[calc(6rem+env(safe-area-inset-top))] sm:space-y-6">
+        <h1 className="sr-only">Group participation</h1>
 
 
         {!profile ? <Panel header={<PanelHeader title="Sign in" subtitle="Connect your WhatsApp account, give project feedback and see your activity." />}>

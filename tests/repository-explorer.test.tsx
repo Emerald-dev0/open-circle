@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import { MotionConfig } from "motion/react";
@@ -26,7 +26,7 @@ function explorer(items = repositories) {
 }
 
 function displayedRepositories() {
-  return screen.getAllByRole("row").slice(1).map((row) => within(row).getByRole("link").getAttribute("href"));
+  return screen.queryAllByRole("listitem").map((item) => within(item).getByRole("link").getAttribute("href"));
 }
 
 async function selectOption(user: ReturnType<typeof userEvent.setup>, name: string, option: string) {
@@ -57,51 +57,48 @@ describe("Repository discovery", () => {
     const search = screen.getByRole("searchbox", { name: "Search repositories" });
 
     await user.type(search, "drawing");
-    expect(displayedRepositories()).toEqual([repositories[1].url]);
+    await waitFor(() => expect(displayedRepositories()).toEqual([repositories[1].url]));
     expect(screen.getByRole("status").textContent).toBe("1 of 3 repositories");
     await user.clear(search);
     await user.type(search, "SPARK");
-    expect(displayedRepositories()).toEqual([repositories[0].url]);
+    await waitFor(() => expect(displayedRepositories()).toEqual([repositories[0].url]));
     await selectOption(user, "Filter by language", "JavaScript");
     expect(screen.getByText("No repositories match your filters.")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Browse all repositories" }));
     expect(screen.getByRole("combobox", { name: "Filter by language" }).textContent).toBe("All languages");
-    expect(displayedRepositories()).toEqual(repositories.map((repo) => repo.url));
+    await waitFor(() => expect(displayedRepositories()).toEqual(repositories.map((repo) => repo.url)));
     await user.type(search, "circle-cli");
-    expect(displayedRepositories()).toEqual([repositories[0].url]);
+    await waitFor(() => expect(displayedRepositories()).toEqual([repositories[0].url]));
   });
 
   it("sorts by actual community votes or recent updates while keeping GitHub stars separate", async () => {
     render(explorer());
     const user = userEvent.setup();
     await selectOption(user, "Sort repositories", "Community upvotes");
-    expect(displayedRepositories()).toEqual([repositories[2].url, repositories[1].url, repositories[0].url]);
-    const cliRow = screen.getByRole("button", { name: "Upvote spark/circle-cli" }).closest<HTMLElement>('[role="row"]')!;
+    await waitFor(() => expect(displayedRepositories()).toEqual([repositories[2].url, repositories[1].url, repositories[0].url]));
+    const cliRow = screen.getByRole("button", { name: "Upvote spark/circle-cli" }).closest<HTMLElement>("li")!;
     expect(within(cliRow).getByText("40")).toBeTruthy();
     expect(within(cliRow).getByRole("button", { name: "Upvote spark/circle-cli" }).textContent).toBe("2");
-    expect(screen.getByRole("table", { name: "Repositories ranked by community upvotes" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Repositories ranked by community upvotes" })).toBeTruthy();
     await selectOption(user, "Sort repositories", "Recently updated");
     expect(displayedRepositories()[0]).toBe(repositories[2].url);
     await selectOption(user, "Sort repositories", "Most stars");
     expect(displayedRepositories()[0]).toBe(repositories[0].url);
   });
 
-  it("saves repositories on this device, restores them after remounting, and can unsave from Saved", async () => {
+  it("saves repositories on this device, restores them after remounting, and can unsave", async () => {
     const view = render(explorer());
     const user = userEvent.setup();
     const save = screen.getByRole("button", { name: "Save pixel/canvas" });
     save.focus();
     await user.keyboard("{Enter}");
     expect(JSON.parse(localStorage.getItem("opencircle:saved-repositories:v1")!)).toEqual(["R_canvas"]);
-    await user.click(screen.getByRole("button", { name: "Saved 1" }));
-    expect(displayedRepositories()).toEqual([repositories[1].url]);
     view.unmount();
     render(explorer());
     expect(screen.getByRole("button", { name: "Unsave pixel/canvas" }).getAttribute("aria-pressed")).toBe("true");
-    await user.click(screen.getByRole("button", { name: "Saved 1" }));
     await user.click(screen.getByRole("button", { name: "Unsave pixel/canvas" }));
-    expect(screen.getByText("No saved repositories yet.")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "Browse all repositories" }));
+    expect(screen.getByRole("button", { name: "Save pixel/canvas" }).getAttribute("aria-pressed")).toBe("false");
+    expect(JSON.parse(localStorage.getItem("opencircle:saved-repositories:v1")!)).toEqual([]);
     expect(displayedRepositories()).toHaveLength(3);
   });
 
@@ -127,7 +124,7 @@ describe("Repository discovery", () => {
     expect(screen.getByText("Loading community upvotes…")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Upvote sage/docs" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole("button", { name: "Save sage/docs" }));
-    expect(screen.getByRole("button", { name: "Saved 1" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Unsave sage/docs" }).getAttribute("aria-pressed")).toBe("true");
     hooks.community.mockReturnValue({ data: undefined, isPending: false, error: new Error("Network failed"), refetch });
     view.rerender(explorer());
     expect(screen.getByRole("alert").textContent).toContain("Community upvotes could not load.");
@@ -150,8 +147,7 @@ describe("Repository discovery", () => {
     localStorage.setItem("opencircle:saved-repositories:v1", "{not-json");
     render(explorer([]));
     expect(screen.getByText("No repositories yet.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Saved 0" })).toBeTruthy();
-    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("list")).toBeNull();
   });
 
   it("reveals the remaining filtered repositories when Show all is selected", async () => {

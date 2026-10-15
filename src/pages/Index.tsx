@@ -2,8 +2,7 @@ import * as React from "react";
 import { MetalText } from "metal-fx";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useMatch, useNavigate } from "react-router-dom";
-import { ArrowRightUpIcon } from "@solar-icons/react/linear";
+import { useLocation, useMatch, useNavigate } from "react-router-dom";
 import { BranchingPathsUpIcon, FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import type { PublicMember, PublicRepository } from "@shared/types";
 import { HowItWorks } from "@/components/board/how-it-works";
@@ -219,9 +218,6 @@ const Index = () => {
                 onRules={() => setHowOpen(true)}
               />
             </div>
-            <TextureButton asChild variant="secondary" size="sm" className="mt-5 w-auto">
-              <Link to="/portfolio">Your portfolio<ArrowRightUpIcon className="size-3.5" aria-hidden /></Link>
-            </TextureButton>
           </section>
 
           <section
@@ -263,28 +259,6 @@ const Index = () => {
                     </span>
                   </TabsTrigger>
                 </TabsList>
-                {!toolsOpen && <p
-                  className="flex max-w-full items-center justify-center gap-1.5 text-center text-[11px] text-t3"
-                  role="status"
-                >
-                  <span
-                    className={
-                      isError || board?.statsDelayed
-                        ? "size-1.5 shrink-0 rounded-full bg-[hsl(var(--warn))]"
-                        : "size-1.5 shrink-0 rounded-full bg-[hsl(var(--up))]"
-                    }
-                    aria-hidden
-                  />
-                  {isError
-                    ? board
-                      ? "Reconnecting · showing last rankings"
-                      : "Couldn't connect to the board"
-                    : board?.statsDelayed
-                      ? "GitHub updates delayed"
-                      : isPending
-                        ? "Loading rankings…"
-                        : `Live · GitHub updated ${timeAgo(board!.refreshedAt, now)}`}
-                </p>}
               </div>
 
               {isError && !board && !toolsOpen ? (

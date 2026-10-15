@@ -4,6 +4,7 @@ import { AltArrowDownIcon, AltArrowUpIcon, CheckReadIcon, CodeSquareIcon, Galler
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { TextureButton } from "@/components/ui/texture-button";
+import { MetalButton } from "@/components/metal-button";
 import { portfolioApi } from "@/lib/portfolio-api";
 import { MAX_IMAGE_BYTES, type PortfolioProject, type PortfolioRepository } from "@shared/portfolio";
 
@@ -15,7 +16,7 @@ export function ImageField({ label, value, onChange, upload, uploadsAvailable }:
   const id = useId();
   const file = useRef<HTMLInputElement>(null);
   return <div className="studio-image-field">
-    <EditorField label={label} htmlFor={id} hint="Use an HTTPS image link or upload a PNG, JPEG or WebP under 3 MB."><input id={id} type="url" className="field" value={value} onChange={(event) => onChange(event.target.value)} placeholder="https://…" maxLength={2048} /></EditorField>
+    <EditorField label={label} htmlFor={id} hint={uploadsAvailable ? "An HTTPS link, or upload a PNG, JPEG or WebP under 3 MB." : "An HTTPS image link. Uploads aren't connected yet."}><div className="flex items-center gap-2"><input id={id} type="url" className="field min-w-0 flex-1" value={value} onChange={(event) => onChange(event.target.value)} placeholder="https://…" maxLength={2048} /><MetalButton variant="icon" size="icon" className="size-11 shrink-0" innerClassName="p-0" type="button" aria-label="Upload image" title="Upload image" disabled={!uploadsAvailable} onClick={() => file.current?.click()}><GalleryAddIcon className="size-[18px]" aria-hidden /></MetalButton></div></EditorField>
     <input ref={file} type="file" className="sr-only" tabIndex={-1} aria-label={`Upload ${label.toLowerCase()}`} accept="image/png,image/jpeg,image/webp" disabled={!uploadsAvailable} onChange={async (event) => {
       const chosen = event.target.files?.[0];
       event.target.value = "";
@@ -23,8 +24,6 @@ export function ImageField({ label, value, onChange, upload, uploadsAvailable }:
       if (chosen.size > MAX_IMAGE_BYTES || !["image/png", "image/jpeg", "image/webp"].includes(chosen.type)) { toast.error("Choose a PNG, JPEG or WebP smaller than 3 MB."); return; }
       try { onChange(await upload(chosen)); } catch { return; }
     }} />
-    <TextureButton variant="secondary" size="sm" className="w-auto" type="button" disabled={!uploadsAvailable} onClick={() => file.current?.click()}><GalleryAddIcon className="size-4" aria-hidden />Upload image</TextureButton>
-    {!uploadsAvailable && <p className="studio-help">Uploads aren't connected yet. Image links work now.</p>}
   </div>;
 }
 
