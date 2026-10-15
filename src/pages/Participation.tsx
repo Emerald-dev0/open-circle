@@ -22,7 +22,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
 
-type Field = { required?: boolean; name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder?: string };
+type Field = { required?: boolean; name: string; label: string; type?: "text" | "url" | "tel" | "number" | "textarea"; min?: number; max?: number; value?: string; placeholder: string };
 
 /**
  * Compact form. `inline` puts the fields and button on one line from sm up
@@ -39,8 +39,8 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
     {fields.map((field) => <label key={field.name} htmlFor={`${prefix}-${field.name}`} className={cn("block", inline ? "min-w-0 sm:flex-1" : "space-y-1.5")}>
       <span className={inline ? "sr-only" : "block text-xs text-t3"}>{field.label}</span>
       {field.type === "textarea"
-        ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field min-h-24 resize-none rounded-[20px] py-3 text-sm" required={field.required ?? true} minLength={field.min} maxLength={field.max} disabled={busy} />
-        : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder ?? (inline ? field.label : undefined)} className="field h-11 text-sm" type={field.type ?? "text"} required={field.required ?? true} min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={field.type !== "number" ? field.min : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
+        ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 min-h-24 resize-none rounded-[20px] py-3 text-sm" required={field.required ?? true} minLength={field.min} maxLength={field.max} disabled={busy} />
+        : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 h-11 text-sm" type={field.type ?? "text"} required={field.required ?? true} min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={field.type !== "number" ? field.min : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
     <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
   </form>;
@@ -202,7 +202,7 @@ export default function Participation() {
           {target && <section ref={feedbackForm}>
             <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="What you tried, plus one useful observation or suggestion." />}>
               <div className="py-4">
-                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000 }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
+                <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
                 <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
               </div>
             </Panel>
@@ -222,7 +222,7 @@ export default function Participation() {
               {project.assignedTo.some((login) => mine(login)) && <p className="text-xs text-t2">You're assigned to review this.</p>}
             </Item>}</PaginatedList> : <Empty>No approved projects are waiting for feedback yet.</Empty>}
             <FormFooter>
-              <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80 }, { name: "url", label: "Project link", type: "url" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
+              <ParticipationForm button="Submit for review" busy={busy} fields={[{ name: "title", label: "Project name", max: 80, placeholder: "e.g. Developer Portfolio" }, { name: "url", label: "Project link", type: "url", placeholder: "https://github.com/yourname/project" }, { name: "feedbackWanted", label: "What feedback do you need?", min: 10, max: 300, required: false, placeholder: "e.g. Check the mobile layout and keyboard navigation" }, { name: "skills", label: "Skills, separated by commas", max: 240, required: false, placeholder: "react, typescript, design" }]} submit={(form) => submit({ action: "project", title: String(form.get("title")), url: String(form.get("url")), feedbackWanted: String(form.get("feedbackWanted") ?? ""), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
@@ -237,7 +237,7 @@ export default function Participation() {
               {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
             </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
             <FormFooter>
-              <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500 }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
+              <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
             </FormFooter>
           </Panel>
 
@@ -257,7 +257,7 @@ export default function Participation() {
                 ? <p className="text-sm text-t3">Your break is approved until {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(data.activity.awayUntil)}.</p>
                 : data.activity.awayRequestedDays
                   ? <p className="text-sm text-t3">Your {data.activity.awayRequestedDays}-day break awaits admin approval.</p>
-                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
+                  : <ParticipationForm inline button="Request break" busy={busy} fields={[{ name: "days", label: "Days away, up to 30", type: "number", min: 1, max: 30, value: "7", placeholder: "e.g. 7" }]} submit={(form) => submit({ action: "away", days: Number(form.get("days")) })} />}
             </div>
           </Panel>
         </>)}
