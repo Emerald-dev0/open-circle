@@ -1,37 +1,9 @@
-import {
-  BugMinimalisticIcon,
-  CalendarMarkIcon,
-  ClipboardCheckIcon,
-  CodeIcon,
-  CupStarIcon,
-  DocumentsIcon,
-  FireIcon,
-  HandHeartIcon,
-  StarIcon,
-  UsersGroupRoundedIcon,
-} from "@solar-icons/react/bold-duotone";
+import { FireIcon } from "@solar-icons/react/bold-duotone";
 import type { PublicMember } from "@shared/types";
 import { ACHIEVEMENTS, nextStreakMilestone, type AchievementId } from "@shared/progression";
 import { formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const ICONS: Record<AchievementId, typeof FireIcon> = {
-  first_contribution: CupStarIcon,
-  prolific_contributor: CodeIcon,
-  consistent_20_30: CalendarMarkIcon,
-  streak_7: FireIcon,
-  streak_30: FireIcon,
-  streak_100: FireIcon,
-  streak_365: FireIcon,
-  first_help: HandHeartIcon,
-  community_helper_5: UsersGroupRoundedIcon,
-  community_helper_25: UsersGroupRoundedIcon,
-  first_review: ClipboardCheckIcon,
-  issue_hunter: BugMinimalisticIcon,
-  portfolio_author: DocumentsIcon,
-  stars_100: StarIcon,
-  followers_100: UsersGroupRoundedIcon,
-};
+import { ACHIEVEMENT_ICONS } from "./achievement-icons";
 
 const MAX_BADGES = 3;
 
@@ -78,7 +50,7 @@ export function ProgressionBadges({
       {earned.length > 0 && (
         <span className="hidden items-center gap-1 md:inline-flex">
           {earned.slice(0, MAX_BADGES).map((id) => {
-            const Icon = ICONS[id];
+            const Icon = ACHIEVEMENT_ICONS[id];
             const title = `${ACHIEVEMENTS[id].label}${rarity(id, counts, total)}`;
             return (
               <span key={id} className="inline-flex text-t4" title={title}>

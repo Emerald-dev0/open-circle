@@ -234,6 +234,24 @@ export function nextStreakMilestone(longestStreak: number): number | null {
   return targets.find((target) => target > longestStreak) ?? null;
 }
 
+/** One member's progression, as returned by the on-demand progression endpoint. */
+export interface MemberProgression {
+  login: string;
+  nickname: string;
+  currentStreak: number;
+  longestStreak: number;
+  /** Earned achievement ids mapped to the award time (ms). */
+  achievements: Record<string, number>;
+  /** Verified UTC activity days, oldest first. */
+  activityDays: string[];
+  /** Achievement id → how many members earned it. */
+  counts: Record<string, number>;
+  /** Visible members the counts are drawn from. */
+  total: number;
+  /** The closest unearned goal in each group. */
+  goals: AchievementProgress[];
+}
+
 export function sameAchievements(a: Record<string, number> = {}, b: Record<string, number> = {}): boolean {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);

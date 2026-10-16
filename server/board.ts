@@ -25,8 +25,10 @@ import {
   computeStreaks,
   evaluateAchievements,
   mergeActivityDays,
+  nextGoals,
   sameAchievements,
   utcDay,
+  type MemberProgression,
   type ProgressionSignals,
 } from "../shared/progression.js";
 import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
@@ -254,6 +256,36 @@ export async function rebuildBoard(
   };
   await store.setBoard(board);
   return board;
+}
+
+/**
+ * One member's verified progression for the detail dialog and portfolio.
+ * Hidden members have no public progression, so they read as missing.
+ */
+export async function readProgression(store: Store, login: string): Promise<MemberProgression | null> {
+  const records = await store.listMembers();
+  const record = records.find((m) => m.login === login.toLowerCase());
+  if (!record || record.hidden) return null;
+  const now = Date.now();
+  const today = utcDay(now);
+  const days = mergeActivityDays(record.activityDays);
+  const { current, longest } = computeStreaks(days, today, record.longestStreak);
+  const counts: Record<string, number> = {};
+  for (const id of ACHIEVEMENT_IDS) counts[id] = 0;
+  for (const m of records)
+    for (const id of Object.keys(m.achievements ?? {}))
+      if (id in counts) counts[id] += 1;
+  return {
+    login: record.displayLogin,
+    nickname: record.nickname,
+    currentStreak: current,
+    longestStreak: longest,
+    achievements: record.achievements ?? {},
+    activityDays: days,
+    counts,
+    total: records.filter((m) => !m.hidden).length,
+    goals: nextGoals(progressionSignals(record, { activityDays: days, longestStreak: longest }), record.achievements, now),
+  };
 }
 
 /**

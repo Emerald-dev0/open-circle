@@ -6,8 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
+import { MemberProgressionDialog } from "./member-progression-dialog";
 import { ProgressionBadges } from "./progression-badges";
 import { useTheme } from "@/hooks/use-theme";
+
+function hasProgression(member: PublicMember): boolean {
+  return (member.currentStreak ?? 0) >= 2 || (member.achievements?.length ?? 0) > 0;
+}
 
 // Phone: rank · member · score. From md up, every column in PRD §11.3 order.
 const GRID =
@@ -51,12 +56,12 @@ function Row({
         <Movement delta={member.delta} isNew={member.isNew} className="mt-1 text-[10px] md:hidden" />
       </div>
 
-      <div role="cell" className="min-w-0">
+      <div role="cell" className="flex min-w-0 items-center gap-1.5">
         <a
           href={githubUrl(member.login)}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg"
+          className="group flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg"
         >
           <Avatar className="size-6 shrink-0 min-[400px]:size-8">
             <AvatarImage src={member.avatarUrl || diceBearAvatarUrl(id)} alt="" loading="lazy" />
@@ -72,12 +77,13 @@ function Row({
                   <MetalBadge theme={resolvedTheme} scale={0.78}>You</MetalBadge>
                 </span>
               )}
-              <ProgressionBadges member={member} counts={counts} total={total} className="shrink-0" />
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
             <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>
           </span>
         </a>
+        <ProgressionBadges member={member} counts={counts} total={total} className="shrink-0" />
+        {hasProgression(member) && <MemberProgressionDialog login={member.login} nickname={member.nickname} />}
       </div>
 
       <div role="cell" className="hidden min-w-0 md:block">
