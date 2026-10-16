@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
+import { ProgressionBadges } from "./progression-badges";
 import { useTheme } from "@/hooks/use-theme";
 
 // Phone: rank · member · score. From md up, every column in PRD §11.3 order.
@@ -67,6 +68,7 @@ function Row({
                   <MetalBadge theme={resolvedTheme} scale={0.78}>You</MetalBadge>
                 </span>
               )}
+              <ProgressionBadges member={member} className="shrink-0" />
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
             <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>

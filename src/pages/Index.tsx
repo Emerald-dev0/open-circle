@@ -46,6 +46,7 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     upvotes: m.upvotes,
     helpfulContributions: m.helpfulContributions ?? 0,
     helpedMembers: m.helpedMembers ?? 0,
+    currentStreak: m.currentStreak ?? 0,
     href: githubUrl(m.login),
     avatarUrl: m.avatarUrl || undefined,
     seed: id,
