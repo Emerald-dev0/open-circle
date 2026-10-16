@@ -1,5 +1,6 @@
-import type { GithubRepository, GithubStats } from "../shared/types.js";
+import type { GithubRepository, GithubStar, GithubStats } from "../shared/types.js";
 import { contributionStart } from "../shared/ranking.js";
+import { HELPER_POLICY } from "../shared/coordination.js";
 
 export type GithubErrorCode =
   | "not_configured"
@@ -43,6 +44,12 @@ const REPO_FIELDS = `
 `;
 const REPO_ARGS = `first: 100, ownerAffiliations: OWNER, isFork: false, privacy: PUBLIC,
   orderBy: { field: STARGAZERS, direction: DESC }`;
+const STAR_ARGS = "first: 100, orderBy: { field: STARRED_AT, direction: DESC }";
+const STAR_FIELDS = `
+  isOverLimit
+  pageInfo { hasNextPage endCursor }
+  edges { starredAt node { id isPrivate isFork owner { __typename login } } }
+`;
 const OWNER_FRAGMENT = `
 fragment Owner on RepositoryOwner {
   __typename login avatarUrl(size: 160)
@@ -50,6 +57,7 @@ fragment Owner on RepositoryOwner {
     name
     followers { totalCount }
     repositories(${REPO_ARGS}) { ${REPO_FIELDS} }
+    starredRepositories(${STAR_ARGS}) { ${STAR_FIELDS} }
   }
 }`;
 
@@ -78,7 +86,13 @@ interface OwnerNode {
   name?: string | null;
   followers?: { totalCount: number };
   repositories?: RepoConnection;
+  starredRepositories?: StarConnection;
   [key: `activity${number}`]: Record<string, number> | null;
+}
+interface StarConnection {
+  isOverLimit: boolean;
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  edges: ({ starredAt: string; node: { id: string; isPrivate: boolean; isFork: boolean; owner: { __typename: string; login: string } } } | null)[];
 }
 interface GraphqlResponse {
   data?: Record<string, OwnerNode | null> | null;
@@ -187,6 +201,53 @@ async function allProjects(
   return [...projects.values()];
 }
 
+async function recentStars(node: OwnerNode, token: string, deadline: number, now: number): Promise<GithubStar[]> {
+  let connection = node.starredRepositories;
+  const stars = new Map<string, GithubStar>();
+  const cursors = new Set<string>();
+  const cutoff = now - HELPER_POLICY.windowDays * 86_400_000;
+  let previousTime = Infinity;
+  while (true) {
+    if (!connection || !Array.isArray(connection.edges) || typeof connection.isOverLimit !== "boolean" || typeof connection.pageInfo?.hasNextPage !== "boolean") {
+      throw new GithubError("upstream", "GitHub couldn't load stars given.");
+    }
+    let reachedCutoff = false;
+    for (const edge of connection.edges) {
+      const time = typeof edge?.starredAt === "string" ? Date.parse(edge.starredAt) : NaN;
+      const repo = edge?.node;
+      if (!Number.isSafeInteger(time) || time > now || time > previousTime || !repo || typeof repo.id !== "string" || !repo.id || typeof repo.isPrivate !== "boolean" || typeof repo.isFork !== "boolean" || typeof repo.owner?.login !== "string" || typeof repo.owner.__typename !== "string") {
+        throw new GithubError("upstream", "GitHub returned incomplete star activity.");
+      }
+      previousTime = time;
+      if (time <= cutoff) {
+        reachedCutoff = true;
+        continue;
+      }
+      if (!repo.isPrivate && !repo.isFork && repo.owner.__typename === "User" && repo.owner.login.toLowerCase() !== node.login.toLowerCase()) {
+        stars.set(repo.id, { repositoryId: repo.id, ownerLogin: repo.owner.login.toLowerCase(), starredAt: time });
+      }
+    }
+    if (reachedCutoff) return [...stars.values()];
+    if (!connection.pageInfo.hasNextPage) {
+      if (connection.isOverLimit) throw new GithubError("upstream", "GitHub returned a truncated star history.");
+      return [...stars.values()];
+    }
+    const cursor = connection.pageInfo.endCursor;
+    if (!connection.edges.length || typeof cursor !== "string" || !cursor || cursors.has(cursor)) {
+      throw new GithubError("upstream", "GitHub returned an incomplete star page.");
+    }
+    cursors.add(cursor);
+    const body = await queryGithub(
+      `query($login: String!, $after: String!) {
+        user(login: $login) { starredRepositories(${STAR_ARGS}, after: $after) { ${STAR_FIELDS} } }
+      }`,
+      { login: node.login, after: cursor }, token, deadline,
+    );
+    if (body.errors?.length) throw new GithubError("upstream", "GitHub couldn't load all stars given.");
+    connection = body.data?.user?.starredRepositories;
+  }
+}
+
 async function lookupBatch(
   logins: string[],
   token: string,
@@ -243,6 +304,7 @@ async function lookupBatch(
       else {
         try {
           const projects = await allProjects(node, token, deadline);
+          const starredRepositories = await recentStars(node, token, deadline, now);
           const activity = windows[i].reduce((total, _, j) => {
             const contributions = node[`activity${j}`];
             if (!contributions || CONTRIBUTION_FIELDS.some((field) => !Number.isSafeInteger(contributions[field]) || contributions[field] < 0)) {
@@ -262,6 +324,7 @@ async function lookupBatch(
               activity,
               activitySince: starts[i],
               projects,
+              starredRepositories,
             },
           };
         } catch (err) {

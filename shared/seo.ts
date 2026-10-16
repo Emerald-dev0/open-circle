@@ -202,7 +202,7 @@ export function llmsTxt(originInput = DEFAULT_SITE_URL) {
     "",
     "> The community leaderboard for the Open Source Circle developer community.",
     "",
-    "OpenCircle rewards confirmed useful help in the last 28 days: 20 points per contribution and 5 per different member helped. GitHub reputation and repo upvotes add at most 20 points in total. Giving stars is voluntary and earns no helper points. Spotlight features one public, original repository per developer with at least 5 stars. Developers can choose an eligible repo when joining, or use the automatic most-starred pick. Members also share developer tools.",
+    "OpenCircle rewards community help in the last 28 days: 20 points per confirmed contribution and 5 per different member helped. Starring another member's public, original repo earns 20 helper points, once per recipient. GitHub reputation and repo upvotes add at most 20 points in total. Spotlight features one public, original repository per developer with at least 5 stars. Developers can choose an eligible repo when joining, or use the automatic most-starred pick. Members also share developer tools.",
     "",
     "## Pages",
     "",

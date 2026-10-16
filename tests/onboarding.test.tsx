@@ -476,7 +476,7 @@ describe("Community leaderboard pages", () => {
     await waitFor(() => expect(document.getElementById("member-octocat")).toBeTruthy());
     const row = document.getElementById("member-octocat")!;
     expect(screen.getByRole("columnheader", { name: "Help · 28 days" })).toBeTruthy();
-    expect(within(row).getByText("0 confirmed helps · 0 members")).toBeTruthy();
+    expect(within(row).getByText("0 helps · 0 stars given")).toBeTruthy();
     expect(within(row).getByText("55")).toBeTruthy();
     expect(within(row).getByText("Octo")).toBeTruthy();
     expect(within(row).getByText("You")).toBeTruthy();

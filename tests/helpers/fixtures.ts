@@ -32,6 +32,8 @@ export function memberRecord(overrides: Partial<MemberRecord> = {}): MemberRecor
     activity: 9,
     activitySince: contributionStart(overrides.createdAt ?? Date.now()),
     projects: [repository()],
+    starredRepositories: [],
+    starSupportUpdatedAt: Date.now(),
     hidden: false,
     createdAt: Date.now(),
     statsUpdatedAt: Date.now(),
@@ -62,7 +64,7 @@ export function publicMember(overrides: Partial<PublicMember> = {}): PublicMembe
 
 export function boardFixture(overrides: Partial<Board> = {}): Board {
   return {
-    rankingVersion: 4,
+    rankingVersion: 5,
     helpersCheckedAt: Date.now(),
     members: [],
     repositories: [],
@@ -99,6 +101,7 @@ export function githubOwner(overrides: Record<string, unknown> = {}) {
     avatarUrl: "https://avatars.githubusercontent.com/u/1",
     name: "Octo Cat",
     followers: { totalCount: 2 },
+    starredRepositories: { isOverLimit: false, edges: [], pageInfo: { hasNextPage: false, endCursor: null } },
     repositories: {
       totalCount: 1,
       nodes: [githubRepository(10, { id: "R_open-kit", name: "open-kit", nameWithOwner: "Octocat/open-kit", url: "https://github.com/Octocat/open-kit", description: "Tools built by the circle", forkCount: 2 })],

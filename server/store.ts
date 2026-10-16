@@ -1,6 +1,7 @@
 import type {
   Board,
   GithubRepository,
+  GithubStar,
   InviteConfig,
   Weights,
 } from "../shared/types.js";
@@ -24,6 +25,8 @@ export interface MemberRecord {
   helpedMembers?: number;
   activitySince?: number;
   projects?: GithubRepository[];
+  starredRepositories?: GithubStar[];
+  starSupportUpdatedAt?: number;
   spotlightRepositoryId?: string;
   hidden: boolean;
   createdAt: number;
@@ -72,6 +75,7 @@ const NUMERIC = [
   "helpfulContributions",
   "helpedMembers",
   "activitySince",
+  "starSupportUpdatedAt",
   "createdAt",
   "statsUpdatedAt",
   "rank",
@@ -109,6 +113,7 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     name: hash.name || null,
     hidden: hash.hidden === "1",
     projects: hash.projects ? JSON.parse(hash.projects) : [],
+    starredRepositories: hash.starredRepositories ? JSON.parse(hash.starredRepositories) : undefined,
     spotlightRepositoryId: hash.spotlightRepositoryId || undefined,
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;

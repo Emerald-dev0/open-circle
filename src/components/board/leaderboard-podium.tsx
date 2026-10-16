@@ -15,6 +15,7 @@ export type LeaderboardEntry = {
   activity?: number;
   upvotes?: number;
   helpfulContributions?: number;
+  starHelps?: number;
   helpedMembers?: number;
   href: string;
   /** The member's GitHub avatar; DiceBear stands in when it's missing. */
@@ -87,8 +88,8 @@ function PodiumSlot({
                 <span className="sm:hidden" aria-hidden="true">{formatCount(entry.points)} {unit}</span>
                 <span className="hidden sm:inline" aria-hidden="true">{formatFull(entry.points)} {unit}</span>
               </span>
-              {entry.helpfulContributions !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.helpfulContributions)} confirmed helps for ${formatFull(entry.helpedMembers ?? 0)} members in 28 days`}>
-                {formatCount(entry.helpfulContributions)} confirmed helps
+              {entry.helpfulContributions !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.helpfulContributions)} confirmed helps for ${formatFull(entry.helpedMembers ?? 0)} members · ${formatFull(entry.starHelps ?? 0)} members supported by stars in 28 days`}>
+                {formatCount(entry.helpfulContributions + (entry.starHelps ?? 0))} helps · {formatCount(entry.starHelps ?? 0)} stars given
               </span>}
               <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-t3 tabular sm:mt-1 sm:text-xs">
                 {entry.secondary?.icon ?? <StarIcon size={11} aria-hidden />}

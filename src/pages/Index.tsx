@@ -45,6 +45,7 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     activity: m.activity,
     upvotes: m.upvotes,
     helpfulContributions: m.helpfulContributions ?? 0,
+    starHelps: m.starHelps ?? 0,
     helpedMembers: m.helpedMembers ?? 0,
     href: githubUrl(m.login),
     avatarUrl: m.avatarUrl || undefined,

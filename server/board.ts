@@ -28,9 +28,10 @@ import { requireWhatsappMembership } from "./whatsapp.js";
 import { pickSpotlight, spotlightCandidates } from "../shared/spotlight.js";
 import { coordinationRequest } from "./participation.js";
 import type { HelperLeaderboard } from "../shared/coordination.js";
+import { communityStarHelps, STAR_HELP_POINTS } from "../shared/star-help.js";
 
 const REFRESH_EVERY_MS = 60_000;
-const RANKING_VERSION = 4;
+const RANKING_VERSION = 5;
 // Held for this long after a failed refresh, so a rate-limited GitHub isn't retried on every poll.
 const REFRESH_LOCK_S = 50;
 // With more members than this, each tick refreshes the stalest ones and the rest wait their turn.
@@ -63,6 +64,8 @@ function statsFields(stats: GithubStats): Partial<MemberRecord> {
     activity: stats.activity,
     activitySince: stats.activitySince,
     projects: stats.projects ?? [],
+    starredRepositories: stats.starredRepositories ?? [],
+    starSupportUpdatedAt: Date.now(),
   };
 }
 
@@ -107,12 +110,15 @@ export async function rebuildBoard(
     }
   }
 
+  const visibleLogins = new Set(records.filter((record) => !record.hidden).map((record) => record.login.toLowerCase()));
   const ranked = records
     .filter((m) => !m.hidden)
     .map((record) => {
       const activity = record.activitySince === contributionStart(record.createdAt) ? record.activity : 0;
       const upvotes = repositoryUpvotes(record.projects ?? [], votes);
-      const m = { ...record, activity, upvotes };
+      const starHelps = communityStarHelps(record.login, record.starredRepositories ?? [], visibleLogins, now);
+      const helperPoints = (record.helperPoints ?? 0) + starHelps * STAR_HELP_POINTS;
+      const m = { ...record, activity, upvotes, helperPoints, starHelps };
       const githubScore = scoreOf(m, config.weights);
       return { m: { ...m, githubScore }, score: communityScore(githubScore, m.helperPoints) };
     })
@@ -150,6 +156,7 @@ export async function rebuildBoard(
       upvotes: m.upvotes,
       helperPoints: m.helperPoints ?? 0,
       helpfulContributions: m.helpfulContributions ?? 0,
+      starHelps: m.starHelps,
       helpedMembers: m.helpedMembers ?? 0,
       githubScore: m.githubScore,
       rank,
@@ -194,7 +201,7 @@ export async function rebuildBoard(
     repositories,
     updatedAt: now,
     refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
-    statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt)) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
+    statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt) || !m.starSupportUpdatedAt) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
     invite: config.invite,
     weights: config.weights,
   };
@@ -206,7 +213,7 @@ async function refreshStats(store: Store): Promise<Board> {
   const now = Date.now();
   const due = (await store.listMembers())
     .filter((m) => !m.hidden)
-    .filter((m) => m.activitySince !== contributionStart(m.createdAt) || now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
+    .filter((m) => m.activitySince !== contributionStart(m.createdAt) || !m.starSupportUpdatedAt || now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
     .sort((a, b) => a.statsUpdatedAt - b.statsUpdatedAt)
     .slice(0, REFRESH_LIMIT);
 
@@ -327,14 +334,19 @@ export async function previewProfile(
     throw new HttpError(400, "invalid_whatsapp", whatsapp.error, "whatsapp");
   await requireWhatsappMembership(whatsapp.value);
   const existing = await store.getMember(parsed.value.toLowerCase());
-  const [profile, config, votes] = await Promise.all([
+  const [profile, config, votes, records] = await Promise.all([
     fetchUser(parsed.value, existing?.createdAt),
     loadConfig(store),
     getCommunityStore().readVotes(""),
+    store.listMembers(),
   ]);
   const upvotes = repositoryUpvotes(profile.projects ?? [], votes.counts);
   const githubScore = scoreOf({ ...profile, upvotes }, config.weights);
-  return { profile: { ...profile, projects: spotlightCandidates(profile.projects ?? []) }, score: communityScore(githubScore, existing?.helperPoints), githubScore, helpedMembers: existing?.helpedMembers ?? 0, helperPoints: existing?.helperPoints ?? 0 };
+  const visibleLogins = new Set(records.filter((record) => !record.hidden).map((record) => record.login.toLowerCase()));
+  const starHelps = communityStarHelps(profile.login, profile.starredRepositories ?? [], visibleLogins, Date.now());
+  const helperPoints = (existing?.helperPoints ?? 0) + starHelps * STAR_HELP_POINTS;
+  const { starredRepositories: ignoredStars, ...publicProfile } = profile;
+  return { profile: { ...publicProfile, projects: spotlightCandidates(profile.projects ?? []) }, score: communityScore(githubScore, helperPoints), githubScore, helpedMembers: existing?.helpedMembers ?? 0, helperPoints };
 }
 
 function field(body: unknown, key: string): string {
@@ -402,6 +414,8 @@ export async function register(
     activity: stats.activity,
     activitySince: stats.activitySince,
     projects: stats.projects ?? [],
+    starredRepositories: stats.starredRepositories ?? [],
+    starSupportUpdatedAt: now,
     spotlightRepositoryId,
     hidden: false,
     createdAt: now,

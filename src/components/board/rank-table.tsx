@@ -25,6 +25,8 @@ function Row({
 }) {
   const { resolvedTheme } = useTheme();
   const id = member.login.toLowerCase();
+  const helps = (member.helpfulContributions ?? 0) + (member.starHelps ?? 0);
+  const helpDetail = `${formatFull(member.helpfulContributions ?? 0)} confirmed helps for ${formatFull(member.helpedMembers ?? 0)} members · ${formatFull(member.starHelps ?? 0)} members supported by stars in 28 days`;
   return (
     <motion.div
       layout="position"
@@ -69,7 +71,7 @@ function Row({
               )}
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
-            <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>
+            <span className="block truncate text-[11px] text-t3 tabular md:hidden" title={helpDetail}>{formatCount(helps)} helps · {formatCount(member.starHelps ?? 0)} stars given</span>
           </span>
         </a>
       </div>
@@ -87,7 +89,7 @@ function Row({
       </div>
 
       <div role="cell" className="text-right md:text-left">
-        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.helperPoints ?? 0)} from confirmed help · ${formatFull(member.helpedMembers ?? 0)} members helped in 28 days`}>
+        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.helperPoints ?? 0)} from help · ${helpDetail}`}>
           <span className="sr-only">{formatFull(member.score)} points</span>
           <span className="md:hidden" aria-hidden="true">{formatCount(member.score)}</span>
           <span className="hidden md:inline" aria-hidden="true">{formatFull(member.score)}</span>
@@ -101,9 +103,9 @@ function Row({
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.stars)}</div>
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.followers)}</div>
       <div role="cell" className="hidden text-sm tabular text-t3 md:block">{formatCount(member.repos)}</div>
-      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title={`${formatFull(member.activity)} GitHub contributions since joining · ${formatFull(member.upvotes)} repo upvotes`}>
-        {formatCount(member.helpfulContributions ?? 0)} helps
-        <span className="block text-[11px] text-t3">{formatCount(member.helpedMembers ?? 0)} members</span>
+      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title={helpDetail}>
+        {formatCount(helps)} helps
+        <span className="block text-[11px] text-t3">{formatCount(member.starHelps ?? 0)} stars given</span>
       </div>
       <div role="cell" className="hidden text-sm md:block">
         <Movement delta={member.delta} isNew={member.isNew} />

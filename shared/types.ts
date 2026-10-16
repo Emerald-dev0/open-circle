@@ -22,6 +22,13 @@ export interface GithubStats {
   activity: number;
   activitySince: number;
   projects?: GithubRepository[];
+  starredRepositories?: GithubStar[];
+}
+
+export interface GithubStar {
+  repositoryId: string;
+  ownerLogin: string;
+  starredAt: number;
 }
 
 export interface GithubRepository {
@@ -57,6 +64,7 @@ export interface PublicMember {
   rank: number;
   helperPoints?: number;
   helpfulContributions?: number;
+  starHelps?: number;
   helpedMembers?: number;
   githubScore?: number;
   /** Places gained (+) or lost (−) on the last move, if it happened in the last 24h. */
