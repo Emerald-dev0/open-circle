@@ -32,7 +32,7 @@ OpenCircle brings the group's GitHub profiles and public projects into one place
 
 - Join the developer leaderboard and follow rank changes.
 - Build a customizable GitHub portfolio at `username.opencircle.cc`.
-- Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, upvote projects and save links.
+- Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, star repos on GitHub, upvote projects and save links.
 - Find developer tools, submit tools for review and rate them with GitHub sign-in.
 - Share projects, give feedback and answer help requests through group participation.
 - Manage members, tool submissions and ranking settings through the admin page.

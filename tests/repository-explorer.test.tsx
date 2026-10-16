@@ -10,6 +10,7 @@ import { RepositoryExplorer } from "../src/components/board/repository-explorer"
 import { repository } from "./helpers/fixtures";
 
 const hooks = vi.hoisted(() => ({ community: vi.fn(), vote: vi.fn() }));
+vi.mock("@/hooks/use-repository-stars", () => ({ useRepositoryStars: () => ({ status: { data: undefined, error: null, isPending: false }, mutation: { error: null, isPending: false }, busy: false }) }));
 vi.mock("@/hooks/use-community", () => ({ useCommunity: hooks.community, useCommunityVote: hooks.vote }));
 
 const repositories: PublicRepository[] = [

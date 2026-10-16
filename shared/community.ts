@@ -36,6 +36,7 @@ export interface GitHubProfile {
   id: number;
   login: string;
   avatarUrl: string;
+  starsConnected?: boolean;
 }
 
 export interface ToolVoteInput {

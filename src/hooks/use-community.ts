@@ -63,8 +63,9 @@ export function useGitHubSignOut() {
   return useMutation({
     mutationKey: GITHUB_SIGN_OUT_KEY,
     mutationFn: api.signOut,
-    onMutate: () => queryClient.cancelQueries({ queryKey: COMMUNITY_KEY }),
+    onMutate: () => Promise.all([queryClient.cancelQueries({ queryKey: COMMUNITY_KEY }), queryClient.cancelQueries({ queryKey: ["repository-stars"] })]),
     onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ["repository-stars"] });
       queryClient.setQueryData<CommunityState>(COMMUNITY_KEY, (current) => current ? { ...current, profile: null, toolVotes: {} } : current);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: COMMUNITY_KEY }),

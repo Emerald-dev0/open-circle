@@ -1,7 +1,7 @@
 import { Redis } from "@upstash/redis";
-import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
+import type { CommunityTool, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
 import { CURATED_TOOLS } from "../shared/tools.js";
-import type { CommunityStore } from "./community-contract.js";
+import type { CommunityStore, GitHubSession } from "./community-contract.js";
 import { HttpError } from "./http.js";
 import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
@@ -190,13 +190,13 @@ export class RedisCommunityStore implements CommunityStore {
     return { target, value, count: Number(count) };
   }
 
-  async createSession(hash: string, profile: GitHubProfile, expiresAt: number): Promise<void> {
+  async createSession(hash: string, profile: GitHubSession, expiresAt: number): Promise<void> {
     await this.redis.set(keys.session(hash), JSON.stringify(profile), { px: Math.max(1, expiresAt - Date.now()) });
   }
 
-  async readSession(hash: string): Promise<GitHubProfile | null> {
+  async readSession(hash: string): Promise<GitHubSession | null> {
     const raw = await this.redis.get<string>(keys.session(hash));
-    return raw ? JSON.parse(raw) as GitHubProfile : null;
+    return raw ? JSON.parse(raw) as GitHubSession : null;
   }
 
   async removeSession(hash: string): Promise<void> {

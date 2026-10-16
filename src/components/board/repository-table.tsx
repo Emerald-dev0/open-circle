@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { StarIcon } from "@solar-icons/react/bold-duotone";
 import { ArrowUpIcon, BookmarkIcon, GitPullRequestIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
 import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
@@ -23,6 +24,7 @@ export function RepositoryTable({
   pendingTarget = null,
   onVote,
   onSave,
+  renderStar,
 }: {
   repositories: PublicRepository[];
   label?: string;
@@ -34,6 +36,7 @@ export function RepositoryTable({
   pendingTarget?: string | null;
   onVote?: (repository: PublicRepository, active: boolean) => void;
   onSave?: (id: string) => void;
+  renderStar?: (repo: PublicRepository) => ReactNode;
 }) {
   return (
     <div>
@@ -82,10 +85,10 @@ export function RepositoryTable({
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-t3">
                     <span className="tabular" aria-label={`Rank ${repo.rank}`}>#{repo.rank}</span>
                     <span className="min-w-0 break-words [overflow-wrap:anywhere]" title={repo.ownerNickname}>@{repo.ownerLogin}</span>
-                    <span className="inline-flex items-center gap-1 tabular" title={`${formatFull(repo.stars)} GitHub stars`} aria-label={`${formatFull(repo.stars)} GitHub stars`}>
+                    {renderStar ? renderStar(repo) : <span className="inline-flex items-center gap-1 tabular" title={`${formatFull(repo.stars)} GitHub stars`} aria-label={`${formatFull(repo.stars)} GitHub stars`}>
                       <StarIcon size={12} aria-hidden />
                       {formatCount(repo.stars)}<span className="sr-only"> stars</span>
-                    </span>
+                    </span>}
                     <span className="inline-flex items-center gap-1 tabular" title={`${formatFull(repo.forks)} forks`} aria-label={`${formatFull(repo.forks)} forks`}>
                       <GitPullRequestIcon size={12} aria-hidden />
                       {formatCount(repo.forks)}<span className="sr-only"> forks</span>

@@ -11,8 +11,10 @@ The frontend calls same-origin API routes. Vite serves these during development;
 | `POST /api/register` | JSON with `github`, `nickname`, `whatsapp` and optional `spotlightRepositoryId`. | Registered login and the updated public board. Omit `spotlightRepositoryId` to pick the most-starred eligible repo automatically. Selections are checked against current GitHub data; ineligible choices return 400 with `invalid_spotlight`. |
 | `GET /api/community` | Visitor cookie, created if absent. | Tools, public vote counts and this visitor's vote selections. |
 | `POST /api/vote` | Repository: JSON `{ "target": "repo:ID", "active": true }` with visitor cookie. Tool: `{ "target": "tool:ID", "value": 1 }` with GitHub session; value is -1, 0 or 1. | Target, saved state and current vote score. |
-| `GET /api/auth-start` | None. | Redirect to GitHub public-profile sign-in. |
-| `GET /api/auth-callback` | GitHub code, matching state and OAuth cookie. | Verified session, then redirect to `/tools`, `/participation` or `/admin` according to the sign-in flow. |
+| `GET /api/repository-stars?id=ID` | GitHub session with optional star permission; up to 20 Spotlight IDs. | Whether stars are connected and the current GitHub star state and count for each repository. Private, uncached response. |
+| `POST /api/repository-stars` | Same-origin JSON `{ "repositoryId": "ID", "active": true }` and GitHub star permission. | Idempotently adds or removes the person’s GitHub star on a listed public Spotlight repository and returns its confirmed state and count. Limited to 30 changes per GitHub account per minute. |
+| `GET /api/auth-start` | None; optional `returnTo=/repositories&stars=1`. | Redirect to GitHub public-profile sign-in. Only the explicit stars flow requests `public_repo` permission. |
+| `GET /api/auth-callback` | GitHub code, matching state and OAuth cookie. | Verified session, then redirect to `/tools`, `/repositories`, `/portfolio`, `/participation` or `/admin` according to the sign-in flow. |
 | `GET /api/participation` | Signed-in GitHub session. | Private group activity, projects, help requests and contributions. |
 | `POST /api/participation` | Same-origin JSON with a signed-in GitHub session; a linking request uses `{ "action": "link", "phone": "+2348000000000" }`. | A linking code or the updated private participation state. |
 | `POST /api/auth` | Same-origin JSON request with GitHub session cookie. | Revokes the session and clears its cookie. |

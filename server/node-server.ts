@@ -18,6 +18,7 @@ import * as authStart from "../api/auth-start.js";
 import * as authCallback from "../api/auth-callback.js";
 import * as community from "../api/community.js";
 import * as tools from "../api/tools.js";
+import * as repositoryStars from "../api/repository-stars.js";
 import * as vote from "../api/vote.js";
 import * as board from "../api/board.js";
 import * as preview from "../api/preview.js";
@@ -47,6 +48,7 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   community: community as Record<string, Handler>,
   tools: tools as Record<string, Handler>,
   vote: vote as Record<string, Handler>,
+  "repository-stars": repositoryStars as Record<string, Handler>,
   board: board as Record<string, Handler>,
   preview: preview as Record<string, Handler>,
   register: register as Record<string, Handler>,

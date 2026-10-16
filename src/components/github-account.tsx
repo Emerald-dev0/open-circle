@@ -9,6 +9,7 @@ import { GitHubIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
 import { AccountSkeleton } from "@/components/site-skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { REPOSITORY_STAR_KEY } from "@/hooks/use-repository-stars";
 import { TOOL_VOTE_KEY, useCommunity, useGitHubSignOut } from "@/hooks/use-community";
 
 // Shown expanded once, the first time a signed-in member sees it.
@@ -38,6 +39,7 @@ function PortfolioItem({ onSelect }: { onSelect: () => void }) {
 export function GitHubAccount() {
   const community = useCommunity();
   const signOut = useGitHubSignOut();
+  const starring = useIsMutating({ mutationKey: REPOSITORY_STAR_KEY }) > 0;
   const voting = useIsMutating({ mutationKey: TOOL_VOTE_KEY }) > 0;
   const profile = community.data?.profile;
   const signInError = new URLSearchParams(window.location.search).has("signin");
@@ -125,7 +127,7 @@ export function GitHubAccount() {
               role="menuitem"
               aria-label="Sign out of GitHub"
               className={ITEM}
-              disabled={signOut.isPending || voting}
+              disabled={signOut.isPending || voting || starring}
               onClick={() => signOut.mutate(undefined, { onSuccess: close })}
             >
               <Logout2Icon className="size-4" aria-hidden="true" />Log out

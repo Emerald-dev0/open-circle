@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
+import type { CommunityTool, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
 import { CURATED_TOOLS } from "../shared/tools.js";
-import type { CommunityStore } from "./community-contract.js";
+import type { CommunityStore, GitHubSession } from "./community-contract.js";
 import { HttpError } from "./http.js";
 import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
@@ -11,14 +11,14 @@ interface Snapshot {
   tools: StoredTool[];
   votes: [string, string[]][];
   profileVotes?: [string, [string, VoteValue][]][];
-  sessions?: [string, { profile: GitHubProfile; expiresAt: number }][];
+  sessions?: [string, { profile: GitHubSession; expiresAt: number }][];
 }
 
 interface LocalState {
   tools: Map<string, StoredTool>;
   votes: Map<string, Set<string>>;
   profileVotes: Map<string, Map<string, VoteValue>>;
-  sessions: Map<string, { profile: GitHubProfile; expiresAt: number }>;
+  sessions: Map<string, { profile: GitHubSession; expiresAt: number }>;
 }
 
 const FILE = path.resolve(process.cwd(), ".data/community-store.json");
@@ -187,13 +187,13 @@ export class MemoryCommunityStore implements CommunityStore {
     return { target, value, count: [...voters.values()].reduce<number>((sum, current) => sum + current, 0) };
   }
 
-  async createSession(hash: string, profile: GitHubProfile, expiresAt: number): Promise<void> {
+  async createSession(hash: string, profile: GitHubSession, expiresAt: number): Promise<void> {
     const sessions = new Map([...this.data.sessions].filter(([, session]) => session.expiresAt > Date.now()));
     sessions.set(hash, { profile: { ...profile }, expiresAt });
     this.save({ sessions });
   }
 
-  async readSession(hash: string): Promise<GitHubProfile | null> {
+  async readSession(hash: string): Promise<GitHubSession | null> {
     const session = this.data.sessions.get(hash);
     return session && session.expiresAt > Date.now() ? { ...session.profile } : null;
   }
