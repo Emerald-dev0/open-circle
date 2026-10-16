@@ -348,6 +348,20 @@ describe("Developer progression", () => {
     expect((await store.getMember("octocat"))?.achievements?.first_contribution).toBe(awarded);
   });
 
+  it("awards signal-based milestones and publishes rarity counts", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ reviews: 1, issues: 12, stars: 140, followers: 120, activity: 300 }));
+
+    const board = await rebuildBoard(store);
+
+    expect(board.members[0].achievements).toEqual(expect.arrayContaining([
+      "first_review", "issue_hunter", "stars_100", "followers_100", "prolific_contributor",
+    ]));
+    expect(board.achievementCounts).toMatchObject({ prolific_contributor: 1, streak_7: 0, first_contribution: 1 });
+  });
+
   it("breaks the current streak after a missed day while preserving the longest", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));

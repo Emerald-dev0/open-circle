@@ -21,6 +21,14 @@ export interface GithubStats {
   /** Public contributions (commits, PRs, reviews, issues, new repos) since the UTC day of joining. */
   activity: number;
   activitySince: number;
+  /** Public commits since joining. */
+  commits?: number;
+  /** Public pull requests opened since joining. */
+  pullRequests?: number;
+  /** Public pull request reviews since joining. */
+  reviews?: number;
+  /** Public issues opened since joining. */
+  issues?: number;
   /** UTC days with at least one public contribution, oldest first. */
   activityDays?: string[];
   projects?: GithubRepository[];
@@ -87,6 +95,8 @@ export interface Board {
   helpersDelayed?: boolean;
   members: PublicMember[];
   repositories: PublicRepository[];
+  /** How many members have earned each achievement id, for rarity hints. */
+  achievementCounts?: Record<string, number>;
   /** When this snapshot was written. Clients never replace a newer one with an older one. */
   updatedAt: number;
   /** When GitHub stats were last pulled. */

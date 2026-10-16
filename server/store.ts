@@ -19,6 +19,10 @@ export interface MemberRecord {
   followers: number;
   repos: number;
   activity: number;
+  /** Public pull request reviews since joining. */
+  reviews?: number;
+  /** Public issues opened since joining. */
+  issues?: number;
   /** UTC days with at least one verified public contribution, oldest first. */
   activityDays?: string[];
   /** Consecutive verified UTC days ending today or yesterday. */
@@ -76,6 +80,8 @@ const NUMERIC = [
   "followers",
   "repos",
   "activity",
+  "reviews",
+  "issues",
   "helperPoints",
   "helpfulContributions",
   "helpedMembers",

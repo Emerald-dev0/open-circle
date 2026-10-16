@@ -21,11 +21,13 @@ import {
   parseWhatsappNumber,
 } from "../shared/validation.js";
 import {
+  ACHIEVEMENT_IDS,
   computeStreaks,
   evaluateAchievements,
   mergeActivityDays,
   sameAchievements,
   utcDay,
+  type ProgressionSignals,
 } from "../shared/progression.js";
 import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
 import { HttpError } from "./http.js";
@@ -69,7 +71,24 @@ function statsFields(stats: GithubStats): Partial<MemberRecord> {
     repos: stats.repos,
     activity: stats.activity,
     activitySince: stats.activitySince,
+    reviews: stats.reviews ?? 0,
+    issues: stats.issues ?? 0,
     projects: stats.projects ?? [],
+  };
+}
+
+/** The verified signals a member record contributes to achievement checks. */
+function progressionSignals(record: MemberRecord, extra: Partial<ProgressionSignals> = {}): ProgressionSignals {
+  return {
+    activityDays: record.activityDays ?? [],
+    longestStreak: record.longestStreak ?? 0,
+    contributions: record.activity,
+    helpedMembers: record.helpedMembers,
+    reviews: record.reviews,
+    issues: record.issues,
+    stars: record.stars,
+    followers: record.followers,
+    ...extra,
   };
 }
 
@@ -119,12 +138,7 @@ export async function rebuildBoard(
     const days = mergeActivityDays(record.activityDays);
     const { current, longest } = computeStreaks(days, today, record.longestStreak);
     const achievements = evaluateAchievements(
-      {
-        activityDays: days,
-        longestStreak: longest,
-        helpfulContributions: record.helpfulContributions,
-        helpedMembers: record.helpedMembers,
-      },
+      progressionSignals(record, { activityDays: days, longestStreak: longest }),
       record.achievements,
       now,
     );
@@ -149,6 +163,12 @@ export async function rebuildBoard(
     .sort((a, b) =>
       compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }),
     );
+
+  const achievementCounts: Record<string, number> = {};
+  for (const id of ACHIEVEMENT_IDS) achievementCounts[id] = 0;
+  for (const record of records)
+    for (const id of Object.keys(record.achievements ?? {}))
+      if (id in achievementCounts) achievementCounts[id] += 1;
 
   const writes: Promise<void>[] = [];
   const members: PublicMember[] = ranked.map(({ m, score }, i) => {
@@ -225,6 +245,7 @@ export async function rebuildBoard(
     helpersDelayed,
     members,
     repositories,
+    achievementCounts,
     updatedAt: now,
     refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
     statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt)) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
@@ -233,6 +254,19 @@ export async function rebuildBoard(
   };
   await store.setBoard(board);
   return board;
+}
+
+/**
+ * Grants the portfolio achievement when a member publishes their portfolio.
+ * Members who never published before this feature existed pick it up on their
+ * next publish. No-op for portfolio owners who aren't on the board.
+ */
+export async function awardPortfolioAchievement(store: Store, login: string): Promise<void> {
+  const record = await store.getMember(login.toLowerCase());
+  if (!record) return;
+  const achievements = evaluateAchievements(progressionSignals(record, { hasPortfolio: true }), record.achievements);
+  if (!sameAchievements(record.achievements, achievements))
+    await store.patchMember(record.login, { achievements });
 }
 
 async function refreshStats(store: Store): Promise<Board> {
@@ -435,6 +469,8 @@ export async function register(
     repos: stats.repos,
     activity: stats.activity,
     activitySince: stats.activitySince,
+    reviews: stats.reviews ?? 0,
+    issues: stats.issues ?? 0,
     activityDays: mergeActivityDays([], stats.activityDays),
     projects: stats.projects ?? [],
     spotlightRepositoryId,

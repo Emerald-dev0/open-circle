@@ -266,14 +266,22 @@ async function lookupBatch(
         try {
           const projects = await allProjects(node, token, deadline);
           const days: string[] = [];
-          const activity = windows[i].reduce((total, _, j) => {
+          const totals: Record<(typeof CONTRIBUTION_FIELDS)[number], number> = {
+            totalCommitContributions: 0,
+            totalIssueContributions: 0,
+            totalPullRequestContributions: 0,
+            totalPullRequestReviewContributions: 0,
+            totalRepositoryContributions: 0,
+          };
+          for (let j = 0; j < windows[i].length; j++) {
             const contributions = node[`activity${j}`];
             if (!contributions || CONTRIBUTION_FIELDS.some((field) => !Number.isSafeInteger(contributions[field]) || contributions[field] < 0)) {
               throw new GithubError("upstream", "GitHub couldn't load contributions.");
             }
+            for (const field of CONTRIBUTION_FIELDS) totals[field] += contributions[field];
             days.push(...calendarDays(contributions));
-            return total + CONTRIBUTION_FIELDS.reduce((sum, field) => sum + contributions[field], 0);
-          }, 0);
+          }
+          const activity = CONTRIBUTION_FIELDS.reduce((sum, field) => sum + totals[field], 0);
           result = {
             kind: "user",
             stats: {
@@ -285,6 +293,10 @@ async function lookupBatch(
               repos: node.repositories?.totalCount ?? 0,
               activity,
               activitySince: starts[i],
+              commits: totals.totalCommitContributions,
+              pullRequests: totals.totalPullRequestContributions,
+              reviews: totals.totalPullRequestReviewContributions,
+              issues: totals.totalIssueContributions,
               activityDays: normalizeDays(days),
               projects,
             },

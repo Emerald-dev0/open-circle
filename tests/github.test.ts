@@ -149,7 +149,10 @@ describe("GitHub profile and repository lookup", () => {
 
     const result = await lookupOne("octocat");
 
-    expect(result).toMatchObject({ kind: "user", stats: { activity: 9, activityDays: ["2026-10-12", "2026-10-14"] } });
+    expect(result).toMatchObject({ kind: "user", stats: {
+      activity: 9, commits: 4, pullRequests: 2, reviews: 1, issues: 1,
+      activityDays: ["2026-10-12", "2026-10-14"],
+    } });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).query).toContain("contributionCalendar");
   });
 

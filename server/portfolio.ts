@@ -1,6 +1,7 @@
 import type { GitHubProfile } from "../shared/community.js";
 import { defaultPortfolio, publicPortfolio, type PortfolioEditorState, type PortfolioRecord } from "../shared/portfolio.js";
 import { parsePortfolio, PortfolioValidationError } from "../shared/portfolio-validation.js";
+import { awardPortfolioAchievement } from "./board.js";
 import { getCommunityStore } from "./community-store.js";
 import { getStore } from "./db.js";
 import { githubProfile } from "./github-auth.js";
@@ -61,6 +62,7 @@ export async function savePortfolio(profile: GitHubProfile, input: unknown): Pro
       }
     }
     const record = await store.write(profile.id, profile.login, content, Number(body.version), body.action as "save" | "publish" | "unpublish");
+    if (body.action === "publish") await awardPortfolioAchievement(getStore(), profile.login);
     return portfolioEditorState(profile, record);
   } catch (error) {
     if (error instanceof PortfolioValidationError) throw new HttpError(400, "portfolio_invalid", error.message, error.field);
