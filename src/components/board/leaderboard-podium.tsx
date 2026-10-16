@@ -1,8 +1,9 @@
+import type { RankingPeriod } from "@shared/coordination";
 import type * as React from "react";
 import { CrownStarIcon, StarIcon, UserPlusRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { AnimatePresence, motion } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { diceBearAvatarUrl, formatCount, formatFull } from "@/lib/format";
+import { diceBearAvatarUrl, formatCount, formatFull, formatHelpDetail } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type LeaderboardEntry = {
@@ -14,6 +15,7 @@ export type LeaderboardEntry = {
   stars: number;
   activity?: number;
   upvotes?: number;
+  period?: RankingPeriod;
   helpfulContributions?: number;
   starHelps?: number;
   helpedMembers?: number;
@@ -88,7 +90,7 @@ function PodiumSlot({
                 <span className="sm:hidden" aria-hidden="true">{formatCount(entry.points)} {unit}</span>
                 <span className="hidden sm:inline" aria-hidden="true">{formatFull(entry.points)} {unit}</span>
               </span>
-              {entry.helpfulContributions !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={`${formatFull(entry.helpfulContributions)} confirmed helps for ${formatFull(entry.helpedMembers ?? 0)} members · ${formatFull(entry.starHelps ?? 0)} members supported by stars in 28 days`}>
+              {entry.helpfulContributions !== undefined && <span className="mt-1 max-w-full truncate text-[10px] text-t3 tabular sm:text-xs" title={formatHelpDetail(entry, entry.period)}>
                 {formatCount(entry.helpfulContributions + (entry.starHelps ?? 0))} helps · {formatCount(entry.starHelps ?? 0)} stars given
               </span>}
               <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-t3 tabular sm:mt-1 sm:text-xs">

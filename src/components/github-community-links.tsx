@@ -40,18 +40,18 @@ function GitHubCount({ kind }: { kind: "stars" | "followers" }) {
 }
 
 export function GitHubCommunityLinks() {
-  return <nav aria-label="OpenCircle on GitHub" className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-2">
-    <TextureButton asChild variant="minimal" size="sm" className="h-11 w-auto">
-      <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" aria-label="Star OpenCircle on GitHub" aria-describedby="github-stars-count">
+  return <nav aria-label="OpenCircle on GitHub" className="flex min-h-11 shrink-0 items-center gap-1.5 sm:gap-2">
+    <TextureButton asChild variant="minimal" size="sm" className="h-11 w-auto" innerClassName="gap-1.5 px-2 sm:gap-2 sm:px-3.5">
+      <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" title="Star OpenCircle on GitHub" aria-label="Star OpenCircle on GitHub" aria-describedby="github-stars-count">
         <StarIcon className="size-4 shrink-0" aria-hidden="true" />
-        <span>Star</span>
+        <span className="hidden min-[400px]:inline">Star</span>
         <GitHubCount kind="stars" />
       </a>
     </TextureButton>
-    <TextureButton asChild variant="minimal" size="sm" className="h-11 w-auto">
-      <a href="https://github.com/opencirclehq" target="_blank" rel="noopener noreferrer" aria-label="Follow @opencirclehq on GitHub" aria-describedby="github-followers-count">
+    <TextureButton asChild variant="minimal" size="sm" className="h-11 w-auto" innerClassName="gap-1.5 px-2 sm:gap-2 sm:px-3.5">
+      <a href="https://github.com/opencirclehq" target="_blank" rel="noopener noreferrer" title="Follow @opencirclehq on GitHub" aria-label="Follow @opencirclehq on GitHub" aria-describedby="github-followers-count">
         <GitHubIcon className="size-4 shrink-0" />
-        <span>Follow @opencirclehq</span>
+        <span className="hidden min-[360px]:inline">Follow<span className="hidden sm:inline"> @opencirclehq</span></span>
         <GitHubCount kind="followers" />
       </a>
     </TextureButton>

@@ -1,9 +1,10 @@
 import { StarIcon } from "@solar-icons/react/bold-duotone";
 import { MetalBadge } from "metal-fx";
 import { motion } from "motion/react";
+import type { RankingPeriod } from "@shared/coordination";
 import type { PublicMember } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
+import { diceBearAvatarUrl, formatCount, formatFull, formatHelpDetail, githubUrl, rankingPeriodLabels } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
 import { useTheme } from "@/hooks/use-theme";
@@ -17,16 +18,18 @@ function Row({
   index,
   isMe,
   flash,
+  period,
 }: {
   member: PublicMember;
   index: number;
   isMe: boolean;
   flash: boolean;
+  period: RankingPeriod;
 }) {
   const { resolvedTheme } = useTheme();
   const id = member.login.toLowerCase();
   const helps = (member.helpfulContributions ?? 0) + (member.starHelps ?? 0);
-  const helpDetail = `${formatFull(member.helpfulContributions ?? 0)} confirmed helps for ${formatFull(member.helpedMembers ?? 0)} members · ${formatFull(member.starHelps ?? 0)} members supported by stars in 28 days`;
+  const helpDetail = formatHelpDetail(member, period);
   return (
     <motion.div
       layout="position"
@@ -119,12 +122,14 @@ export function RankTable({
   meId,
   flashId,
   total = members.length,
+  period = "all",
 }: {
   /** Members ranked 4 and below, in rank order. */
   members: PublicMember[];
   meId?: string | null;
   flashId?: string | null;
   total?: number;
+  period?: RankingPeriod;
 }) {
   if (members.length === 0) {
     return (
@@ -146,14 +151,14 @@ export function RankTable({
             <span role="columnheader" className="hidden md:block">Stars</span>
             <span role="columnheader" className="hidden md:block">Followers</span>
             <span role="columnheader" className="hidden md:block">Repos</span>
-            <span role="columnheader" className="hidden md:block">Help · 28 days</span>
+            <span role="columnheader" className="hidden md:block">Help · {rankingPeriodLabels[period]}</span>
             <span role="columnheader" className="hidden md:block">Move</span>
           </div>
         </div>
         <div role="rowgroup" className="space-y-1">
           {members.map((m, i) => {
             const id = m.login.toLowerCase();
-            return <Row key={id} member={m} index={i} isMe={id === meId} flash={id === flashId} />;
+            return <Row key={id} period={period} member={m} index={i} isMe={id === meId} flash={id === flashId} />;
           })}
         </div>
       </div>

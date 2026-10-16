@@ -1,5 +1,5 @@
 import type { GithubStar } from "./types.js";
-import { HELPER_POLICY } from "./coordination.js";
+import { rankingWindowStart, type RankingPeriod } from "./coordination.js";
 
 export const STAR_HELP_POINTS = 20;
 
@@ -8,14 +8,15 @@ export function communityStarHelps(
   stars: readonly GithubStar[],
   members: ReadonlySet<string>,
   now: number,
+  period: RankingPeriod = "all",
 ): number {
-  const recipients = new Set<string>();
-  const cutoff = now - HELPER_POLICY.windowDays * 86_400_000;
+  const recipients = new Map<string, number>();
+  const cutoff = rankingWindowStart(period, now);
   for (const star of stars) {
     const owner = star.ownerLogin.toLowerCase();
-    if (owner !== login.toLowerCase() && members.has(owner) && Number.isSafeInteger(star.starredAt) && star.starredAt > cutoff && star.starredAt <= now) {
-      recipients.add(owner);
+    if (owner !== login.toLowerCase() && members.has(owner) && Number.isSafeInteger(star.starredAt) && star.starredAt > 0 && star.starredAt <= now) {
+      recipients.set(owner, Math.min(recipients.get(owner) ?? Infinity, star.starredAt));
     }
   }
-  return recipients.size;
+  return [...recipients.values()].filter((at) => at > cutoff).length;
 }

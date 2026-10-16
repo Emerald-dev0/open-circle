@@ -12,17 +12,18 @@ describe("GitHub profile and repository lookup", () => {
   const starEdge = (id: string, owner = "Peer", time = Date.now() - 1000, fields = {}) => ({ starredAt: new Date(time).toISOString(), node: { id, isPrivate: false, isFork: false, owner: { __typename: "User", login: owner }, ...fields } });
   const starConnection = (edges: unknown[], hasNextPage = false, endCursor: string | null = null) => ({ edges, isOverLimit: false, pageInfo: { hasNextPage, endCursor } });
 
-  it("paginates recent stars, filters private/fork/self/organization stars, and stops before old history", async () => {
+  it("paginates all star history and filters private, fork, self and organization stars", async () => {
     const now = Date.now();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(githubJson({ data: { u0: githubOwner({ starredRepositories: starConnection([starEdge("R_peer"), starEdge("R_self", "oCtOcAt"), starEdge("R_private", "Peer", now - 1000, { isPrivate: true }), starEdge("R_fork", "Peer", now - 1000, { isFork: true }), starEdge("R_org", "Org", now - 1000, { owner: { __typename: "Organization", login: "Org" } })], true, "stars-100") }) } }))
-      .mockResolvedValueOnce(githubJson({ data: { user: { starredRepositories: starConnection([starEdge("R_next", "Second", now - 2000), starEdge("R_old", "Old", now - 29 * 86400000)], true, "stars-200") } } }));
+      .mockResolvedValueOnce(githubJson({ data: { user: { starredRepositories: starConnection([starEdge("R_next", "Second", now - 2000), starEdge("R_old", "Old", now - 29 * 86400000)], true, "stars-200") } } }))
+      .mockResolvedValueOnce(githubJson({ data: { user: { starredRepositories: starConnection([starEdge("R_older", "Older", now - 300 * 86400000)]) } } }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await lookupOne("octocat")).toMatchObject({ kind: "user", stats: { starredRepositories: [{ repositoryId: "R_peer", ownerLogin: "peer" }, { repositoryId: "R_next", ownerLogin: "second" }] } });
+    expect(await lookupOne("octocat")).toMatchObject({ kind: "user", stats: { starredRepositories: [{ repositoryId: "R_peer", ownerLogin: "peer" }, { repositoryId: "R_next", ownerLogin: "second" }, { repositoryId: "R_old", ownerLogin: "old" }, { repositoryId: "R_older", ownerLogin: "older" }], starHistoryVersion: 2 } });
     const initial = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(initial.query).toContain("starredRepositories(first: 100, orderBy: { field: STARRED_AT, direction: DESC })");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body).variables).toEqual({ login: "Octocat", after: "stars-100" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it.each([undefined, null, { edges: [], isOverLimit: true, pageInfo: { hasNextPage: false, endCursor: null } }, starConnection([{ ...starEdge("R_bad"), starredAt: "invalid" }])])("rejects missing or incomplete star histories instead of erasing cached help", async (starredRepositories) => {

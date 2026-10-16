@@ -73,7 +73,7 @@ Start with [`.env.example`](.env.example) and the [configuration guide](docs/con
 
 ## How ranking works
 
-Confirmed help leads the developer board. Each useful contribution confirmed by its recipient or an admin earns 20 points, plus 5 for each different member helped in the last 28 days. Up to three contributions per UTC day and two per recipient count; each project or question counts once. Copied feedback and self-reviews earn nothing. Members can record fixes, testing, documentation and answers from Participation.
+Confirmed help leads the developer board. Each useful contribution confirmed by its recipient or an admin earns 20 points, plus 5 for each different member helped. Earned help no longer expires. All time is the default; 7 days and 30 days filter help by its submission date. Up to three contributions per UTC day and two per recipient in any 30 days count; each project or question counts once. Copied feedback and self-reviews earn nothing. Members can record fixes, testing, documentation and answers from Participation.
 
 GitHub reputation and repo upvotes add at most 20 points in total, using these default weights:
 
@@ -85,9 +85,9 @@ GitHub reputation and repo upvotes add at most 20 points in total, using these d
 | Public GitHub contributions since joining OpenCircle | 1 each |
 | Community upvotes on owned repositories | 1 each |
 
-Starring another visible community member's public, original repo adds 20 helper points, once per recipient in the last 28 days. Stars given directly on GitHub count too. More stars across the same member's repos add no extra credit. Self-stars, private repos, forks and nonmembers earn nothing. Removing a star removes its credit on the next successful GitHub refresh; another qualifying star for the same member can still count.
+Starring another visible community member's public, original repo adds 20 helper points, once per recipient across their qualifying repos, without a time limit. Stars given directly on GitHub count too. More stars across the same member's repos add no extra credit. Self-stars, private repos, forks and nonmembers earn nothing. Removing a star removes its credit on the next successful GitHub refresh; another qualifying star for the same member can still count.
 
-GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, confirmed members helped, GitHub reputation, received stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary. Bot outages preserve the last confirmed helper scores and mark them delayed. GitHub outages preserve cached star activity, which still expires after 28 days, and mark stats delayed.
+GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, confirmed members helped, GitHub reputation, received stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary. Bot outages preserve the last confirmed helper scores and mark them delayed. GitHub outages preserve cached star activity and mark stats delayed. The GitHub reputation bonus is the same in every period; recent views filter helper credit. Star support is dated from the earliest qualifying star still held for each member.
 
 Spotlight includes the [OpenCircle community repo](https://github.com/opencirclehq/open-circle) alongside each developer's most-starred eligible repo, or their selection during registration. Projects rank by GitHub stars, then forks and repository name. The community repo uses live GitHub metadata and supports the same search, upvotes and bookmarks; its upvotes do not add points to a developer. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
 

@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { StarIcon } from "@solar-icons/react/bold-duotone";
-import { ArrowUpIcon, BookmarkIcon, GitPullRequestIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
+import { BookmarkIcon, GitPullRequestIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
 import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
 import { AnimatePresence, motion } from "motion/react";
 import type { PublicRepository } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TextureButton } from "@/components/ui/texture-button";
+import { VoteButton } from "@/components/board/vote-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCount, formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -118,27 +118,21 @@ export function RepositoryTable({
                   <div role="group" aria-label={`Vote on ${repo.fullName}`} className="flex flex-col items-center gap-0.5 rounded-full bg-foreground/[0.035] p-0.5 sm:flex-row">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <TextureButton
+                        <VoteButton
                           type="button"
-                          variant={isVoted ? "primary" : "icon"}
-                          size="icon"
+                          selected={isVoted}
                           aria-label={`${isVoted ? "Remove upvote from" : "Upvote"} ${repo.fullName}`}
-                          aria-pressed={isVoted}
                           disabled={votingDisabled}
                           loading={pendingTarget === target}
                           onClick={() => onVote(repo, !isVoted)}
-                          className="size-10 w-10 sm:size-11 sm:w-11"
-                          innerClassName={cn("p-0", isVoted && "text-up")}
-                        >
-                          <ArrowUpIcon className="size-4" aria-hidden="true" />
-                        </TextureButton>
+                        />
                       </TooltipTrigger>
                       <TooltipContent>
                         {isVoted ? "Remove your community upvote" : "Upvote for the circle."}
                       </TooltipContent>
                     </Tooltip>
                     <span
-                      className="min-w-8 pb-1.5 pt-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0 sm:pr-2.5"
+                      className={cn("min-w-8 pb-1.5 pt-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0 sm:pr-2.5", isVoted && "text-up")}
                       title={`${formatFull(counts[target] ?? 0)} upvotes`}
                       aria-label={`${formatFull(counts[target] ?? 0)} upvotes for ${repo.fullName}`}
                     >

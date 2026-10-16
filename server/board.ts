@@ -27,12 +27,12 @@ import type { AppConfig, MemberRecord, Store } from "./store.js";
 import { requireWhatsappMembership } from "./whatsapp.js";
 import { COMMUNITY_REPOSITORY, pickSpotlight, spotlightCandidates } from "../shared/spotlight.js";
 import { coordinationRequest } from "./participation.js";
-import type { HelperLeaderboard } from "../shared/coordination.js";
+import { RANKING_PERIODS, type HelperHistory, type HelperPeriodScores, type RankingPeriod } from "../shared/coordination.js";
 import { communityStarHelps, STAR_HELP_POINTS } from "../shared/star-help.js";
 import { lookupCommunityRepository } from "./community-spotlight.js";
 
 const REFRESH_EVERY_MS = 60_000;
-const RANKING_VERSION = 5;
+const RANKING_VERSION = 6;
 // Held for this long after a failed refresh, so a rate-limited GitHub isn't retried on every poll.
 const REFRESH_LOCK_S = 50;
 // With more members than this, each tick refreshes the stalest ones and the rest wait their turn.
@@ -67,6 +67,7 @@ function statsFields(stats: GithubStats): Partial<MemberRecord> {
     projects: stats.projects ?? [],
     starredRepositories: stats.starredRepositories ?? [],
     starSupportUpdatedAt: Date.now(),
+    starHistoryVersion: stats.starHistoryVersion ?? 0,
   };
 }
 
@@ -90,20 +91,24 @@ export async function rebuildBoard(
   let helpersCheckedAt = previous?.helpersCheckedAt ?? 0;
   let helpersUpdatedAt = previous?.helpersUpdatedAt ?? 0;
   let helpersDelayed = previous?.helpersDelayed ?? true;
-  if (now - helpersCheckedAt >= REFRESH_EVERY_MS) {
+  if (now - helpersCheckedAt >= REFRESH_EVERY_MS || previous?.rankingVersion !== RANKING_VERSION || (previous.helperHistoryReady && records.some((record) => !record.hidden && !record.helperPeriods))) {
     helpersCheckedAt = now;
-    let helpers: HelperLeaderboard | null = null;
+    let helpers: HelperHistory | null = null;
     try {
-      helpers = await coordinationRequest<HelperLeaderboard>("helpers", {});
+      helpers = await coordinationRequest<HelperHistory>("helpers", { version: 2 });
     } catch {
       helpersDelayed = true;
     }
     if (helpers) {
-      const scores = new Map(helpers.members.map((entry) => [entry.login.toLowerCase(), entry]));
+      const scores = Object.fromEntries(RANKING_PERIODS.map((period) => [period, new Map(helpers.periods[period].members.map((entry) => [entry.login.toLowerCase(), entry]))])) as Record<RankingPeriod, Map<string, HelperHistory["periods"]["all"]["members"][number]>>;
       await Promise.all(records.map(async (record) => {
-        const helper = scores.get(record.login);
-        const patch = { helperPoints: helper?.points ?? 0, helpfulContributions: helper?.contributions ?? 0, helpedMembers: helper?.peers ?? 0 };
-        if ((record.helperPoints ?? 0) !== patch.helperPoints || (record.helpfulContributions ?? 0) !== patch.helpfulContributions || (record.helpedMembers ?? 0) !== patch.helpedMembers) await store.patchMember(record.login, patch);
+        const helperPeriods = Object.fromEntries(RANKING_PERIODS.map((period) => {
+          const score = scores[period].get(record.login.toLowerCase());
+          return [period, { points: score?.points ?? 0, contributions: score?.contributions ?? 0, peers: score?.peers ?? 0 }];
+        })) as HelperPeriodScores;
+        const helper = helperPeriods.all;
+        const patch = { helperPoints: helper.points, helpfulContributions: helper.contributions, helpedMembers: helper.peers, helperPeriods };
+        if ((record.helperPoints ?? 0) !== patch.helperPoints || (record.helpfulContributions ?? 0) !== patch.helpfulContributions || (record.helpedMembers ?? 0) !== patch.helpedMembers || JSON.stringify(record.helperPeriods) !== JSON.stringify(helperPeriods)) await store.patchMember(record.login, patch);
         Object.assign(record, patch);
       }));
       helpersUpdatedAt = helpers.generatedAt;
@@ -112,20 +117,22 @@ export async function rebuildBoard(
   }
 
   const visibleLogins = new Set(records.filter((record) => !record.hidden).map((record) => record.login.toLowerCase()));
-  const ranked = records
+  const rankedFor = (period: RankingPeriod) => records
     .filter((m) => !m.hidden)
     .map((record) => {
       const activity = record.activitySince === contributionStart(record.createdAt) ? record.activity : 0;
       const upvotes = repositoryUpvotes(record.projects ?? [], votes);
-      const starHelps = communityStarHelps(record.login, record.starredRepositories ?? [], visibleLogins, now);
-      const helperPoints = (record.helperPoints ?? 0) + starHelps * STAR_HELP_POINTS;
-      const m = { ...record, activity, upvotes, helperPoints, starHelps };
+      const starHelps = communityStarHelps(record.login, record.starredRepositories ?? [], visibleLogins, now, period);
+      const help = record.helperPeriods?.[period];
+      const helperPoints = (help?.points ?? record.helperPoints ?? 0) + starHelps * STAR_HELP_POINTS;
+      const m = { ...record, activity, upvotes, helperPoints, starHelps, helpfulContributions: help?.contributions ?? record.helpfulContributions ?? 0, helpedMembers: help?.peers ?? record.helpedMembers ?? 0 };
       const githubScore = scoreOf(m, config.weights);
       return { m: { ...m, githubScore }, score: communityScore(githubScore, m.helperPoints) };
     })
     .sort((a, b) =>
       compareStanding({ ...a.m, score: a.score }, { ...b.m, score: b.score }),
     );
+  const ranked = rankedFor("all");
 
   const writes: Promise<void>[] = [];
   const members: PublicMember[] = ranked.map(({ m, score }, i) => {
@@ -174,6 +181,13 @@ export async function rebuildBoard(
   }
   await Promise.all(writes);
 
+  const helperHistoryReady = records.filter((record) => !record.hidden).every((record) => Boolean(record.helperPeriods));
+  const publicMembers = new Map(members.map((member) => [member.login.toLowerCase(), member]));
+  const periods = helperHistoryReady ? Object.fromEntries((["7d", "30d"] as const).map((period) => [period, rankedFor(period).map(({ m, score }, index) => ({
+    ...publicMembers.get(m.login)!, score, rank: index + 1, delta: 0,
+    helperPoints: m.helperPoints, helpfulContributions: m.helpfulContributions, helpedMembers: m.helpedMembers, starHelps: m.starHelps,
+  }))])) as Board["periods"] : undefined;
+
   const communityRepository = opts.communityRepository === undefined
     ? previous?.repositories?.find((repo) => repo.fullName.toLowerCase() === COMMUNITY_REPOSITORY)
     : opts.communityRepository;
@@ -202,13 +216,15 @@ export async function rebuildBoard(
     helpersCheckedAt,
     helpersUpdatedAt,
     helpersDelayed,
+    helperHistoryReady,
+    periods,
     communityRepositoryCheckedAt: opts.communityRepositoryCheckedAt ?? previous?.communityRepositoryCheckedAt ?? 0,
     communityRepositoryDelayed: opts.communityRepositoryDelayed ?? previous?.communityRepositoryDelayed ?? true,
     members,
     repositories,
     updatedAt: now,
     refreshedAt: opts.refreshedAt ?? previous?.refreshedAt ?? now,
-    statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt) || !m.starSupportUpdatedAt) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
+    statsDelayed: ranked.some(({ m }) => m.activitySince !== contributionStart(m.createdAt) || !m.starSupportUpdatedAt || m.starHistoryVersion !== 2) || (opts.statsDelayed ?? previous?.statsDelayed ?? false),
     invite: config.invite,
     weights: config.weights,
   };

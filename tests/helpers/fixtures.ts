@@ -1,6 +1,7 @@
 import type { Board, GithubRepository, PublicMember } from "../../shared/types";
 import { contributionStart, DEFAULT_WEIGHTS } from "../../shared/ranking";
 import { DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "../../shared/brand";
+import { RANKING_PERIODS, rankingWindowStart, type HelperHistory, type HelperScore } from "../../shared/coordination";
 import type { MemberRecord } from "../../server/store";
 
 export function repository(overrides: Partial<GithubRepository> = {}): GithubRepository {
@@ -34,6 +35,7 @@ export function memberRecord(overrides: Partial<MemberRecord> = {}): MemberRecor
     projects: [repository()],
     starredRepositories: [],
     starSupportUpdatedAt: Date.now(),
+    starHistoryVersion: 2,
     hidden: false,
     createdAt: Date.now(),
     statsUpdatedAt: Date.now(),
@@ -64,7 +66,7 @@ export function publicMember(overrides: Partial<PublicMember> = {}): PublicMembe
 
 export function boardFixture(overrides: Partial<Board> = {}): Board {
   return {
-    rankingVersion: 5,
+    rankingVersion: 6,
     helpersCheckedAt: Date.now(),
     communityRepositoryCheckedAt: Date.now(),
     members: [],
@@ -121,4 +123,8 @@ export function githubOwner(overrides: Record<string, unknown> = {}) {
 
 export function githubJson(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+export function helperHistoryFixture(members: HelperScore[] = [], overrides: Partial<Record<"7d" | "30d", HelperScore[]>> = {}, now = Date.now()): HelperHistory {
+  return { version: 2, generatedAt: now, periods: Object.fromEntries(RANKING_PERIODS.map((period) => [period, { windowStartedAt: rankingWindowStart(period, now), members: period === "all" ? members : overrides[period] ?? members }])) as HelperHistory["periods"] };
 }

@@ -1,3 +1,5 @@
+import type { RankingPeriod } from "./coordination.js";
+
 export interface Weights {
   stars: number;
   followers: number;
@@ -23,6 +25,7 @@ export interface GithubStats {
   activitySince: number;
   projects?: GithubRepository[];
   starredRepositories?: GithubStar[];
+  starHistoryVersion?: number;
 }
 
 export interface GithubStar {
@@ -85,6 +88,8 @@ export interface Board {
   helpersCheckedAt?: number;
   helpersUpdatedAt?: number;
   helpersDelayed?: boolean;
+  helperHistoryReady?: boolean;
+  periods?: Record<Exclude<RankingPeriod, "all">, PublicMember[]>;
   communityRepositoryCheckedAt?: number;
   communityRepositoryDelayed?: boolean;
   members: PublicMember[];

@@ -37,7 +37,7 @@ export function ToolsSkeleton() {
 
 export function AccountSkeleton() {
   return <LoadingSkeleton label="Checking GitHub sign-in…">
-    <Skeleton animation="pulse" template={<Placeholder className="h-10 w-28 rounded-full" />} />
+    <Skeleton animation="pulse" template={<Placeholder className="size-11 rounded-full" />} />
   </LoadingSkeleton>;
 }
 

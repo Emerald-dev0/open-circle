@@ -1,3 +1,4 @@
+import type { HelperPeriodScores } from "../shared/coordination.js";
 import type {
   Board,
   GithubRepository,
@@ -23,10 +24,12 @@ export interface MemberRecord {
   helperPoints?: number;
   helpfulContributions?: number;
   helpedMembers?: number;
+  helperPeriods?: HelperPeriodScores;
   activitySince?: number;
   projects?: GithubRepository[];
   starredRepositories?: GithubStar[];
   starSupportUpdatedAt?: number;
+  starHistoryVersion?: number;
   spotlightRepositoryId?: string;
   hidden: boolean;
   createdAt: number;
@@ -76,6 +79,7 @@ const NUMERIC = [
   "helpedMembers",
   "activitySince",
   "starSupportUpdatedAt",
+  "starHistoryVersion",
   "createdAt",
   "statsUpdatedAt",
   "rank",
@@ -90,7 +94,7 @@ export function encodeMember(
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    out[key] = Array.isArray(value)
+    out[key] = Array.isArray(value) || key === "helperPeriods"
       ? JSON.stringify(value)
       : typeof value === "boolean"
         ? value
@@ -114,6 +118,7 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     hidden: hash.hidden === "1",
     projects: hash.projects ? JSON.parse(hash.projects) : [],
     starredRepositories: hash.starredRepositories ? JSON.parse(hash.starredRepositories) : undefined,
+    helperPeriods: hash.helperPeriods ? JSON.parse(hash.helperPeriods) : undefined,
     spotlightRepositoryId: hash.spotlightRepositoryId || undefined,
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;

@@ -1,3 +1,5 @@
+import type { RankingPeriod } from "@shared/coordination";
+
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
 const full = new Intl.NumberFormat("en");
 
@@ -39,4 +41,10 @@ export function githubAvatarUrl(login: string): string {
 export function diceBearAvatarUrl(seed: string, backgroundColor = "151515"): string {
   const params = new URLSearchParams({ seed, backgroundColor, radius: "50" });
   return `https://api.dicebear.com/9.x/personas/svg?${params.toString()}`;
+}
+
+export const rankingPeriodLabels: Record<RankingPeriod, string> = { all: "All time", "7d": "7 days", "30d": "30 days" };
+
+export function formatHelpDetail(member: { helpfulContributions?: number; helpedMembers?: number; starHelps?: number }, period: RankingPeriod = "all"): string {
+  return `${formatFull(member.helpfulContributions ?? 0)} confirmed helps for ${formatFull(member.helpedMembers ?? 0)} members · ${formatFull(member.starHelps ?? 0)} members supported by stars · ${rankingPeriodLabels[period].toLowerCase()}`;
 }

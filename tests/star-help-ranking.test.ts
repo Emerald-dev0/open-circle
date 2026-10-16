@@ -25,8 +25,8 @@ async function community() {
   return store;
 }
 
-it("credits the giver once per other visible community member, excluding self, outsiders and expired stars", () => {
-  expect(communityStarHelps("octocat", [star("PeEr"), star("peer", "R_another"), star("octocat"), star("outsider"), star("old", "R_old", now - 28 * 86400000), star("future", "R_future", now + 1)], new Set(["octocat", "peer", "old", "future"]), now)).toBe(1);
+it("credits the giver once per other visible community member, including older stars while excluding self, outsiders and future timestamps", () => {
+  expect(communityStarHelps("octocat", [star("PeEr"), star("peer", "R_another"), star("octocat"), star("outsider"), star("old", "R_old", now - 28 * 86400000), star("future", "R_future", now + 1)], new Set(["octocat", "peer", "old", "future"]), now)).toBe(2);
 });
 
 it("puts a star giver above unlimited popularity, combines confirmed help without writing combined totals back, and keeps receipts private", async () => {
@@ -48,14 +48,14 @@ it("one star beats a full reputation score even with no reputation of its own", 
   expect((await rebuildBoard(store)).members).toMatchObject([{ login: "Octocat", score: 20, helperPoints: 20 }, { login: "Peer", score: 20, helperPoints: 0 }]);
 });
 
-it("removes credit when a recipient is hidden or leaves, and expires cached stars even during outages", async () => {
+it("removes credit when a recipient is hidden or leaves, and preserves all-time stars during outages", async () => {
   const store = await community();
   expect((await rebuildBoard(store)).members[0].starHelps).toBe(1);
   await store.patchMember("peer", { hidden: true });
   expect((await rebuildBoard(store)).members[0].starHelps).toBe(0);
   await store.patchMember("peer", { hidden: false });
-  vi.setSystemTime(now + 28 * 86400000);
-  expect((await rebuildBoard(store)).members.find((m) => m.login === "Octocat")?.starHelps).toBe(0);
+  vi.setSystemTime(now + 90 * 86400000);
+  expect((await rebuildBoard(store)).members.find((m) => m.login === "Octocat")?.starHelps).toBe(1);
   vi.setSystemTime(now);
   await store.deleteMember("peer");
   expect((await rebuildBoard(store)).members[0].starHelps).toBe(0);
@@ -96,10 +96,19 @@ it("refreshes legacy records immediately, preserves credit on upstream failures 
     await Promise.all(work);
     return store.getBoard();
   }
-  expect(await refresh()).toMatchObject({ rankingVersion: 5, statsDelayed: false, members: expect.arrayContaining([expect.objectContaining({ login: "Octocat", starHelps: 1, score: 40 })]) });
+  expect(await refresh()).toMatchObject({ rankingVersion: 6, statsDelayed: false, members: expect.arrayContaining([expect.objectContaining({ login: "Octocat", starHelps: 1, score: 40 })]) });
   vi.setSystemTime(now + 61000); mode = "offline";
   expect(await refresh()).toMatchObject({ statsDelayed: true, members: expect.arrayContaining([expect.objectContaining({ login: "Octocat", starHelps: 1 })]) });
   vi.setSystemTime(now + 122000); mode = "removed";
   expect(await refresh()).toMatchObject({ statsDelayed: false, members: expect.arrayContaining([expect.objectContaining({ login: "Octocat", starHelps: 0, score: 20 })]) });
   expect((await store.getMember("octocat"))?.starredRepositories).toEqual([]);
+});
+
+
+it("uses seven-day and thirty-day cutoffs without re-crediting another repo from an already supported member", () => {
+  const members = new Set(["peer", "older", "month", "week", "future"]);
+  const receipts = [star("peer", "R_old-peer", now - 90 * 86400000), star("peer", "R_new-peer"), star("older", "R_older", now - 30 * 86400000), star("month", "R_month", now - 7 * 86400000), star("week", "R_week", now - 1000), star("future", "R_future", now + 1)];
+  expect(communityStarHelps("octocat", receipts, members, now)).toBe(4);
+  expect(communityStarHelps("octocat", receipts, members, now, "30d")).toBe(2);
+  expect(communityStarHelps("octocat", receipts, members, now, "7d")).toBe(1);
 });

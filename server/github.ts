@@ -1,6 +1,5 @@
 import type { GithubRepository, GithubStar, GithubStats } from "../shared/types.js";
 import { contributionStart } from "../shared/ranking.js";
-import { HELPER_POLICY } from "../shared/coordination.js";
 
 export type GithubErrorCode =
   | "not_configured"
@@ -201,17 +200,15 @@ async function allProjects(
   return [...projects.values()];
 }
 
-async function recentStars(node: OwnerNode, token: string, deadline: number, now: number): Promise<GithubStar[]> {
+async function allStars(node: OwnerNode, token: string, deadline: number, now: number): Promise<GithubStar[]> {
   let connection = node.starredRepositories;
   const stars = new Map<string, GithubStar>();
   const cursors = new Set<string>();
-  const cutoff = now - HELPER_POLICY.windowDays * 86_400_000;
   let previousTime = Infinity;
   while (true) {
     if (!connection || !Array.isArray(connection.edges) || typeof connection.isOverLimit !== "boolean" || typeof connection.pageInfo?.hasNextPage !== "boolean") {
       throw new GithubError("upstream", "GitHub couldn't load stars given.");
     }
-    let reachedCutoff = false;
     for (const edge of connection.edges) {
       const time = typeof edge?.starredAt === "string" ? Date.parse(edge.starredAt) : NaN;
       const repo = edge?.node;
@@ -219,15 +216,11 @@ async function recentStars(node: OwnerNode, token: string, deadline: number, now
         throw new GithubError("upstream", "GitHub returned incomplete star activity.");
       }
       previousTime = time;
-      if (time <= cutoff) {
-        reachedCutoff = true;
-        continue;
-      }
+      if (time <= 0) throw new GithubError("upstream", "GitHub returned invalid star activity.");
       if (!repo.isPrivate && !repo.isFork && repo.owner.__typename === "User" && repo.owner.login.toLowerCase() !== node.login.toLowerCase()) {
         stars.set(repo.id, { repositoryId: repo.id, ownerLogin: repo.owner.login.toLowerCase(), starredAt: time });
       }
     }
-    if (reachedCutoff) return [...stars.values()];
     if (!connection.pageInfo.hasNextPage) {
       if (connection.isOverLimit) throw new GithubError("upstream", "GitHub returned a truncated star history.");
       return [...stars.values()];
@@ -304,7 +297,7 @@ async function lookupBatch(
       else {
         try {
           const projects = await allProjects(node, token, deadline);
-          const starredRepositories = await recentStars(node, token, deadline, now);
+          const starredRepositories = await allStars(node, token, deadline, now);
           const activity = windows[i].reduce((total, _, j) => {
             const contributions = node[`activity${j}`];
             if (!contributions || CONTRIBUTION_FIELDS.some((field) => !Number.isSafeInteger(contributions[field]) || contributions[field] < 0)) {
@@ -325,6 +318,7 @@ async function lookupBatch(
               activitySince: starts[i],
               projects,
               starredRepositories,
+              starHistoryVersion: 2,
             },
           };
         } catch (err) {

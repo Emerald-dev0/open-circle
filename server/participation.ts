@@ -1,7 +1,8 @@
 import { HttpError } from "./http.js";
-import { isHelperLeaderboard, isMemberCommunityState } from "../shared/coordination.js";
+import { isHelperHistory, isHelperLeaderboard, isMemberCommunityState } from "../shared/coordination.js";
 
 export async function coordinationRequest<T>(action: "profile" | "link" | "action" | "helpers", body: unknown): Promise<T> {
+  const history = action === "helpers" && Boolean(body && typeof body === "object" && "version" in body && body.version === 2);
   const configured = process.env.WHATSAPP_MEMBERSHIP_URL?.trim();
   const token = process.env.WHATSAPP_MEMBERSHIP_TOKEN?.trim();
   const unavailable = () => new HttpError(503, "coordination_unavailable", "Group participation is unavailable right now. Your activity won't be penalised while tracking is paused.");
@@ -25,7 +26,7 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
           const chunk = await reader.read();
           if (chunk.done) break;
           size += chunk.value.byteLength;
-          if (size > 2097152) throw unavailable();
+          if (size > (history ? 6291456 : 2097152)) throw unavailable();
           chunks.push(chunk.value);
         }
       } finally { await reader.cancel().catch(() => undefined); }
@@ -40,7 +41,7 @@ export async function coordinationRequest<T>(action: "profile" | "link" | "actio
   }
   if (!result || typeof result !== "object" || Array.isArray(result)) throw unavailable();
   if (action === "helpers") {
-    if (!isHelperLeaderboard(result) || result.generatedAt > Date.now() + 60_000 || Date.now() - result.generatedAt > 120_000) throw unavailable();
+    if (!(history ? isHelperHistory(result) : isHelperLeaderboard(result)) || !("generatedAt" in result) || typeof result.generatedAt !== "number" || result.generatedAt > Date.now() + 60_000 || Date.now() - result.generatedAt > 120_000) throw unavailable();
     return result as T;
   }
   if (action === "link") {

@@ -1,8 +1,8 @@
 import { BookmarkIcon as SavedBookmarkIcon } from "@solar-icons/react/bold";
-import { ArrowDownIcon, ArrowUpIcon, BookmarkIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
+import { BookmarkIcon, SquareTopDownIcon } from "@solar-icons/react/linear";
 import type { CommunityTool, VoteValue } from "@shared/community";
 import { ToolFavicon } from "@/components/board/tool-favicon";
-import { TextureButton } from "@/components/ui/texture-button";
+import { VoteButton } from "@/components/board/vote-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCount, formatFull } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -61,13 +61,9 @@ export function ToolRow({ tool, count, value, saved, disabled, pendingValue = nu
       </div>
       {/* Votes sit on the right of the same line: stacked on phones, a pill from sm up. */}
       <div role="group" aria-label={`Vote on ${tool.name}`} className="flex flex-col items-center gap-0.5 rounded-full bg-foreground/[0.035] p-0.5 sm:flex-row">
-        <TextureButton type="button" variant={value === 1 ? "primary" : "icon"} size="icon" aria-label={`${value === 1 ? "Remove upvote for" : "Upvote"} ${tool.name}`} aria-pressed={value === 1} disabled={disabled} loading={spinning === 1} onClick={() => onVote(value === 1 ? 0 : 1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === 1 && "text-up")}>
-          <ArrowUpIcon className="size-4" aria-hidden="true" />
-        </TextureButton>
-        <span className="min-w-8 py-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0" title={`${formatFull(count)} net votes`} aria-label={`${formatFull(count)} net votes for ${tool.name}`}>{formatCount(count)}</span>
-        <TextureButton type="button" variant={value === -1 ? "primary" : "icon"} size="icon" aria-label={`${value === -1 ? "Remove downvote for" : "Downvote"} ${tool.name}`} aria-pressed={value === -1} disabled={disabled} loading={spinning === -1} onClick={() => onVote(value === -1 ? 0 : -1)} className="size-10 w-10 sm:size-11 sm:w-11" innerClassName={cn("p-0", value === -1 && "text-down")}>
-          <ArrowDownIcon className="size-4" aria-hidden="true" />
-        </TextureButton>
+        <VoteButton type="button" selected={value === 1} aria-label={`${value === 1 ? "Remove upvote for" : "Upvote"} ${tool.name}`} disabled={disabled} loading={spinning === 1} onClick={() => onVote(value === 1 ? 0 : 1)} />
+        <span className={cn("min-w-8 py-0.5 text-center text-xs font-medium tabular text-t2 sm:px-1 sm:py-0", value === 1 && "text-up", value === -1 && "text-down")} title={`${formatFull(count)} net votes`} aria-label={`${formatFull(count)} net votes for ${tool.name}`}>{formatCount(count)}</span>
+        <VoteButton type="button" direction="down" selected={value === -1} aria-label={`${value === -1 ? "Remove downvote for" : "Downvote"} ${tool.name}`} disabled={disabled} loading={spinning === -1} onClick={() => onVote(value === -1 ? 0 : -1)} />
       </div>
     </motion.li>
   );

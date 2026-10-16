@@ -1,0 +1,20 @@
+.vote-button {
+  --vote-color: var(--up);
+}
+
+.vote-button[data-direction="down"] {
+  --vote-color: var(--down);
+}
+
+button.vote-button[aria-pressed="true"][data-direction] {
+  background: hsl(var(--vote-color) / 0.5);
+}
+
+button.vote-button[aria-pressed="true"][data-direction] > span {
+  background: color-mix(in srgb, hsl(var(--vote-color)) 16%, hsl(var(--alva-card)));
+  color: hsl(var(--vote-color));
+}
+
+button.vote-button[aria-pressed="true"][data-direction]:is(:hover, :active) > span {
+  background: color-mix(in srgb, hsl(var(--vote-color)) 24%, hsl(var(--alva-card)));
+}
