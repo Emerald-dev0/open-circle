@@ -25,10 +25,11 @@ import { HttpError } from "./http.js";
 import { getCommunityStore } from "./community-store.js";
 import type { AppConfig, MemberRecord, Store } from "./store.js";
 import { requireWhatsappMembership } from "./whatsapp.js";
-import { pickSpotlight, spotlightCandidates } from "../shared/spotlight.js";
+import { COMMUNITY_REPOSITORY, pickSpotlight, spotlightCandidates } from "../shared/spotlight.js";
 import { coordinationRequest } from "./participation.js";
 import type { HelperLeaderboard } from "../shared/coordination.js";
 import { communityStarHelps, STAR_HELP_POINTS } from "../shared/star-help.js";
+import { lookupCommunityRepository } from "./community-spotlight.js";
 
 const REFRESH_EVERY_MS = 60_000;
 const RANKING_VERSION = 5;
@@ -77,7 +78,7 @@ function repositoryUpvotes(projects: GithubRepository[], counts: Record<string, 
 /** Ranks every visible member, records rank movement, and writes the public snapshot. */
 export async function rebuildBoard(
   store: Store,
-  opts: { refreshedAt?: number; statsDelayed?: boolean; voteCounts?: Record<string, number> } = {},
+  opts: { refreshedAt?: number; statsDelayed?: boolean; voteCounts?: Record<string, number>; communityRepository?: PublicRepository | null; communityRepositoryCheckedAt?: number; communityRepositoryDelayed?: boolean } = {},
 ): Promise<Board> {
   const [records, config, previous, votes] = await Promise.all([
     store.listMembers(),
@@ -173,7 +174,10 @@ export async function rebuildBoard(
   }
   await Promise.all(writes);
 
-  const repositories: PublicRepository[] = ranked
+  const communityRepository = opts.communityRepository === undefined
+    ? previous?.repositories?.find((repo) => repo.fullName.toLowerCase() === COMMUNITY_REPOSITORY)
+    : opts.communityRepository;
+  const memberRepositories: PublicRepository[] = ranked
     .flatMap(({ m }) => {
       const repo = pickSpotlight(m.projects ?? [], m.spotlightRepositoryId);
       return repo ? [{
@@ -183,7 +187,8 @@ export async function rebuildBoard(
         ownerNickname: m.nickname,
         ownerAvatarUrl: m.avatarUrl,
       }] : [];
-    })
+    });
+  const repositories = [...new Map([...memberRepositories, ...(communityRepository ? [communityRepository] : [])].map((repo) => [repo.id, repo])).values()]
     .sort(
       (a, b) =>
         b.stars - a.stars ||
@@ -197,6 +202,8 @@ export async function rebuildBoard(
     helpersCheckedAt,
     helpersUpdatedAt,
     helpersDelayed,
+    communityRepositoryCheckedAt: opts.communityRepositoryCheckedAt ?? previous?.communityRepositoryCheckedAt ?? 0,
+    communityRepositoryDelayed: opts.communityRepositoryDelayed ?? previous?.communityRepositoryDelayed ?? true,
     members,
     repositories,
     updatedAt: now,
@@ -211,15 +218,21 @@ export async function rebuildBoard(
 
 async function refreshStats(store: Store): Promise<Board> {
   const now = Date.now();
+  const previous = await store.getBoard();
   const due = (await store.listMembers())
     .filter((m) => !m.hidden)
     .filter((m) => m.activitySince !== contributionStart(m.createdAt) || !m.starSupportUpdatedAt || now - m.statsUpdatedAt >= REFRESH_EVERY_MS - 5_000)
     .sort((a, b) => a.statsUpdatedAt - b.statsUpdatedAt)
     .slice(0, REFRESH_LIMIT);
 
+  const [outcome, communityUpdate] = await Promise.all([
+    due.length > 0 ? lookupMany(due.map((m) => m.login), new Map(due.map((m) => [m.login, m.createdAt]))) : Promise.resolve({ results: new Map<string, Lookup>(), error: undefined }),
+    now - (previous?.communityRepositoryCheckedAt ?? 0) >= REFRESH_EVERY_MS
+      ? lookupCommunityRepository().then((communityRepository) => ({ communityRepository, communityRepositoryCheckedAt: now, communityRepositoryDelayed: false })).catch(() => ({ communityRepositoryCheckedAt: now, communityRepositoryDelayed: true }))
+      : Promise.resolve({}),
+  ]);
   let delayed = false;
   if (due.length > 0) {
-    const outcome = await lookupMany(due.map((m) => m.login), new Map(due.map((m) => [m.login, m.createdAt])));
     if (outcome.error) {
       console.warn(
         `GitHub refresh: ${outcome.error.code}: ${outcome.error.message}`,
@@ -243,6 +256,7 @@ async function refreshStats(store: Store): Promise<Board> {
     );
   }
   return rebuildBoard(store, {
+    ...communityUpdate,
     refreshedAt: delayed ? undefined : now,
     statsDelayed: delayed,
   });
@@ -272,7 +286,7 @@ export async function readBoard(
     ? saved
     : await rebuildBoard(store, saved ? { refreshedAt: 0 } : {});
   if (
-    (Date.now() - board.refreshedAt >= REFRESH_EVERY_MS || Date.now() - (board.helpersCheckedAt ?? 0) >= REFRESH_EVERY_MS) &&
+    (Date.now() - board.refreshedAt >= REFRESH_EVERY_MS || Date.now() - (board.helpersCheckedAt ?? 0) >= REFRESH_EVERY_MS || Date.now() - (board.communityRepositoryCheckedAt ?? 0) >= REFRESH_EVERY_MS) &&
     (await store.tryLock("refresh", REFRESH_LOCK_S))
   ) {
     background(refreshInBackground(store));

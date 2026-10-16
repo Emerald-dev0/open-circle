@@ -66,6 +66,7 @@ export function boardFixture(overrides: Partial<Board> = {}): Board {
   return {
     rankingVersion: 5,
     helpersCheckedAt: Date.now(),
+    communityRepositoryCheckedAt: Date.now(),
     members: [],
     repositories: [],
     updatedAt: Date.now(),

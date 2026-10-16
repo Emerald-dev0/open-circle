@@ -68,7 +68,7 @@ New-member labels last 24 hours. Movement indicators show places gained or lost 
 
 ### Repository spotlight
 
-Spotlight shows one repository per developer, sorted by stars, then forks, then full repository name (`owner/name`). It uses GitHub stars directly and does not use the developer scoring formula.
+Spotlight includes `opencirclehq/open-circle` alongside one repository per developer, sorted by stars, then forks, then full repository name (`owner/name`). It uses GitHub stars directly and does not use the developer scoring formula. The community-owned repository uses its real organization identity and GitHub metadata, with the same five-star minimum, search, votes and bookmarks. Its upvotes do not add developer ranking points. Metadata refreshes in the background at most once per minute; failed requests retain the cached entry and mark `communityRepositoryDelayed`, while a confirmed deletion or ineligible repository removes it.
 
 Only repositories owned by visible members with at least 5 stars appear. Forks and private repositories are excluded. The most-starred eligible repo is picked automatically; developers can choose another eligible repo during registration. If a choice disappears or falls below 5 stars, Spotlight falls back to the most-starred eligible repo. Developers without an eligible repo still join the developer leaderboard and gain a spotlight when a repo qualifies.
 

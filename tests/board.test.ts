@@ -209,7 +209,7 @@ describe("Member and repository board updates", () => {
       await Promise.all(work);
       expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 20, githubScore: 68 });
     }
-    expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).variables.f0_0))
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]) === "https://api.github.com/graphql").map((call) => JSON.parse(call[1].body as string).variables.f0_0))
       .toEqual(["2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z"]);
   });
 
@@ -292,7 +292,8 @@ describe("Member and repository board updates", () => {
     expect(delayed?.members).toEqual(initial.members);
     expect(delayed?.repositories).toEqual(initial.repositories);
     await readBoard(store, (promise) => { work.push(promise); });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map((call) => String(call[0])).sort()).toEqual(["https://api.github.com/graphql", "https://api.github.com/repos/opencirclehq/open-circle"].sort());
   });
 
   it("refreshes developer scores and repository standings from the same GitHub snapshot", async () => {

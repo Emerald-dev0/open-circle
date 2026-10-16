@@ -89,7 +89,7 @@ Starring another visible community member's public, original repo adds 20 helper
 
 GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, confirmed members helped, GitHub reputation, received stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary. Bot outages preserve the last confirmed helper scores and mark them delayed. GitHub outages preserve cached star activity, which still expires after 28 days, and mark stats delayed.
 
-Spotlight picks each developer's most-starred eligible repo automatically, or they can choose one during registration. Projects rank by GitHub stars, then forks and repository name. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
+Spotlight includes the [OpenCircle community repo](https://github.com/opencirclehq/open-circle) alongside each developer's most-starred eligible repo, or their selection during registration. Projects rank by GitHub stars, then forks and repository name. The community repo uses live GitHub metadata and supports the same search, upvotes and bookmarks; its upvotes do not add points to a developer. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
 
 ## Built with
 

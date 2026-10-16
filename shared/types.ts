@@ -85,6 +85,8 @@ export interface Board {
   helpersCheckedAt?: number;
   helpersUpdatedAt?: number;
   helpersDelayed?: boolean;
+  communityRepositoryCheckedAt?: number;
+  communityRepositoryDelayed?: boolean;
   members: PublicMember[];
   repositories: PublicRepository[];
   /** When this snapshot was written. Clients never replace a newer one with an older one. */
