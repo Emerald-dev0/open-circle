@@ -33,6 +33,7 @@ import { usePageMeta } from "@/hooks/use-page-meta";
 import { pageFor } from "@shared/seo";
 import { formatCount, formatFull, githubUrl, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
+import { cn } from "@/lib/utils";
 
 function toEntry(m: PublicMember): LeaderboardEntry {
   const id = m.login.toLowerCase();
@@ -136,7 +137,14 @@ const Index = () => {
   const currentMember = members.find((member) => member.login.toLowerCase() === me);
   const podium = useMemo(() => members.slice(0, 3).map(toEntry), [members]);
   const rest = useMemo(() => members.slice(3), [members]);
-  const pagination = usePagination(rest);
+  const [sortBy, setSortBy] = useState<"rank" | "streak">("rank");
+  const rankedRest = useMemo(
+    () => sortBy === "streak"
+      ? [...rest].sort((a, b) => (b.currentStreak ?? 0) - (a.currentStreak ?? 0) || a.rank - b.rank)
+      : rest,
+    [rest, sortBy],
+  );
+  const pagination = usePagination(rankedRest, PAGE_SIZE, sortBy);
   const setMemberPage = pagination.setPage;
   const repositories = useMemo(() => (board?.repositories ?? []).filter((repo) => repo.stars >= SPOTLIGHT_MIN_STARS), [board]);
   const repoPodium = useMemo(() => repositories.slice(0, 3).map(repoEntry), [repositories]);
@@ -165,7 +173,7 @@ const Index = () => {
   useEffect(() => {
     if (!locateRequest || !members.some((member) => member.login.toLowerCase() === locateRequest.id)) return;
     const { id } = locateRequest;
-    const index = rest.findIndex((member) => member.login.toLowerCase() === id);
+    const index = rankedRest.findIndex((member) => member.login.toLowerCase() === id);
     setMemberPage(index < 0 ? 1 : Math.floor(index / PAGE_SIZE) + 1);
     setLocateRequest(null);
     flashTimer.current = window.setTimeout(() => {
@@ -176,7 +184,7 @@ const Index = () => {
       });
       flashTimer.current = window.setTimeout(() => setFlashId(null), 1700);
     }, 450);
-  }, [locateRequest, members, rest, setMemberPage]);
+  }, [locateRequest, members, rankedRest, setMemberPage]);
 
   useEffect(() => {
     if (location.pathname !== "/") return;
@@ -320,11 +328,29 @@ const Index = () => {
                   )}
 
                   {!isPending && members.length > 0 && <div ref={pagination.regionRef} tabIndex={-1} className="mt-4 scroll-mt-6 sm:mt-6">
+                    {rest.length > 0 && <div className="mb-3 flex items-center justify-end gap-2">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-t4">Sort</span>
+                      <div role="group" aria-label="Sort developers" className="inline-flex rounded-full bg-foreground/[0.06] p-0.5">
+                        {(["rank", "streak"] as const).map((option) => (
+                          <button
+                            key={option}
+                            type="button"
+                            aria-pressed={sortBy === option}
+                            onClick={() => setSortBy(option)}
+                            className={cn("rounded-full px-3 py-1 text-xs transition-colors", sortBy === option ? "bg-foreground/[0.1] text-foreground" : "text-t3 hover:text-t2")}
+                          >
+                            {option === "rank" ? "Rank" : "Streak"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>}
                     <RankTable
                       members={pagination.items}
                       total={pagination.total}
                       meId={me}
                       flashId={flashId}
+                      achievementCounts={board?.achievementCounts}
+                      memberCount={members.length}
                     />
                     <Pagination {...pagination} label="Developers" onPageChange={pagination.changePage} />
                   </div>}

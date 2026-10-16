@@ -18,11 +18,15 @@ function Row({
   index,
   isMe,
   flash,
+  counts,
+  total,
 }: {
   member: PublicMember;
   index: number;
   isMe: boolean;
   flash: boolean;
+  counts?: Record<string, number>;
+  total?: number;
 }) {
   const { resolvedTheme } = useTheme();
   const id = member.login.toLowerCase();
@@ -68,7 +72,7 @@ function Row({
                   <MetalBadge theme={resolvedTheme} scale={0.78}>You</MetalBadge>
                 </span>
               )}
-              <ProgressionBadges member={member} className="shrink-0" />
+              <ProgressionBadges member={member} counts={counts} total={total} className="shrink-0" />
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
             <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>
@@ -119,12 +123,16 @@ export function RankTable({
   meId,
   flashId,
   total = members.length,
+  achievementCounts,
+  memberCount,
 }: {
   /** Members ranked 4 and below, in rank order. */
   members: PublicMember[];
   meId?: string | null;
   flashId?: string | null;
   total?: number;
+  achievementCounts?: Record<string, number>;
+  memberCount?: number;
 }) {
   if (members.length === 0) {
     return (
@@ -153,7 +161,7 @@ export function RankTable({
         <div role="rowgroup" className="space-y-1">
           {members.map((m, i) => {
             const id = m.login.toLowerCase();
-            return <Row key={id} member={m} index={i} isMe={id === meId} flash={id === flashId} />;
+            return <Row key={id} member={m} index={i} isMe={id === meId} flash={id === flashId} counts={achievementCounts} total={memberCount} />;
           })}
         </div>
       </div>

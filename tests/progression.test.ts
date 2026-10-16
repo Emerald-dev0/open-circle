@@ -6,6 +6,7 @@ import {
   isUtcDay,
   mergeActivityDays,
   nextGoals,
+  nextStreakMilestone,
   normalizeDays,
   sameAchievements,
   utcDay,
@@ -131,6 +132,13 @@ describe("achievement evaluation", () => {
 
   it("ignores unknown achievement ids in stored state", () => {
     expect(evaluateAchievements({ activityDays: [], longestStreak: 0 }, { mystery: 1 }, 7)).toEqual({});
+  });
+
+  it("points at the next streak milestone or none once all are earned", () => {
+    expect(nextStreakMilestone(0)).toBe(7);
+    expect(nextStreakMilestone(7)).toBe(30);
+    expect(nextStreakMilestone(200)).toBe(365);
+    expect(nextStreakMilestone(365)).toBeNull();
   });
 
   it("compares achievement maps structurally", () => {

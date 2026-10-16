@@ -224,6 +224,16 @@ export function nextGoals(
   return [...byGroup.values()].sort((a, b) => b.current / b.target - a.current / a.target);
 }
 
+/** The next streak length that earns a milestone, or null when all are earned. */
+export function nextStreakMilestone(longestStreak: number): number | null {
+  const targets = ACHIEVEMENT_IDS
+    .map((id) => ACHIEVEMENTS[id])
+    .filter((def) => def.metric === "longestStreak")
+    .map((def) => def.target)
+    .sort((a, b) => a - b);
+  return targets.find((target) => target > longestStreak) ?? null;
+}
+
 export function sameAchievements(a: Record<string, number> = {}, b: Record<string, number> = {}): boolean {
   const keys = Object.keys(a);
   return keys.length === Object.keys(b).length && keys.every((key) => a[key] === b[key]);
