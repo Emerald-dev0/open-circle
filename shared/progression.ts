@@ -3,16 +3,55 @@ const DAY_MS = 86_400_000;
 /** How much verified daily history one member record keeps. */
 export const ACTIVITY_HISTORY_DAYS = 400;
 
-/** Streak lengths that earn a milestone achievement. */
-export const STREAK_MILESTONES = [7, 30] as const;
+/** Window, in UTC days, used to judge consistent (not necessarily consecutive) activity. */
+export const CONSISTENCY_WINDOW_DAYS = 30;
 
+/** Active days within the window that earn the consistency achievement. */
+export const CONSISTENCY_TARGET_DAYS = 20;
+
+export type AchievementGroup = "activity" | "streak" | "help" | "craft" | "audience";
+
+/** The verified signal an achievement is measured against. */
+export type AchievementMetric =
+  | "contributions"
+  | "longestStreak"
+  | "helpedMembers"
+  | "reviews"
+  | "issues"
+  | "stars"
+  | "followers"
+  | "activeDays"
+  | "portfolio";
+
+export interface AchievementDef {
+  group: AchievementGroup;
+  metric: AchievementMetric;
+  target: number;
+  label: string;
+}
+
+/**
+ * Every achievement, its verified metric and the threshold that earns it.
+ * Thresholds are the product's taste; the numbers are intentionally round so
+ * they are easy to reason about and to explain on the board.
+ */
 export const ACHIEVEMENTS = {
-  first_contribution: "First verified contribution",
-  streak_7: "Seven-day streak",
-  streak_30: "Thirty-day streak",
-  first_help: "First confirmed help",
-  community_helper_5: "Helped five members",
-} as const;
+  first_contribution: { group: "activity", metric: "contributions", target: 1, label: "First verified contribution" },
+  prolific_contributor: { group: "activity", metric: "contributions", target: 250, label: "250 public contributions" },
+  consistent_20_30: { group: "activity", metric: "activeDays", target: CONSISTENCY_TARGET_DAYS, label: "Active 20 of the last 30 days" },
+  streak_7: { group: "streak", metric: "longestStreak", target: 7, label: "Seven-day streak" },
+  streak_30: { group: "streak", metric: "longestStreak", target: 30, label: "Thirty-day streak" },
+  streak_100: { group: "streak", metric: "longestStreak", target: 100, label: "Hundred-day streak" },
+  streak_365: { group: "streak", metric: "longestStreak", target: 365, label: "Year-long streak" },
+  first_help: { group: "help", metric: "helpedMembers", target: 1, label: "First confirmed help" },
+  community_helper_5: { group: "help", metric: "helpedMembers", target: 5, label: "Helped five members" },
+  community_helper_25: { group: "help", metric: "helpedMembers", target: 25, label: "Helped twenty-five members" },
+  first_review: { group: "craft", metric: "reviews", target: 1, label: "First code review" },
+  issue_hunter: { group: "craft", metric: "issues", target: 10, label: "Ten issues opened" },
+  portfolio_author: { group: "craft", metric: "portfolio", target: 1, label: "Published a portfolio" },
+  stars_100: { group: "audience", metric: "stars", target: 100, label: "100 stars across projects" },
+  followers_100: { group: "audience", metric: "followers", target: 100, label: "100 followers" },
+} as const satisfies Record<string, AchievementDef>;
 
 export type AchievementId = keyof typeof ACHIEVEMENTS;
 
@@ -75,11 +114,65 @@ export function computeStreaks(days: readonly string[], today: string, longestFl
   return { current: alive ? run : 0, longest };
 }
 
+/** Verified activity days that fall inside the window ending on `today`. */
+export function activeDaysInWindow(days: readonly string[], today: string, window = CONSISTENCY_WINDOW_DAYS): number {
+  if (!isUtcDay(today)) return 0;
+  const end = dayStart(today);
+  const start = end - (window - 1) * DAY_MS;
+  return normalizeDays(days).filter((day) => {
+    const at = dayStart(day);
+    return at >= start && at <= end;
+  }).length;
+}
+
 export interface ProgressionSignals {
   activityDays: readonly string[];
   longestStreak: number;
+  /** Public contributions (commits, PRs, reviews, issues, new repos) since joining. */
+  contributions?: number;
   helpfulContributions?: number;
   helpedMembers?: number;
+  reviews?: number;
+  issues?: number;
+  stars?: number;
+  followers?: number;
+  hasPortfolio?: boolean;
+}
+
+function count(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+/** The verified value of a metric. Never trusts bad stored numbers. */
+export function metricValue(signals: ProgressionSignals, metric: AchievementMetric, today: string): number {
+  switch (metric) {
+    case "contributions":
+      return Math.max(count(signals.contributions), normalizeDays(signals.activityDays).length);
+    case "longestStreak":
+      return count(signals.longestStreak);
+    case "helpedMembers":
+      return count(signals.helpedMembers);
+    case "reviews":
+      return count(signals.reviews);
+    case "issues":
+      return count(signals.issues);
+    case "stars":
+      return count(signals.stars);
+    case "followers":
+      return count(signals.followers);
+    case "activeDays":
+      return activeDaysInWindow(signals.activityDays, today);
+    case "portfolio":
+      return signals.hasPortfolio ? 1 : 0;
+  }
+}
+
+function sanitize(existing: Record<string, number> = {}): Record<string, number> {
+  const merged: Record<string, number> = {};
+  for (const [id, at] of Object.entries(existing)) {
+    if (id in ACHIEVEMENTS && Number.isSafeInteger(at)) merged[id] = at;
+  }
+  return merged;
 }
 
 /** Adds newly-earned achievements to the existing set without re-awarding. */
@@ -88,19 +181,47 @@ export function evaluateAchievements(
   existing: Record<string, number> = {},
   now = Date.now(),
 ): Record<string, number> {
-  const merged: Record<string, number> = {};
-  for (const [id, at] of Object.entries(existing)) {
-    if (ACHIEVEMENT_IDS.includes(id as AchievementId) && Number.isSafeInteger(at)) merged[id] = at;
+  const merged = sanitize(existing);
+  const today = utcDay(now);
+  for (const id of ACHIEVEMENT_IDS) {
+    if (id in merged) continue;
+    const def = ACHIEVEMENTS[id];
+    if (metricValue(signals, def.metric, today) >= def.target) merged[id] = now;
   }
-  const award = (id: AchievementId) => {
-    if (!(id in merged)) merged[id] = now;
-  };
-  if (normalizeDays(signals.activityDays).length > 0) award("first_contribution");
-  if (signals.longestStreak >= STREAK_MILESTONES[0]) award("streak_7");
-  if (signals.longestStreak >= STREAK_MILESTONES[1]) award("streak_30");
-  if ((signals.helpfulContributions ?? 0) >= 1) award("first_help");
-  if ((signals.helpedMembers ?? 0) >= 5) award("community_helper_5");
   return merged;
+}
+
+export interface AchievementProgress {
+  id: AchievementId;
+  group: AchievementGroup;
+  label: string;
+  current: number;
+  target: number;
+}
+
+/**
+ * The closest unearned goal in each group, so the UI can show "next up"
+ * progress such as "4/7 days" without inventing numbers.
+ */
+export function nextGoals(
+  signals: ProgressionSignals,
+  existing: Record<string, number> = {},
+  now = Date.now(),
+): AchievementProgress[] {
+  const earned = sanitize(existing);
+  const today = utcDay(now);
+  const byGroup = new Map<AchievementGroup, AchievementProgress>();
+  for (const id of ACHIEVEMENT_IDS) {
+    if (id in earned) continue;
+    const def = ACHIEVEMENTS[id];
+    const current = Math.min(metricValue(signals, def.metric, today), def.target);
+    const held = byGroup.get(def.group);
+    const ratio = current / def.target;
+    const heldRatio = held ? held.current / held.target : -1;
+    if (!held || ratio > heldRatio || (ratio === heldRatio && def.target < held.target))
+      byGroup.set(def.group, { id, group: def.group, label: def.label, current, target: def.target });
+  }
+  return [...byGroup.values()].sort((a, b) => b.current / b.target - a.current / a.target);
 }
 
 export function sameAchievements(a: Record<string, number> = {}, b: Record<string, number> = {}): boolean {

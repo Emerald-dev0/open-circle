@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeDaysInWindow,
   computeStreaks,
   evaluateAchievements,
   isUtcDay,
   mergeActivityDays,
+  nextGoals,
   normalizeDays,
   sameAchievements,
   utcDay,
@@ -76,7 +78,7 @@ describe("streak calculation", () => {
 describe("achievement evaluation", () => {
   it("awards milestones from verified signals", () => {
     const earned = evaluateAchievements(
-      { activityDays: ["2026-10-14"], longestStreak: 7, helpfulContributions: 1, helpedMembers: 5 },
+      { activityDays: ["2026-10-14"], longestStreak: 7, helpedMembers: 5 },
       {},
       1000,
     );
@@ -86,6 +88,33 @@ describe("achievement evaluation", () => {
       first_help: 1000,
       community_helper_5: 1000,
     });
+  });
+
+  it("awards the extended tiers from their own verified metrics", () => {
+    const earned = evaluateAchievements(
+      { activityDays: [], longestStreak: 400, contributions: 300, helpedMembers: 25, reviews: 1, issues: 10, stars: 100, followers: 100, hasPortfolio: true },
+      {},
+      2000,
+    );
+    expect(earned).toEqual(expect.objectContaining({
+      prolific_contributor: 2000,
+      streak_100: 2000,
+      streak_365: 2000,
+      community_helper_25: 2000,
+      first_review: 2000,
+      issue_hunter: 2000,
+      stars_100: 2000,
+      followers_100: 2000,
+      portfolio_author: 2000,
+    }));
+  });
+
+  it("awards consistency from non-consecutive active days in the window", () => {
+    const scattered = ["2026-10-01", "2026-10-03", "2026-10-05", "2026-10-07", "2026-10-09", "2026-10-11", "2026-10-13", "2026-10-14"];
+    expect(evaluateAchievements({ activityDays: scattered, longestStreak: 2 }, {}, Date.parse("2026-10-14T12:00:00Z")).consistent_20_30).toBeUndefined();
+    const end = Date.parse("2026-10-14T00:00:00Z");
+    const twenty = Array.from({ length: 20 }, (_, i) => utcDay(end - i * 86_400_000));
+    expect(evaluateAchievements({ activityDays: twenty, longestStreak: 1 }, {}, end + 12 * 3_600_000).consistent_20_30).toBe(end + 12 * 3_600_000);
   });
 
   it("requires the full streak length and help counts", () => {
@@ -109,5 +138,30 @@ describe("achievement evaluation", () => {
     expect(sameAchievements({ a: 1 }, { a: 2 })).toBe(false);
     expect(sameAchievements({ a: 1 }, { a: 1, b: 2 })).toBe(false);
     expect(sameAchievements()).toBe(true);
+  });
+});
+
+describe("consistency window", () => {
+  it("counts only days inside the trailing window", () => {
+    const days = ["2026-08-01", "2026-09-15", "2026-09-20", "2026-10-14"];
+    expect(activeDaysInWindow(days, "2026-10-14", 30)).toBe(3);
+    expect(activeDaysInWindow(days, "2026-10-14", 7)).toBe(1);
+    expect(activeDaysInWindow(days, "not-a-day", 30)).toBe(0);
+  });
+});
+
+describe("next-goal progress", () => {
+  it("returns the closest unearned goal per group with a capped current value", () => {
+    const goals = nextGoals(
+      { activityDays: ["2026-10-12", "2026-10-13", "2026-10-14"], longestStreak: 4, contributions: 3, helpedMembers: 2, stars: 40 },
+      { first_contribution: 1, first_help: 1 },
+    );
+    const streak = goals.find((goal) => goal.group === "streak");
+    expect(streak).toMatchObject({ id: "streak_7", current: 4, target: 7 });
+    const help = goals.find((goal) => goal.group === "help");
+    expect(help).toMatchObject({ id: "community_helper_5", current: 2, target: 5 });
+    const activity = goals.find((goal) => goal.group === "activity");
+    expect(activity).toMatchObject({ id: "consistent_20_30", current: 3, target: 20 });
+    expect(goals.some((goal) => goal.id === "first_contribution")).toBe(false);
   });
 });
