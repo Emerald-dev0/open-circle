@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GithubError, lookupMany, lookupOne } from "../server/github";
-import { githubJson, githubOwner, githubRepository } from "./helpers/fixtures";
+import { contributionCalendar, githubJson, githubOwner, githubRepository } from "./helpers/fixtures";
 
 beforeEach(() => vi.stubEnv("GITHUB_TOKEN", "test-token"));
 afterEach(() => {
@@ -137,6 +137,33 @@ describe("GitHub profile and repository lookup", () => {
       await expect(lookupOne("Octocat")).rejects.toMatchObject({ code });
     },
   );
+
+  it("collects the UTC days that carry public contributions", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-14T12:00:00Z"));
+    const fetchMock = vi.fn().mockResolvedValue(githubJson({ data: { u0: githubOwner({ activity0: {
+      totalCommitContributions: 4, totalIssueContributions: 1, totalPullRequestContributions: 2,
+      totalPullRequestReviewContributions: 1, totalRepositoryContributions: 1,
+      ...contributionCalendar({ "2026-10-12": 2, "2026-10-13": 0, "2026-10-14": 3, bad: 5 }),
+    } }) } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await lookupOne("octocat");
+
+    expect(result).toMatchObject({ kind: "user", stats: { activity: 9, activityDays: ["2026-10-12", "2026-10-14"] } });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).query).toContain("contributionCalendar");
+  });
+
+  it("ignores a missing calendar without discarding contribution totals", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(githubJson({ data: { u0: githubOwner({ activity0: {
+      totalCommitContributions: 4, totalIssueContributions: 1, totalPullRequestContributions: 2,
+      totalPullRequestReviewContributions: 1, totalRepositoryContributions: 1,
+      contributionCalendar: { weeks: [{ contributionDays: [{ date: "not-a-day", contributionCount: 4 }] }] },
+    } }) } })));
+
+    const result = await lookupOne("octocat");
+
+    expect(result).toMatchObject({ kind: "user", stats: { activity: 9, activityDays: [] } });
+  });
 
   it("fails clearly without a server GitHub token", async () => {
     vi.stubEnv("GITHUB_TOKEN", "");

@@ -21,6 +21,8 @@ export interface GithubStats {
   /** Public contributions (commits, PRs, reviews, issues, new repos) since the UTC day of joining. */
   activity: number;
   activitySince: number;
+  /** UTC days with at least one public contribution, oldest first. */
+  activityDays?: string[];
   projects?: GithubRepository[];
 }
 
@@ -63,6 +65,12 @@ export interface PublicMember {
   delta: number;
   /** Joined in the last 24h. */
   isNew: boolean;
+  /** Consecutive UTC days with verified activity, ending today or yesterday. */
+  currentStreak?: number;
+  /** Longest verified daily streak on record. */
+  longestStreak?: number;
+  /** Achievement ids this member has earned. */
+  achievements?: string[];
 }
 
 export interface InviteConfig {

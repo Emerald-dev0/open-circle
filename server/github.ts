@@ -1,5 +1,6 @@
 import type { GithubRepository, GithubStats } from "../shared/types.js";
 import { contributionStart } from "../shared/ranking.js";
+import { isUtcDay, normalizeDays } from "../shared/progression.js";
 
 export type GithubErrorCode =
   | "not_configured"
@@ -31,6 +32,26 @@ const CONTRIBUTION_FIELDS = [
   "totalCommitContributions", "totalIssueContributions", "totalPullRequestContributions",
   "totalPullRequestReviewContributions", "totalRepositoryContributions",
 ] as const;
+const CALENDAR_FIELD = `contributionCalendar {
+  weeks { contributionDays { date contributionCount } }
+}`;
+
+/** UTC days with at least one public contribution in one collection window. */
+function calendarDays(collection: unknown): string[] {
+  const weeks = (collection as { contributionCalendar?: { weeks?: unknown } } | null)?.contributionCalendar?.weeks;
+  if (!Array.isArray(weeks)) return [];
+  const days: string[] = [];
+  for (const week of weeks) {
+    const list = (week as { contributionDays?: unknown } | null)?.contributionDays;
+    if (!Array.isArray(list)) continue;
+    for (const day of list) {
+      const entry = day as { date?: unknown; contributionCount?: unknown } | null;
+      if (isUtcDay(entry?.date) && Number.isSafeInteger(entry?.contributionCount) && (entry?.contributionCount as number) > 0)
+        days.push(entry!.date as string);
+    }
+  }
+  return days;
+}
 
 const REPO_FIELDS = `
   totalCount
@@ -213,6 +234,7 @@ async function lookupBatch(
       variables[`t${i}_${j}`] = new Date(range.to).toISOString();
       return `activity${j}: contributionsCollection(from: $f${i}_${j}, to: $t${i}_${j}) {
         ${CONTRIBUTION_FIELDS.join(" ")}
+        ${CALENDAR_FIELD}
       }`;
     }).join("\n");
     return `u${i}: repositoryOwner(login: $l${i}) { ...Owner ... on User { ${activity} } }`;
@@ -243,11 +265,13 @@ async function lookupBatch(
       else {
         try {
           const projects = await allProjects(node, token, deadline);
+          const days: string[] = [];
           const activity = windows[i].reduce((total, _, j) => {
             const contributions = node[`activity${j}`];
             if (!contributions || CONTRIBUTION_FIELDS.some((field) => !Number.isSafeInteger(contributions[field]) || contributions[field] < 0)) {
               throw new GithubError("upstream", "GitHub couldn't load contributions.");
             }
+            days.push(...calendarDays(contributions));
             return total + CONTRIBUTION_FIELDS.reduce((sum, field) => sum + contributions[field], 0);
           }, 0);
           result = {
@@ -261,6 +285,7 @@ async function lookupBatch(
               repos: node.repositories?.totalCount ?? 0,
               activity,
               activitySince: starts[i],
+              activityDays: normalizeDays(days),
               projects,
             },
           };

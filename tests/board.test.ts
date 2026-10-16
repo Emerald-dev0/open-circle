@@ -326,3 +326,53 @@ describe("Member and repository board updates", () => {
     await expect(authorize(new Request("https://example.test/api/admin", { headers: { authorization: "Bearer private-admin-key" } }))).rejects.toMatchObject({ status: 503 });
   });
 });
+
+describe("Developer progression", () => {
+  const week = ["2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14"];
+
+  it("derives UTC streaks and awards each milestone once from verified activity", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ activityDays: week, helpfulContributions: 1, helpedMembers: 5 }));
+
+    const board = await rebuildBoard(store);
+
+    expect(board.members[0]).toMatchObject({ currentStreak: 7, longestStreak: 7 });
+    expect(board.members[0].achievements).toEqual(expect.arrayContaining(["first_contribution", "streak_7", "first_help", "community_helper_5"]));
+    expect(board.members[0].achievements).not.toContain("streak_30");
+
+    const awarded = (await store.getMember("octocat"))?.achievements?.first_contribution;
+    vi.setSystemTime(Date.now() + 86_400_000);
+    await rebuildBoard(store);
+    expect((await store.getMember("octocat"))?.achievements?.first_contribution).toBe(awarded);
+  });
+
+  it("breaks the current streak after a missed day while preserving the longest", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ activityDays: ["2026-10-08", "2026-10-09", "2026-10-10", "2026-10-14"] }));
+
+    const board = await rebuildBoard(store);
+
+    expect(board.members[0]).toMatchObject({ currentStreak: 1, longestStreak: 3 });
+  });
+
+  it("keeps stored days when a later refresh returns no calendar data", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ createdAt: Date.parse("2026-08-01T18:00:00Z"), activityDays: ["2026-10-12", "2026-10-13", "2026-10-14"] }));
+    await rebuildBoard(store);
+    githubProfiles();
+    vi.setSystemTime(Date.now() + 61_000);
+    const work: Promise<unknown>[] = [];
+
+    await readBoard(store, (promise) => { work.push(promise); });
+    await Promise.all(work);
+
+    expect((await store.getMember("octocat"))?.activityDays).toEqual(["2026-10-12", "2026-10-13", "2026-10-14"]);
+    expect((await store.getBoard())?.members[0]).toMatchObject({ currentStreak: 3, longestStreak: 3 });
+  });
+});

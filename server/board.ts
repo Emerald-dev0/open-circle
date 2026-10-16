@@ -20,6 +20,13 @@ import {
   parseNickname,
   parseWhatsappNumber,
 } from "../shared/validation.js";
+import {
+  computeStreaks,
+  evaluateAchievements,
+  mergeActivityDays,
+  sameAchievements,
+  utcDay,
+} from "../shared/progression.js";
 import { GithubError, lookupMany, lookupOne, type Lookup } from "./github.js";
 import { HttpError } from "./http.js";
 import { getCommunityStore } from "./community-store.js";
@@ -107,6 +114,29 @@ export async function rebuildBoard(
     }
   }
 
+  const today = utcDay(now);
+  await Promise.all(records.map(async (record) => {
+    const days = mergeActivityDays(record.activityDays);
+    const { current, longest } = computeStreaks(days, today, record.longestStreak);
+    const achievements = evaluateAchievements(
+      {
+        activityDays: days,
+        longestStreak: longest,
+        helpfulContributions: record.helpfulContributions,
+        helpedMembers: record.helpedMembers,
+      },
+      record.achievements,
+      now,
+    );
+    const patch: Partial<MemberRecord> = {};
+    if (days.length !== (record.activityDays?.length ?? 0)) patch.activityDays = days;
+    if (current !== (record.currentStreak ?? 0)) patch.currentStreak = current;
+    if (longest !== (record.longestStreak ?? 0)) patch.longestStreak = longest;
+    if (!sameAchievements(record.achievements, achievements)) patch.achievements = achievements;
+    if (Object.keys(patch).length > 0) await store.patchMember(record.login, patch);
+    Object.assign(record, patch);
+  }));
+
   const ranked = records
     .filter((m) => !m.hidden)
     .map((record) => {
@@ -155,6 +185,9 @@ export async function rebuildBoard(
       rank,
       delta: recent ? prevRank - rank : 0,
       isNew: now - m.createdAt < NEW_WINDOW_MS,
+      currentStreak: m.currentStreak ?? 0,
+      longestStreak: m.longestStreak ?? 0,
+      achievements: Object.keys(m.achievements ?? {}),
     };
   });
 
@@ -226,6 +259,7 @@ async function refreshStats(store: Store): Promise<Board> {
         if (r?.kind === "user")
           return store.patchMember(m.login, {
             ...statsFields(r.stats),
+            activityDays: mergeActivityDays(m.activityDays, r.stats.activityDays),
             statsUpdatedAt: now,
           });
         // Renamed or deleted on GitHub: keep the last known numbers; admin can remove them.
@@ -401,6 +435,7 @@ export async function register(
     repos: stats.repos,
     activity: stats.activity,
     activitySince: stats.activitySince,
+    activityDays: mergeActivityDays([], stats.activityDays),
     projects: stats.projects ?? [],
     spotlightRepositoryId,
     hidden: false,

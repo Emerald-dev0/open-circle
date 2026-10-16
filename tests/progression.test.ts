@@ -1,0 +1,113 @@
+import { describe, expect, it } from "vitest";
+import {
+  computeStreaks,
+  evaluateAchievements,
+  isUtcDay,
+  mergeActivityDays,
+  normalizeDays,
+  sameAchievements,
+  utcDay,
+} from "../shared/progression";
+
+describe("UTC day helpers", () => {
+  it("accepts only real calendar days", () => {
+    expect(isUtcDay("2026-10-14")).toBe(true);
+    expect(isUtcDay("2026-02-29")).toBe(false);
+    expect(isUtcDay("2024-02-29")).toBe(true);
+    expect(isUtcDay("2026-2-4")).toBe(false);
+    expect(isUtcDay("nope")).toBe(false);
+    expect(isUtcDay(20261014)).toBe(false);
+    expect(isUtcDay(null)).toBe(false);
+  });
+
+  it("maps a timestamp to its UTC calendar day", () => {
+    expect(utcDay(Date.parse("2026-10-14T23:59:59.000Z"))).toBe("2026-10-14");
+    expect(utcDay(Date.parse("2026-10-15T00:00:00.000Z"))).toBe("2026-10-15");
+  });
+});
+
+describe("activity day sets", () => {
+  it("drops invalid entries and de-duplicates in order", () => {
+    expect(normalizeDays(["2026-10-14", "2026-10-12", "2026-10-14", "bad"])).toEqual(["2026-10-12", "2026-10-14"]);
+  });
+
+  it("unions sets and keeps only the most recent days", () => {
+    expect(mergeActivityDays(["2026-10-12", "2026-10-13"], ["2026-10-13", "2026-10-14"])).toEqual([
+      "2026-10-12",
+      "2026-10-13",
+      "2026-10-14",
+    ]);
+    expect(mergeActivityDays(["2026-10-01", "2026-10-02", "2026-10-03"], ["2026-10-04"], 2)).toEqual([
+      "2026-10-03",
+      "2026-10-04",
+    ]);
+  });
+});
+
+describe("streak calculation", () => {
+  const today = "2026-10-14";
+
+  it("returns no streak without activity", () => {
+    expect(computeStreaks([], today)).toEqual({ current: 0, longest: 0 });
+  });
+
+  it("counts consecutive days ending today", () => {
+    expect(computeStreaks(["2026-10-12", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 3, longest: 3 });
+  });
+
+  it("keeps yesterday's run alive until today is missed", () => {
+    expect(computeStreaks(["2026-10-11", "2026-10-12", "2026-10-13"], today)).toEqual({ current: 3, longest: 3 });
+  });
+
+  it("breaks the current streak after a missed day but remembers the longest", () => {
+    expect(computeStreaks(["2026-10-10", "2026-10-11", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 2, longest: 2 });
+    expect(computeStreaks(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], today)).toEqual({ current: 0, longest: 4 });
+  });
+
+  it("treats UTC days as consecutive across a daylight-saving change", () => {
+    expect(computeStreaks(["2026-03-07", "2026-03-08", "2026-03-09"], "2026-03-09")).toEqual({ current: 3, longest: 3 });
+  });
+
+  it("never lets trimming old history shrink the longest streak", () => {
+    expect(computeStreaks(["2026-10-13", "2026-10-14"], today, 12)).toEqual({ current: 2, longest: 12 });
+  });
+});
+
+describe("achievement evaluation", () => {
+  it("awards milestones from verified signals", () => {
+    const earned = evaluateAchievements(
+      { activityDays: ["2026-10-14"], longestStreak: 7, helpfulContributions: 1, helpedMembers: 5 },
+      {},
+      1000,
+    );
+    expect(earned).toEqual({
+      first_contribution: 1000,
+      streak_7: 1000,
+      first_help: 1000,
+      community_helper_5: 1000,
+    });
+  });
+
+  it("requires the full streak length and help counts", () => {
+    expect(evaluateAchievements({ activityDays: ["2026-10-14"], longestStreak: 6 }, {}, 5)).toEqual({ first_contribution: 5 });
+    expect(evaluateAchievements({ activityDays: [], longestStreak: 0 }, {}, 5)).toEqual({});
+  });
+
+  it("does not re-award an achievement or move its timestamp", () => {
+    const again = evaluateAchievements({ activityDays: ["2026-10-14"], longestStreak: 30 }, { first_contribution: 111 }, 999);
+    expect(again.first_contribution).toBe(111);
+    expect(again.streak_7).toBe(999);
+    expect(again.streak_30).toBe(999);
+  });
+
+  it("ignores unknown achievement ids in stored state", () => {
+    expect(evaluateAchievements({ activityDays: [], longestStreak: 0 }, { mystery: 1 }, 7)).toEqual({});
+  });
+
+  it("compares achievement maps structurally", () => {
+    expect(sameAchievements({ a: 1 }, { a: 1 })).toBe(true);
+    expect(sameAchievements({ a: 1 }, { a: 2 })).toBe(false);
+    expect(sameAchievements({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(sameAchievements()).toBe(true);
+  });
+});

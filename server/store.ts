@@ -19,6 +19,14 @@ export interface MemberRecord {
   followers: number;
   repos: number;
   activity: number;
+  /** UTC days with at least one verified public contribution, oldest first. */
+  activityDays?: string[];
+  /** Consecutive verified UTC days ending today or yesterday. */
+  currentStreak?: number;
+  /** Longest verified daily streak on record. */
+  longestStreak?: number;
+  /** Earned achievement ids mapped to the award time. */
+  achievements?: Record<string, number>;
   helperPoints?: number;
   helpfulContributions?: number;
   helpedMembers?: number;
@@ -74,6 +82,8 @@ const NUMERIC = [
   "activitySince",
   "createdAt",
   "statsUpdatedAt",
+  "currentStreak",
+  "longestStreak",
   "rank",
   "prevRank",
   "rankChangedAt",
@@ -86,15 +96,16 @@ export function encodeMember(
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) continue;
-    out[key] = Array.isArray(value)
-      ? JSON.stringify(value)
-      : typeof value === "boolean"
-        ? value
-          ? "1"
-          : "0"
-        : value === null
-          ? ""
-          : String(value);
+    out[key] =
+      value === null
+        ? ""
+        : typeof value === "boolean"
+          ? value
+            ? "1"
+            : "0"
+          : typeof value === "object"
+            ? JSON.stringify(value)
+            : String(value);
   }
   return out;
 }
@@ -109,6 +120,8 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     name: hash.name || null,
     hidden: hash.hidden === "1",
     projects: hash.projects ? JSON.parse(hash.projects) : [],
+    activityDays: hash.activityDays ? JSON.parse(hash.activityDays) : [],
+    achievements: hash.achievements ? JSON.parse(hash.achievements) : {},
     spotlightRepositoryId: hash.spotlightRepositoryId || undefined,
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;
