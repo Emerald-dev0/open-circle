@@ -56,6 +56,7 @@ vi.mock("sonner", () => {
 });
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network requests must be mocked in UI tests")));
   storageDocument = new JSDOM("", { url: "https://opencircle.test" });
   vi.stubGlobal("localStorage", storageDocument.window.localStorage);
   vi.stubGlobal("matchMedia", vi.fn((query: string) => ({

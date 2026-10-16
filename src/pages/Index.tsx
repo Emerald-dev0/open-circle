@@ -1,5 +1,4 @@
 import * as React from "react";
-import GitHubButton from "react-github-btn";
 import { MetalText } from "@/components/metal-text";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +19,7 @@ import { RankTable } from "@/components/board/rank-table";
 import { RepositoryExplorer } from "@/components/board/repository-explorer";
 import { ToolsDirectory } from "@/components/board/tools-directory";
 import { GitHubAccount } from "@/components/github-account";
+import { GitHubCommunityLinks } from "@/components/github-community-links";
 import { ThemeSelect } from "@/components/theme-select";
 import { useTheme } from "@/hooks/use-theme";
 import { SiteFooter } from "@/components/site-footer";
@@ -195,27 +195,7 @@ const Index = () => {
 
       <div className="relative z-10">
         <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(1rem+env(safe-area-inset-top))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
-          <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-2">
-            <GitHubButton
-              href="https://github.com/opencirclehq/open-circle"
-              data-color-scheme={resolvedTheme}
-              data-icon="octicon-star"
-              data-size="large"
-              data-show-count="true"
-              aria-label="Star OpenCircle on GitHub"
-            >
-              Star
-            </GitHubButton>
-            <GitHubButton
-              href="https://github.com/opencirclehq"
-              data-color-scheme={resolvedTheme}
-              data-size="large"
-              data-show-count="true"
-              aria-label="Follow @opencirclehq on GitHub"
-            >
-              Follow @opencirclehq
-            </GitHubButton>
-          </div>
+          <GitHubCommunityLinks />
           <div className="ml-auto flex min-w-0 max-w-full items-center gap-2"><ThemeSelect /><GitHubAccount /></div>
         </header>
 

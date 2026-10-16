@@ -53,7 +53,7 @@ it.each([null, { id: 1, login: "octocat", avatarUrl: "" }])("explains GitHub per
   render(<RepositoryExplorer repositories={[repo]} />, { wrapper });
   const button = await screen.findByRole("button", { name: "Star Octocat/open-kit on GitHub" });
   await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
-  expect(within(button).getByText("Star on GitHub")).toBeTruthy();
+  expect(within(button).getByText("Star")).toBeTruthy();
   await userEvent.setup().click(button);
   expect(screen.getByRole("dialog", { name: "Enable GitHub stars" })).toBeTruthy();
   expect(screen.getByText(/permission also allows changes to public repository code/)).toBeTruthy();
@@ -92,7 +92,7 @@ it("offers the same direct star action on the OpenCircle organization repository
   render(<RepositoryExplorer repositories={[official]} />, { wrapper });
   const button = await screen.findByRole("button", { name: "Star opencirclehq/open-circle on GitHub" });
   await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
-  expect(within(button).getByText("Star on GitHub")).toBeTruthy();
+  expect(within(button).getByText("Star")).toBeTruthy();
   expect(within(button).getByLabelText("30 GitHub stars").textContent).toBe("30");
   await userEvent.setup().click(button);
   expect(screen.getByRole("dialog", { name: "Enable GitHub stars" })).toBeTruthy();

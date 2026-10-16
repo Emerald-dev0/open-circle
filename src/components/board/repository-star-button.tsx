@@ -5,6 +5,7 @@ import type { PublicRepository } from "@shared/types";
 import type { RepositoryStar } from "@shared/repository-stars";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { TextureButton } from "@/components/ui/texture-button";
+import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatCount, formatFull } from "@/lib/format";
 
@@ -25,23 +26,20 @@ export function RepositoryStarButton({ repo, status, connected, available, disab
   return <>
     <Tooltip>
       <TooltipTrigger asChild>
-        <TextureButton
+        <button
           ref={button}
           type="button"
-          variant={starred ? "secondary" : "primary"}
-          size="sm"
           aria-label={`${starred ? "Unstar" : "Star"} ${repo.fullName} on GitHub`}
           aria-pressed={connected ? starred : undefined}
-          disabled={disabled || !available}
-          loading={pending}
+          disabled={disabled || !available || pending}
+          aria-busy={pending || undefined}
           onClick={() => connected ? onStar(!starred) : setConsent(true)}
-          className="h-11 w-auto"
-          innerClassName="gap-2 tabular"
+          className="touch-target inline-flex min-h-8 items-center gap-1.5 rounded text-xs transition-colors hover:text-foreground aria-pressed:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {!pending && <Icon className="size-3.5 shrink-0" aria-hidden="true" />}
-          <span aria-hidden="true">{starred ? "Starred" : "Star on GitHub"}</span>
-          <span className="opacity-70" aria-label={`${formatFull(stars)} GitHub stars`}>{formatCount(stars)}</span>
-        </TextureButton>
+          {pending ? <Spinner size={14} /> : <Icon className="size-3.5 shrink-0" aria-hidden="true" />}
+          <span aria-hidden="true">{starred ? "Starred" : "Star"}</span>
+          <span className="tabular text-t3" aria-label={`${formatFull(stars)} GitHub stars`}>{formatCount(stars)}</span>
+        </button>
       </TooltipTrigger>
       <TooltipContent>{!available ? "GitHub sign-in is being set up." : starred ? "Remove your GitHub star" : "Star this repository on GitHub"}</TooltipContent>
     </Tooltip>
