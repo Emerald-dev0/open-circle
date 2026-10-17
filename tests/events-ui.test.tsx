@@ -37,6 +37,13 @@ it("shows honest no-recording, missing-link, cancellation and resource states", 
   e.content.cancelled = true; e.content.joinUrl = "https://meet.google.com/abc";
   view.rerender(<EventDetails event={e} />); expect(screen.getByText("This event has been cancelled.")).toBeTruthy(); expect(screen.queryByRole("link",{ name:"Join event" })).toBeNull();
 });
+it("offers canonical sharing for published events and hides it for private previews", () => {
+  const e = event();
+  const view = wrapper(<EventDetails event={e} admin />);
+  expect(screen.queryByRole("button", { name: `Share event: ${e.content.title}` })).toBeNull();
+  view.rerender(<EventDetails event={{ ...e, published: true }} admin />);
+  expect(screen.getByRole("button", { name: `Share event: ${e.content.title}` })).toBeTruthy();
+});
 it("retries a failed part without repeating completed parts and only reports a verified attachment", async () => {
   const user = userEvent.setup(); const saved = vi.fn(); const active = vi.fn(); let attempts = 0;
   const api = vi.spyOn(eventsApi,"upload").mockImplementation(async <T,>(body: Record<string,unknown>) => {

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { portfolioApi } from "@/lib/portfolio-api";
 import { MAX_IMAGE_BYTES, type PortfolioProject, type PortfolioRepository } from "@shared/portfolio";
 
@@ -38,7 +39,7 @@ export function RepositoryPicker({ ownerId, selected, onSelect }: { ownerId: num
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="studio-repo-dialog max-w-xl"><DialogTitle>Your repositories</DialogTitle><DialogDescription>Choose up to six public repositories. Only the ones you select will appear on your portfolio.</DialogDescription>
       <div className="relative"><MagnifierIcon className="absolute left-4 top-3.5 size-4 text-t3" aria-hidden /><input className="field pl-11" aria-label="Search loaded repositories" placeholder="Search loaded repositories" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
       <div className="studio-repo-results" aria-busy={repositories.isFetching}>
-        {repositories.isPending ? <p role="status" className="studio-help py-8 text-center">Loading your repositories…</p> : repositories.isError ? <div className="py-6"><p role="alert" className="studio-help">{repositories.error.message}</p><TextureButton type="button" variant="secondary" className="mt-4 w-auto" onClick={() => void repositories.refetch()}>Try again</TextureButton></div> : filtered.length === 0 ? <p className="studio-help py-8 text-center">{search ? "No matching repositories on the loaded pages." : "You don't have any public repositories here yet."}</p> : filtered.map((repo) => {
+        {repositories.isPending ? <ContentSkeleton label="Loading your repositories…" /> : repositories.isError ? <div className="py-6"><p role="alert" className="studio-help">{repositories.error.message}</p><TextureButton type="button" variant="secondary" className="mt-4 w-auto" onClick={() => void repositories.refetch()}>Try again</TextureButton></div> : filtered.length === 0 ? <p className="studio-help py-8 text-center">{search ? "No matching repositories on the loaded pages." : "You don't have any public repositories here yet."}</p> : filtered.map((repo) => {
           const added = selected.some((project) => project.repository.id === repo.id);
           return <button key={repo.id} type="button" className="studio-repo-option" onClick={() => onSelect(repo)} disabled={added || selected.length >= 6} aria-label={`${added ? "Selected" : "Add"} ${repo.name}`}>
             <span className="studio-repo-option-icon"><CodeSquareIcon className="size-5" aria-hidden /></span><span className="min-w-0 flex-1"><strong>{repo.name}</strong><span>{repo.description || repo.fullName}</span><small>{[repo.language, repo.stars > 0 ? `${repo.stars} stars` : ""].filter(Boolean).join(" · ")}</small></span><span className="studio-repo-add">{added ? <CheckReadIcon className="size-5" aria-hidden /> : "+"}</span>

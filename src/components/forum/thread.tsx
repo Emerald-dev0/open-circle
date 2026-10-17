@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { ForumAuthor, ForumCommand, ForumDetail, ForumPollView } from "@shared/forum";
 import { reviewLabel, FORUM_PAGE_SIZE } from "@shared/forum";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowLeftIcon, ChatRoundIcon, CheckCircleIcon, ClockCircleIcon, CloseCircleIcon, LockKeyholeIcon, PenIcon, RestartIcon } from "@solar-icons/react/linear";
 import { Chip } from "@/components/panel";
 import { MetalButton } from "@/components/metal-button";
 import { Pagination } from "@/components/pagination";
 import { ForumBody, ForumTime } from "./content";
 import { ForumEditor } from "./editor";
+import { ForumAuthorLine } from "./author-line";
+import { ForumPostActions } from "./post-actions";
 
 function Poll({ value, busy, onVote }: { value: ForumPollView; busy: boolean; onVote: (optionId: string, requestId: string) => Promise<boolean> }) {
   const [choice, setChoice] = useState(value.selected ?? "");
@@ -39,6 +42,12 @@ function Poll({ value, busy, onVote }: { value: ForumPollView; busy: boolean; on
   </form>;
 }
 export function ForumThreadView({ data, profile, admin = false, busy, onAction, onPage }: { data: ForumDetail; profile: ForumAuthor; admin?: boolean; busy: boolean; onAction: (command: ForumCommand) => Promise<boolean>; onPage: (page: number) => void }) {
+  const { hash, key } = useLocation();
+  useEffect(() => {
+    if (hash !== "#comments") return;
+    document.getElementById("comments")?.scrollIntoView?.({ block: "start" });
+    (document.getElementById("forum-comment") ?? document.getElementById("comments"))?.focus({ preventScroll: true });
+  }, [hash, key, data.id]);
   const [editing, setEditing] = useState(false);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [body, setBody] = useState("");
@@ -55,19 +64,20 @@ export function ForumThreadView({ data, profile, admin = false, busy, onAction, 
   const moderate = (operation: ForumCommand["operation"], extra: Partial<ForumCommand> = {}) => send({ action: "moderate", operation, version: data.version, reason, ...extra });
   const roots = data.comments.filter((c) => !c.parentId);
   return <article className="min-w-0 space-y-6">
-    <Link className="forum-action inline-flex items-center" to={`/community?tab=${data.kind === "question" ? "questions" : "discussions"}`}>Back to {data.kind === "question" ? "questions" : "discussions"}</Link>
+    <Link className="forum-action inline-flex items-center gap-2" to={`/community?tab=${data.kind === "question" ? "questions" : "discussions"}`}><ArrowLeftIcon className="size-4" aria-hidden />Back to {data.kind === "question" ? "questions" : "discussions"}</Link>
     <header className="space-y-3">
-      <div className="flex flex-wrap gap-2">{data.pinned && <Chip tone="muted">Pinned</Chip>}{data.locked && <Chip tone="muted">Comments locked</Chip>}{data.hidden && <Chip tone="warn">Hidden</Chip>}{data.kind === "question" && data.publishedAt && <Chip tone={data.resolved ? "ok" : "muted"}>{data.resolved ? "Resolved" : "Open"}</Chip>}{status && <Chip tone="warn">{status}</Chip>}</div>
-      <h2 className="break-words text-2xl font-medium tracking-[-0.03em]">{data.content.title}</h2>
-      <p className="flex flex-wrap gap-x-2 gap-y-1 text-xs text-t3"><span>@{data.author.login}</span><span><ForumTime at={data.publishedAt ?? data.createdAt} /></span><span>{data.content.category}</span>{data.edited && <span>Edited <ForumTime at={data.updatedAt} /></span>}</p>
+      <div className="flex flex-wrap gap-2">{data.pinned && <Chip tone="muted">Pinned</Chip>}{data.locked && <Chip tone="muted" icon={<LockKeyholeIcon />}>Comments locked</Chip>}{data.hidden && <Chip tone="warn">Hidden</Chip>}{data.kind === "question" && data.publishedAt && <Chip tone={data.resolved ? "ok" : "muted"} icon={data.resolved ? <CheckCircleIcon /> : <ClockCircleIcon />}>{data.resolved ? "Resolved" : "Open"}</Chip>}{status && <Chip tone="warn">{status}</Chip>}</div>
+      <div className="forum-post-header"><ForumAuthorLine author={data.author} at={data.publishedAt ?? data.createdAt} edited={data.edited} /><span className="forum-category">{data.content.category}</span></div>
+      <h2 className="break-words text-2xl font-medium tracking-[-0.03em] [overflow-wrap:anywhere]">{data.content.title}</h2>
     </header>
     <ForumBody>{data.content.body}</ForumBody>
+    {data.publishedAt && !data.hidden && <ForumPostActions post={data} busy={busy} onLike={(liked) => { void send({ action: "like", liked }); }} />}
     {data.reviewReason && <p className="rounded-xl bg-foreground/[0.04] p-3 text-sm text-t2">Private review note: {data.reviewReason}</p>}
     {data.revision && data.publishedAt && <details className="rounded-xl bg-foreground/[0.03] p-4"><summary className="min-h-8 cursor-pointer text-sm font-medium">{admin ? "Proposed revision" : "Your proposed revision"}</summary><h3 className="mb-3 mt-4 break-words font-medium">{data.revision.title}</h3><ForumBody>{data.revision.body}</ForumBody></details>}
     <div className="flex flex-wrap gap-2">
-      {(admin || own && data.kind === "question") && <button className="forum-action" type="button" disabled={busy} onClick={() => setEditing(!editing)}>{editing ? "Close editor" : "Edit"}</button>}
-      {data.kind === "question" && data.publishedAt && (admin || own) && <button className="forum-action" type="button" disabled={busy || admin && reason.trim().length < 3} onClick={() => void moderate(data.resolved ? "unresolve" : "resolve", { reason: admin ? reason : undefined })}>{data.resolved ? "Reopen question" : "Mark resolved"}</button>}
-      {data.publishedAt && !data.hidden && <button className="forum-action" type="button" disabled={busy} onClick={() => { setReporting(null); setReportReason(""); reportRequestId.current = crypto.randomUUID(); }}>Report post</button>}
+      {(admin || own && data.kind === "question") && <button className="forum-action forum-action-filled" type="button" disabled={busy} aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? <CloseCircleIcon className="size-4 shrink-0" aria-hidden /> : <PenIcon className="size-4 shrink-0" aria-hidden />}{editing ? "Close editor" : "Edit"}</button>}
+      {data.kind === "question" && data.publishedAt && (admin || own) && <button className="forum-action forum-action-filled" type="button" disabled={busy || admin && reason.trim().length < 3} onClick={() => void moderate(data.resolved ? "unresolve" : "resolve", { reason: admin ? reason : undefined })}>{data.resolved ? <RestartIcon className="size-4 shrink-0" aria-hidden /> : <CheckCircleIcon className="size-4 shrink-0" aria-hidden />}{data.resolved ? "Reopen question" : "Mark resolved"}</button>}
+      {data.publishedAt && !data.hidden && <button className="forum-action forum-action-report" type="button" disabled={busy} onClick={() => { setReporting(null); setReportReason(""); reportRequestId.current = crypto.randomUUID(); }}>Report post</button>}
     </div>
     {editing && <ForumEditor key={data.id} initial={data} admin={admin} busy={busy} onCancel={() => setEditing(false)} onSave={async (input) => { const saved = await onAction(input); if (saved) setEditing(false); return saved; }} />}
     {data.poll && <Poll key={`${data.id}:${data.poll.selected}:${data.poll.open}`} value={data.poll} busy={busy} onVote={(optionId, requestId) => send({ action: "vote", optionId, ballot: data.poll!.ballot }, requestId)} />}
@@ -84,11 +94,11 @@ export function ForumThreadView({ data, profile, admin = false, busy, onAction, 
       {!!data.reports?.length && <div className="space-y-3"><h4 className="text-sm font-medium">Reports</h4>{data.reports.map((r) => <div key={r.id} className="text-sm text-t2"><p>@{r.author.login} · <ForumTime at={r.createdAt} /> · {r.commentId ? `Comment ${r.commentId}` : "Post"} · {r.resolved ? "Reviewed" : "Open"}</p><p className="break-words">{r.reason}</p>{r.reportedComment && <div className="space-y-2 py-3"><p className="text-xs text-t3">Reported comment by @{r.reportedComment.author.login} · <ForumTime at={r.reportedComment.createdAt} />{r.reportedComment.hidden ? " · Hidden" : ""}</p><ForumBody>{r.reportedComment.body}</ForumBody><button className="forum-action" type="button" disabled={busy || reason.trim().length < 3} onClick={() => void moderate(r.reportedComment!.hidden ? "restore-comment" : "hide-comment", { commentId: r.commentId })}>{r.reportedComment.hidden ? "Restore reported comment" : "Hide reported comment"}</button></div>}{!r.resolved && <button className="forum-action" type="button" disabled={busy || reason.trim().length < 3} onClick={() => void moderate("dismiss-report", { reportId: r.id })}>Mark report reviewed</button>}</div>)}</div>}
       <details><summary className="cursor-pointer py-3 text-sm">Moderation history</summary><ol className="space-y-4">{data.audit?.map((a) => <li key={a.id} className="break-words text-xs text-t3"><p>@{a.actor.login} · {a.action} · <ForumTime at={a.at} /></p>{a.reason && <p className="mt-1 text-sm text-t2">{a.reason}</p>}{a.content && <details className="mt-2"><summary className="cursor-pointer">Submitted content</summary><p className="my-2 font-medium">{a.content.title}</p><ForumBody>{a.content.body}</ForumBody></details>}</li>)}</ol></details>
     </section>}
-    {data.publishedAt && <section className="space-y-4" aria-labelledby="comments-heading">
-      <h3 id="comments-heading" className="text-lg font-medium">Comments <span className="text-sm tabular text-t3">{data.commentCount}</span></h3>
+    {data.publishedAt && <section id="comments" tabIndex={-1} className="forum-comments space-y-4" aria-labelledby="comments-heading">
+      <h3 id="comments-heading" className="flex items-center gap-2 text-lg font-medium"><ChatRoundIcon className="size-5" aria-hidden />Comments <span className="text-sm tabular text-t3">{data.commentCount}</span></h3>
       {!data.comments.length && <p className="py-3 text-sm text-t3">No comments yet.</p>}
       <ol className="space-y-5">{roots.map((root) => <li key={root.id} className="space-y-4 border-b border-foreground/[0.08] pb-5">{[root, ...data.comments.filter((c) => c.parentId === root.id)].map((comment) => <div key={comment.id} id={`comment-${comment.id}`} className={comment.parentId ? "ml-4 space-y-2 sm:ml-8" : "space-y-2"}>
-        <p className="text-xs text-t3">@{comment.author.login} · <ForumTime at={comment.createdAt} />{comment.hidden && " · Hidden"}</p>
+        <ForumAuthorLine author={comment.author} at={comment.createdAt} />{comment.hidden && <span className="text-xs text-t3">Hidden</span>}
         <ForumBody>{comment.body}</ForumBody>
         <div className="flex flex-wrap gap-1">{!comment.parentId && !comment.hidden && !data.locked && <button className="forum-action" type="button" disabled={busy} onClick={() => { if (replyTo !== comment.id) requestId.current = crypto.randomUUID(); setReplyTo(comment.id); document.getElementById("forum-comment")?.focus(); }}>Reply</button>}<button className="forum-action" type="button" disabled={busy || comment.hidden} onClick={() => { setReporting(comment.id); setReportReason(""); reportRequestId.current = crypto.randomUUID(); }}>Report comment</button>{admin && <button className="forum-action" type="button" disabled={busy || reason.trim().length < 3} onClick={() => void moderate(comment.hidden ? "restore-comment" : "hide-comment", { commentId: comment.id })}>{comment.hidden ? "Restore comment" : "Hide comment"}</button>}</div>
       </div>)}</li>)}</ol>

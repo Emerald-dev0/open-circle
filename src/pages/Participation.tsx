@@ -180,7 +180,7 @@ export default function Participation() {
           <div className="flex justify-center py-6">
             {community.data?.signInAvailable
               ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href={`/api/auth-start?${new URLSearchParams({ returnTo: participationDestination(`/participation${location.hash}`) ?? "/participation" })}`}><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
-              : <p className="text-sm text-t3">{community.isPending ? "Checking sign-in…" : "GitHub sign-in is being set up."}</p>}
+              : <p className="text-sm text-t3">GitHub sign-in is being set up.</p>}
           </div>
         </Panel>
 

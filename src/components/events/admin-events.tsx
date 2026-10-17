@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api";
 import { emptyEvent, eventDate, eventLocalTime, eventTimestamp, eventStatus, type EventView, type EventContent } from "@shared/events";
 import { TextureButton } from "@/components/ui/texture-button";
 import { SharedSelect } from "@/components/ui/select";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { AssetUpload } from "./asset-upload";
 import { EventDetails } from "./event-details";
 export default function AdminEvents({ onUnauthorized }: { onUnauthorized: () => void }) {
@@ -14,7 +15,7 @@ export default function AdminEvents({ onUnauthorized }: { onUnauthorized: () => 
   useEffect(() => { if (query.error instanceof ApiError && query.error.status === 401) onUnauthorized(); }, [query.error,onUnauthorized]);
   const saved = (event: EventView) => { setSelected(event); void queryClient.invalidateQueries({ queryKey: ["admin","events"] }); void queryClient.invalidateQueries({ queryKey: ["events"] }); };
   return <section className="space-y-6"><div className="flex flex-wrap items-center justify-between gap-4"><h2 className="text-xl font-medium">Events</h2>{selected === undefined && <TextureButton onClick={() => setSelected(null)}>Create event</TextureButton>}</div>
-    {query.error ? <div role="alert"><p>{query.error.message}</p><TextureButton onClick={() => query.refetch()}>Try again</TextureButton></div> : query.isPending ? <p role="status">Loading events…</p> : <>
+    {query.error ? <div role="alert"><p>{query.error.message}</p><TextureButton onClick={() => query.refetch()}>Try again</TextureButton></div> : query.isPending ? <ContentSkeleton label="Loading events…" /> : <>
       {!query.data.storageConfigured && <p role="status" className="text-sm text-warn">Private event storage is not configured. You can save and publish events; file uploads need the separate private R2 setup.</p>}
       {selected !== undefined ? <EventEditor initial={selected} onSaved={saved} onClose={() => setSelected(undefined)} storage={!!query.data.storageConfigured} onUnauthorized={onUnauthorized} /> : query.data.events.length ? <ul className="divide-y divide-foreground/10">{query.data.events.map(e => <li key={e.id} className="flex flex-wrap items-center justify-between gap-4 py-4"><div className="min-w-0"><h3 className="break-words font-medium">{e.content.title || "Untitled event"}</h3><p className="text-sm text-t3">{e.published ? "Published" : "Draft / unpublished"} · {eventStatus(e)} · {eventDate(e.content.startsAt,e.content.timezone)}</p></div><TextureButton onClick={() => setSelected(e)}>Manage event</TextureButton></li>)}</ul> : <p className="py-6 text-t3">No events yet. Create a draft to get started.</p>}
     </>}

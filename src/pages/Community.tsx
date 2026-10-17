@@ -13,6 +13,7 @@ import { ForumThreadView } from "@/components/forum/thread";
 import { LegacyHelp } from "@/components/forum/legacy-help";
 import { GitHubIcon } from "@/components/brand-icons";
 import { CommunitySections } from "@/components/community-sections";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { useCommunity } from "@/hooks/use-community";
 import { useForumSearch } from "@/hooks/use-forum-search";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -32,7 +33,7 @@ export default function Community() {
   return <div className="relative min-h-dvh overflow-x-clip"><div className="app-backdrop" aria-hidden /><AccountCorner />
     <main className="relative mx-auto min-w-0 max-w-3xl space-y-6 px-4 pb-36 pt-[calc(5rem+env(safe-area-inset-top))]">
       <h1 className="text-2xl font-medium tracking-[-0.03em]">Community</h1>
-      {state.isPending ? <p role="status" className="py-6 text-sm text-t3">Checking sign-in…</p> : state.isError ? <ForumFailure error={state.error} retry={() => { void state.refetch(); }} /> : !profile ? <div className="max-w-lg space-y-5 py-4"><p className="text-sm leading-relaxed text-t2">Discuss development, ask for help and join community polls. Discussions are for verified Open Source Circle members.</p>{state.data?.signInAvailable ? <MetalButton asChild className="min-h-11 w-auto"><a href={`/api/auth-start?${new URLSearchParams({ returnTo: forumDestination(`${location.pathname}${location.search}`) ?? "/community" })}`}><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton> : <p className="text-sm text-t3">GitHub sign-in is being set up.</p>}</div> : <MemberForum key={profile.id} profile={profile} />}
+      {state.isPending ? <ContentSkeleton label="Checking sign-in…" /> : state.isError ? <ForumFailure error={state.error} retry={() => { void state.refetch(); }} /> : !profile ? <div className="max-w-lg space-y-5 py-4"><p className="text-sm leading-relaxed text-t2">Discuss development, ask for help and join community polls. Discussions are for verified Open Source Circle members.</p>{state.data?.signInAvailable ? <MetalButton asChild className="min-h-11 w-auto"><a href={`/api/auth-start?${new URLSearchParams({ returnTo: forumDestination(`${location.pathname}${location.search}`) ?? "/community" })}`}><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton> : <p className="text-sm text-t3">GitHub sign-in is being set up.</p>}</div> : <MemberForum key={profile.id} profile={profile} />}
     </main><Dock />
   </div>;
 }
@@ -66,14 +67,14 @@ function MemberForum({ profile }: { profile: ForumAuthor }) {
   const change = (key: string, value: string) => { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); if (key !== "page") next.delete("page"); setParams(next, { replace: key === "search" }); };
   const view = <div className="space-y-5">
     {!id && !helpId && !active.isError && <>
-      {questions && <div className="flex flex-wrap items-center gap-3"><MetalButton className="min-h-11 w-auto" disabled={mutation.isPending} onClick={() => setCreating(!creating)}>Ask a question</MetalButton><button type="button" className="forum-action" disabled={mutation.isPending} aria-pressed={params.get("mine") === "1"} onClick={() => change("mine", params.get("mine") === "1" ? "" : "1")}>{params.get("mine") === "1" ? "Show all questions" : "My submissions"}</button></div>}
+      {questions && <div className="flex flex-wrap items-center gap-3"><button type="button" className="forum-action forum-action-filled forum-action-submissions" disabled={mutation.isPending} aria-pressed={params.get("mine") === "1"} onClick={() => change("mine", params.get("mine") === "1" ? "" : "1")}>{params.get("mine") === "1" ? "Show all questions" : "My submissions"}</button></div>}
       {creating && <ForumEditor key={profile.id} busy={mutation.isPending} onSave={act} onCancel={() => setCreating(false)} />}
       <ForumFilters params={params} onChange={change} questions={questions} />
     </>}
-    {helpId ? null : active.isPending ? <p role="status" className="py-6 text-sm text-t3">Loading community…</p> : active.isError ? <ForumFailure error={active.error} retry={() => { void active.refetch(); }} /> : id && detail.data ? <ForumThreadView key={id} data={detail.data} profile={profile} busy={mutation.isPending} onAction={act} onPage={(p) => change("page", String(p))} /> : list.data ? <>
-      {!helpId && <ForumFeed data={list.data} busy={mutation.isPending} onPage={(p) => change("page", String(p))} />}
+    {helpId ? null : active.isPending ? <ContentSkeleton label="Loading community…" detail={!!id} /> : active.isError ? <ForumFailure error={active.error} retry={() => { void active.refetch(); }} /> : id && detail.data ? <ForumThreadView key={id} data={detail.data} profile={profile} busy={mutation.isPending} onAction={act} onPage={(p) => change("page", String(p))} /> : list.data ? <>
+      {!helpId && <ForumFeed data={list.data} busy={mutation.isPending} onPage={(p) => change("page", String(p))} onLike={(id, liked) => { void act({ action: "like", id, liked, requestId: crypto.randomUUID() }); }} />}
     </> : null}
     {questions && <LegacyHelp profileId={profile.id} login={profile.login} id={helpId} />}
   </div>;
-  return id ? view : <CommunitySections section={questions ? "questions" : "discussions"} disabled={mutation.isPending} onChange={() => setCreating(false)}>{view}</CommunitySections>;
+  return id ? view : <CommunitySections section={questions ? "questions" : "discussions"} disabled={mutation.isPending} onChange={() => setCreating(false)} actions={questions && !helpId && !active.isError ? <MetalButton type="button" className="min-h-11 w-auto" disabled={mutation.isPending} aria-expanded={creating} onClick={() => setCreating(!creating)}>Ask a question</MetalButton> : undefined}>{view}</CommunitySections>;
 }

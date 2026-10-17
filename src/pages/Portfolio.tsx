@@ -8,6 +8,7 @@ import { GitHubIcon } from "@/components/brand-icons";
 import { TextureButton } from "@/components/ui/texture-button";
 import { MetalButton } from "@/components/metal-button";
 import { AccountCorner } from "@/components/account-corner";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { Dock } from "@/components/dock";
 import { guardedLeave, setLeaveGuard } from "@/lib/leave-guard";
 import { SharedSelect } from "@/components/ui/select";
@@ -171,7 +172,7 @@ export default function Portfolio() {
   const community = useCommunity();
   const profile = community.data?.profile;
   const state = useQuery({ queryKey: ["portfolio-editor", profile?.id], queryFn: ({ signal }) => portfolioApi.editor(signal), enabled: !!profile, retry: false, staleTime: 0, gcTime: 0, refetchOnWindowFocus: false, refetchOnReconnect: false });
-  if (community.isPending || (profile && state.isPending)) return <div className="studio"><StudioChrome /><main className="studio-body" aria-busy="true"><div className="h-10 w-56 animate-pulse rounded-2xl bg-foreground/5" /><div className="studio-grid mt-10"><div className="h-96 animate-pulse rounded-3xl bg-foreground/5" /><div className="h-[600px] animate-pulse rounded-3xl bg-foreground/5" /></div><p className="sr-only" role="status">Loading your portfolio…</p></main></div>;
+  if (community.isPending || (profile && state.isPending)) return <div className="studio"><StudioChrome /><main className="studio-body"><ContentSkeleton label="Loading your portfolio…" detail /></main></div>;
   if (community.isError || (profile && state.isError)) return <div className="studio"><StudioChrome /><main className="studio-error-panel"><h1>Couldn't open your portfolio</h1><p>{state.error?.message ?? community.error?.message}</p><TextureButton type="button" className="mt-6 w-auto" onClick={() => { void community.refetch(); void state.refetch(); }}>Try again</TextureButton></main></div>;
   if (!profile) return <PortfolioIntro available={community.data?.signInAvailable ?? false} />;
   return state.data ? <PortfolioEditor key={profile.id} initial={state.data} /> : null;

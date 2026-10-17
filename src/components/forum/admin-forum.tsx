@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { ForumAuthor, ForumCommand } from "@shared/forum";
 import { useForumSearch } from "@/hooks/use-forum-search";
 import { MetalButton } from "@/components/metal-button";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { forumApi } from "@/lib/forum-api";
 import { ApiError } from "@/lib/api";
 import { ForumEditor } from "./editor";
@@ -46,7 +47,7 @@ export default function AdminForum({ profile, onUnauthorized }: { profile: Forum
     <div className="flex flex-wrap items-center gap-2"><MetalButton className="min-h-11 w-auto" disabled={mutation.isPending} onClick={() => { setCreating(true); setId(null); }}>New discussion</MetalButton>{(id || creating) && <button className="forum-action" type="button" disabled={mutation.isPending} onClick={() => { setId(null); setCreating(false); }}>Back to queue</button>}</div>
     {creating ? <ForumEditor key="new-discussion" admin busy={mutation.isPending} onSave={act} onCancel={() => setCreating(false)} /> : <>
       {!id && <ForumFilters params={params} onChange={change} admin />}
-      {active.isPending ? <p role="status" className="py-4 text-sm text-t3">Loading community moderation…</p> : active.isError ? <div className="space-y-3" role="alert"><p className="text-sm text-t2">{active.error.message}</p><button className="forum-action" type="button" onClick={() => active.refetch()}>Try again</button></div> : id && detail.data ? <ForumThreadView key={id} admin data={detail.data} profile={profile} busy={mutation.isPending} onAction={act} onPage={setPage} /> : list.data ? <ForumFeed admin data={list.data} busy={mutation.isPending} onSelect={(id) => { setId(id); setPage(1); }} onPage={(page) => change("page", String(page))} /> : null}
+      {active.isPending ? <ContentSkeleton label="Loading community moderation…" detail={!!id} /> : active.isError ? <div className="space-y-3" role="alert"><p className="text-sm text-t2">{active.error.message}</p><button className="forum-action" type="button" onClick={() => active.refetch()}>Try again</button></div> : id && detail.data ? <ForumThreadView key={id} admin data={detail.data} profile={profile} busy={mutation.isPending} onAction={act} onPage={setPage} /> : list.data ? <ForumFeed admin data={list.data} busy={mutation.isPending} onSelect={(id) => { setId(id); setPage(1); }} onPage={(page) => change("page", String(page))} /> : null}
     </>}
   </section>;
 }

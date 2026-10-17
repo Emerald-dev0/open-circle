@@ -11,7 +11,7 @@ import { MetalButton } from "@/components/metal-button";
 import { SharedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LoadingSkeleton, SkeletonPlaceholder } from "@/components/loading-skeleton";
+import { SettingsSkeleton } from "@/components/site-skeleton";
 import { AdminBotMessages } from "@/components/admin-bot-messages";
 
 const KEY = ["admin", "bot-settings"];
@@ -37,7 +37,7 @@ export default function AdminBotSettings({ onUnauthorized }: { onUnauthorized: (
     onError: (error) => { if (error instanceof ApiError && ["unauthorized", "admin_disabled", "admin_origin"].includes(error.code)) onUnauthorized(); if (error instanceof ApiError && error.status === 409) void client.invalidateQueries({ queryKey: KEY }); },
   });
   if (!draft || !query.data) return <Panel header={<PanelHeader title="Bot settings" />}>
-    {query.isPending ? <LoadingSkeleton label="Loading bot settings…"><div className="space-y-4 py-6"><SkeletonPlaceholder className="h-5 w-44" /><SkeletonPlaceholder className="h-11 w-full rounded-full" /><SkeletonPlaceholder className="h-11 w-full rounded-full" /></div></LoadingSkeleton> : <div className="space-y-4 py-5"><p className="max-w-prose text-sm text-t2" role="alert">{query.error?.message ?? "Bot settings could not be loaded."}</p><MetalButton type="button" variant="minimal" className="h-10 w-auto" innerClassName="px-4" onClick={() => query.refetch()}>Retry bot settings</MetalButton></div>}
+    {query.isPending ? <SettingsSkeleton /> : <div className="space-y-4 py-5"><p className="max-w-prose text-sm text-t2" role="alert">{query.error?.message ?? "Bot settings could not be loaded."}</p><MetalButton type="button" variant="minimal" className="h-10 w-auto" innerClassName="px-4" onClick={() => query.refetch()}>Retry bot settings</MetalButton></div>}
   </Panel>;
   const state = query.data;
   const patchPolicy = (patch: Partial<CoordinationPolicy>) => setDraft({ ...draft, policy: { ...draft.policy, ...patch } });

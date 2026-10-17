@@ -14,6 +14,7 @@ export interface ForumThread {
   published: ForumContent | null; publishedAt: number | null; editedAt: number | null; revision: ForumContent | null;
   review: ReviewStatus; reviewReason: string; submittedAt: number; hidden: boolean; locked: boolean; pinned: boolean; resolved: boolean;
   poll: ForumPoll | null;
+  likedBy?: number[];
 }
 export interface ForumComment { id: string; parentId: string | null; author: ForumAuthor; body: string; createdAt: number; hidden: boolean }
 export interface ForumReport { id: string; commentId: string | null; author: ForumAuthor; reason: string; createdAt: number; resolved: boolean }
@@ -25,7 +26,7 @@ export interface ForumAggregate {
 export interface ForumSummary {
   id: string; kind: ForumKind; author: ForumAuthor; content: ForumContent; createdAt: number; publishedAt: number | null; updatedAt: number;
   pinned: boolean; locked: boolean; resolved: boolean; hidden: boolean; version: number; edited: boolean; commentCount: number;
-  review?: ReviewStatus; hasRevision?: boolean;
+  review?: ReviewStatus; hasRevision?: boolean; likeCount: number; liked: boolean; hasPoll: boolean; publishedTitle: string | null;
 }
 export interface ForumPollView extends ForumPoll { ballot: string; total: number; counts: Record<string, number>; selected: string | null; open: boolean }
 export interface ForumDetail extends ForumSummary {
@@ -35,9 +36,9 @@ export interface ForumDetail extends ForumSummary {
 export interface ForumPage { items: ForumSummary[]; total: number; page: number; pageSize: number }
 export interface ForumFilter { kind: ForumKind; page: number; search: string; category: string; status: string; mine: boolean; queue: string }
 export type ForumCommand = {
-  action: "create" | "edit" | "comment" | "vote" | "report" | "review" | "moderate";
+  action: "create" | "edit" | "comment" | "vote" | "like" | "report" | "review" | "moderate";
   requestId: string; id?: string; version?: number; kind?: ForumKind; content?: ForumContent; publish?: boolean;
-  poll?: ForumPoll | null; body?: string; parentId?: string | null; optionId?: string; ballot?: string; commentId?: string | null;
+  poll?: ForumPoll | null; body?: string; parentId?: string | null; optionId?: string; ballot?: string; commentId?: string | null; liked?: boolean;
   reason?: string; decision?: "approve" | "reject" | "changes"; operation?: "hide" | "restore" | "lock" | "reopen" | "pin" | "unpin" | "resolve" | "unresolve" | "close-poll" | "hide-comment" | "restore-comment" | "dismiss-report"; reportId?: string;
 };
 export function forumDestination(value: unknown): string | null {

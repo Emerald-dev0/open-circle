@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { CheckCircleIcon, CheckReadIcon } from "@solar-icons/react/linear";
 import { toast } from "sonner";
 import type { CoordinationContribution, CoordinationHelp } from "@shared/coordination";
 import { api, request } from "@/lib/api";
 import { PaginatedList } from "@/components/pagination";
 import { MetalButton } from "@/components/metal-button";
+import { ContentSkeleton } from "@/components/site-skeleton";
 import { ForumBody, ForumTime } from "./content";
 
 export function LegacyHelp({ profileId, login, id }: { profileId: number; login: string; id?: string }) {
@@ -20,7 +22,7 @@ export function LegacyHelp({ profileId, login, id }: { profileId: number; login:
   async function send(input: Parameters<typeof api.participate>[0]) {
     try { await action.mutateAsync(input); if (alive.current) { setText(""); setAnswering(null); toast.success(input.action === "answer" ? "Your answer awaits the recipient's confirmation." : "Saved."); } } catch (e) { toast.error((e as Error).message); }
   }
-  if (state.isPending) return <p role="status" className="py-4 text-sm text-t3">Loading earlier help requests…</p>;
+  if (state.isPending) return <ContentSkeleton label="Loading earlier help requests…" detail={!!id} />;
   if (state.isError) return <div className="space-y-2"><p className="text-sm text-t3">{state.error.message}</p><button className="forum-action" onClick={() => state.refetch()}>Try earlier help again</button></div>;
   const items = state.data.help.filter((h) => !id || h.id === id);
   return <section className="space-y-4 pt-6" aria-label="Earlier help requests">
@@ -31,10 +33,10 @@ export function LegacyHelp({ profileId, login, id }: { profileId: number; login:
     <PaginatedList items={items} label="Earlier help" resetKey={String(profileId)}>{(help) => <li key={help.id} className="space-y-2 border-b border-foreground/[0.08] py-4">
       <Link className="block break-words text-sm font-medium hover:underline" to={`/community/help/${encodeURIComponent(help.id)}`}>{help.question}</Link>
       <p className="text-xs text-t3">@{help.owner} · {help.status} · <ForumTime at={help.createdAt} /></p>
-      <div className="flex flex-wrap gap-2">{help.status === "open" && help.owner.toLowerCase() !== login.toLowerCase() && <button className="forum-action" disabled={action.isPending} onClick={() => { if (answering !== help.id) setText(""); setAnswering(help.id); }}>Answer</button>}{help.status === "open" && help.owner.toLowerCase() === login.toLowerCase() && <button className="forum-action" disabled={action.isPending} onClick={() => void send({ action: "close", id: help.id })}>Mark resolved</button>}{state.data.assignedHelp.includes(help.id) && <button className="forum-action" disabled={action.isPending} onClick={() => void send({ action: "decline-help", id: help.id })}>Decline request</button>}</div>
+      <div className="flex flex-wrap gap-2">{help.status === "open" && help.owner.toLowerCase() !== login.toLowerCase() && <button className="forum-action" disabled={action.isPending} onClick={() => { if (answering !== help.id) setText(""); setAnswering(help.id); }}>Answer</button>}{help.status === "open" && help.owner.toLowerCase() === login.toLowerCase() && <button className="forum-action forum-action-filled" disabled={action.isPending} onClick={() => void send({ action: "close", id: help.id })}><CheckCircleIcon className="size-4 shrink-0" aria-hidden />Mark resolved</button>}{state.data.assignedHelp.includes(help.id) && <button className="forum-action" disabled={action.isPending} onClick={() => void send({ action: "decline-help", id: help.id })}>Decline request</button>}</div>
       {answering === help.id && <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); void send({ action: "answer", helpId: help.id, text }); }}><label className="block space-y-2"><span className="text-sm">Your answer</span><textarea className="field min-h-28 rounded-2xl py-3" value={text} onChange={(e) => setText(e.target.value)} required minLength={30} maxLength={1000} disabled={action.isPending} /></label><MetalButton className="min-h-11 w-auto" loading={action.isPending}>Submit answer</MetalButton><button className="forum-action" type="button" onClick={() => setAnswering(null)}>Cancel</button></form>}
       {state.data.contributions.filter((c) => c.targetId === help.id).map((c) => <div key={c.id} className="space-y-1 py-2"><p className="text-xs text-t3">@{c.by} → @{c.for} · {c.status}</p><ForumBody>{c.text}</ForumBody></div>)}
     </li>}</PaginatedList>
-    <Link className="forum-action inline-flex items-center" to="/participation#feedback">Confirm received answers in Participation</Link>
+    <Link className="forum-action forum-action-filled max-w-full" to="/participation#feedback"><CheckReadIcon className="size-4 shrink-0" aria-hidden /><span>Confirm received answers in Participation</span></Link>
   </section>;
 }

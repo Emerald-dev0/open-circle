@@ -13,6 +13,44 @@ export const command = (patch: Omit<ForumCommand, "requestId">): ForumCommand =>
 export const poll = { question: "What should our next lesson cover?", options: [{ id: "option_1", label: "Git" }, { id: "option_2", label: "Testing" }], closesAt: null, closed: false };
 
 export function forumContract(create: () => ForumStore) {
+  it("persists likes by GitHub account, serializes concurrent changes and keeps liker identities private", async () => {
+    const store = create();
+    const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true, poll }));
+    expect(post).toMatchObject({ likeCount: 0, liked: false });
+    const like = command({ action: "like", id: post.id, liked: true });
+    await Promise.all(Array.from({ length: 10 }, () => commandForum(store, alice, like)));
+    await Promise.all(Array.from({ length: 6 }, () => commandForum(store, alice, command({ action: "like", id: post.id, liked: true }))));
+    await commandForum(store, { ...alice, profile: { ...alice.profile, login: "RenamedAlice" } }, command({ action: "like", id: post.id, liked: true }));
+    await commandForum(store, bob, command({ action: "like", id: post.id, liked: true }));
+    const feed = await listForum(store, alice, { ...filter, kind: "discussion" });
+    expect(feed.items[0]).toMatchObject({ likeCount: 2, liked: true, hasPoll: true, publishedTitle: content.title });
+    expect(feed.items[0]).not.toHaveProperty("likedBy");
+    const detail = await readForum(store, admin, post.id);
+    expect(detail).toMatchObject({ likeCount: 2, liked: false, version: post.version, poll: { total: 0 } });
+    expect(detail).not.toHaveProperty("likedBy");
+    await commandForum(store, alice, command({ action: "like", id: post.id, liked: false }));
+    expect(await readForum(store, alice, post.id)).toMatchObject({ likeCount: 1, liked: false });
+    expect(await readForum(store, bob, post.id)).toMatchObject({ likeCount: 1, liked: true });
+    await commandForum(store, alice, command({ action: "like", id: post.id, liked: false }));
+    expect((await readForum(store, bob, post.id)).likeCount).toBe(1);
+    await expect(commandForum(store, alice, { ...like, liked: false })).rejects.toMatchObject({ code: "forum_retry" });
+  });
+  it("rejects likes on drafts, pending questions and hidden posts while allowing likes on locked published content", async () => {
+    const store = create();
+    const draft = await commandForum(store, admin, command({ action: "create", kind: "discussion", content }));
+    await expect(commandForum(store, admin, command({ action: "like", id: draft.id, liked: true }))).rejects.toMatchObject({ status: 404 });
+    const question = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
+    await expect(commandForum(store, alice, command({ action: "like", id: question.id, liked: true }))).rejects.toMatchObject({ status: 404 });
+    const post = await commandForum(store, admin, command({ action: "review", id: question.id, version: question.version, decision: "approve" }));
+    await expect(commandForum(store, bob, { ...command({ action: "like", id: post.id }), liked: "true" })).rejects.toMatchObject({ status: 400 });
+    const locked = await commandForum(store, admin, command({ action: "moderate", id: post.id, version: post.version, operation: "lock", reason: "Read-only discussion" }));
+    const liked = await commandForum(store, bob, command({ action: "like", id: post.id, liked: true }));
+    expect(liked).toMatchObject({ likeCount: 1, liked: true, version: 0 });
+    expect((await readForum(store, admin, post.id)).version).toBe(locked.version);
+    await commandForum(store, admin, command({ action: "moderate", id: post.id, version: locked.version, operation: "hide", reason: "Needs review" }));
+    await expect(commandForum(store, bob, command({ action: "like", id: post.id, liked: false }))).rejects.toMatchObject({ status: 404 });
+    await expect(commandForum(store, admin, command({ action: "like", id: post.id, liked: true }))).rejects.toMatchObject({ status: 404 });
+  });
   it("publishes an admin draft, permits shallow member comments, retries safely and locks comments", async () => {
     const store = create();
     const draft = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: false }));

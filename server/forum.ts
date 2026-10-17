@@ -85,6 +85,7 @@ function summary(t: ForumThread, viewer: ForumViewer, count: number, mine = fals
     id: t.id, kind: t.kind, author: t.author, content: (mine && privateView ? t.revision ?? t.published : t.published ?? t.revision)!, createdAt: t.createdAt,
     updatedAt: t.editedAt ?? t.publishedAt ?? t.createdAt, publishedAt: t.publishedAt, version: privateView ? t.version : 0, edited: t.editedAt !== null,
     pinned: t.pinned, locked: t.locked, resolved: t.resolved, hidden: t.hidden, commentCount: count,
+    likeCount: t.likedBy?.length ?? 0, liked: t.likedBy?.includes(viewer.profile.id) ?? false, hasPoll: !!t.poll, publishedTitle: t.published?.title ?? null,
     ...(privateView ? { review: t.review, hasRevision: !!t.revision && !!t.published } : {}),
   };
 }
@@ -119,7 +120,7 @@ export function readForum(store: ForumStore, viewer: ForumViewer, id: string, pa
 }
 export async function commandForum(store: ForumStore, viewer: ForumViewer, input: unknown, now = Date.now()): Promise<ForumDetail> {
   const b = record(input);
-  if (!uuidPattern.test(String(b.requestId)) || !["create", "edit", "comment", "vote", "report", "review", "moderate"].includes(String(b.action))) invalid("Reload the form and try again.");
+  if (!uuidPattern.test(String(b.requestId)) || !["create", "edit", "comment", "vote", "like", "report", "review", "moderate"].includes(String(b.action))) invalid("Reload the form and try again.");
   const command = b as unknown as ForumCommand;
   const id = command.action === "create" ? command.requestId : command.id;
   if (!id || !uuidPattern.test(id)) missing();
@@ -165,6 +166,11 @@ export async function commandForum(store: ForumStore, viewer: ForumViewer, input
         const parent = command.parentId ? data.comments.find((c) => c.id === command.parentId && !c.hidden) : null;
         if (command.parentId && (!parent || parent.parentId !== null)) invalid("Reply to a visible top-level comment.");
         data.comments.push({ id: randomUUID(), parentId: parent?.id ?? null, author: viewer.profile, body: text(command.body, 1, 6000, "a comment"), createdAt: now, hidden: false });
+      } else if (command.action === "like") {
+        if (!t.published || t.hidden) missing();
+        if (typeof command.liked !== "boolean") invalid("Choose whether to like this post.");
+        const likedBy = t.likedBy ?? [];
+        t.likedBy = command.liked ? Array.from(new Set([...likedBy, viewer.profile.id])) : likedBy.filter((id) => id !== viewer.profile.id);
       } else if (command.action === "vote") {
         if (!t.published || t.hidden || !t.poll || t.poll.closed || (t.poll.closesAt !== null && t.poll.closesAt <= now)) throw new HttpError(409, "poll_closed", "Voting is closed on this poll.");
         if (command.ballot !== pollBallot(t.poll)) throw new HttpError(409, "poll_changed", "This poll changed. Reload it before voting. Your vote was not saved.");

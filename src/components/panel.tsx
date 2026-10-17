@@ -23,11 +23,12 @@ export function PanelHeader({ title, subtitle, chip }: { title: string; subtitle
   );
 }
 
-export function Chip({ tone, children }: { tone: "ok" | "warn" | "muted"; children: React.ReactNode }) {
+export function Chip({ tone, children, icon }: { tone: "ok" | "warn" | "muted"; children: React.ReactNode; icon?: React.ReactNode }) {
   const dot = tone === "ok" ? "bg-[hsl(var(--up))]" : tone === "warn" ? "bg-[hsl(var(--warn))]" : "bg-t4";
+  const iconColor = tone === "ok" ? "text-[hsl(var(--up))]" : tone === "warn" ? "text-[hsl(var(--warn))]" : "text-t3";
   return (
     <span className="inline-flex items-center gap-2 rounded-full bg-foreground/[0.06] px-3 py-1.5 text-xs font-medium text-t2">
-      <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />
+      {icon ? <span className={cn("inline-flex shrink-0 [&_svg]:size-3.5", iconColor)} aria-hidden>{icon}</span> : <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />}
       {children}
     </span>
   );
@@ -49,4 +50,3 @@ export function Row({ label, htmlFor, stack, children }: { label: string; htmlFo
     </div>
   );
 }
-

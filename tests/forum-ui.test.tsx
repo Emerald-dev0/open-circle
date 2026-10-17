@@ -65,6 +65,40 @@ it("shows persisted poll results, changes a vote, posts a comment and hides comm
   await screen.findByText("Comments are locked.");
   expect(screen.queryByLabelText("Your comment")).toBeNull();
 });
+it.each(["discussion", "question"] as const)("likes a %s from the feed, opens its comments and keeps a failed unlike unchanged", async (kind) => {
+  let post = await commandForum(store, kind === "discussion" ? admin : alice, command({ action: "create", kind, content, publish: kind === "discussion" }));
+  if (kind === "question") post = await commandForum(store, admin, command({ action: "review", id: post.id, version: post.version, decision: "approve" }));
+  const user = userEvent.setup();
+  render(wrap(<Community />, `/community?tab=${kind === "question" ? "questions" : "discussions"}`));
+  await user.click(await screen.findByRole("button", { name: `Like ${content.title}` }));
+  await waitFor(() => expect(screen.getByRole("button", { name: `Unlike ${content.title}` }).getAttribute("aria-pressed")).toBe("true"));
+  expect(await readForum(store, alice, post.id)).toMatchObject({ likeCount: 1, liked: true });
+  await user.click(screen.getByRole("link", { name: `0 comments on ${content.title}` }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Your comment")));
+  expect(screen.getByRole("button", { name: `Unlike ${content.title}` }).getAttribute("aria-pressed")).toBe("true");
+  vi.mocked(forumApi.command).mockRejectedValueOnce(new ApiError(503, "unavailable", "Like could not be saved. Try again."));
+  await user.click(screen.getByRole("button", { name: `Unlike ${content.title}` }));
+  await screen.findByText("Like could not be saved. Try again.");
+  expect((await readForum(store, alice, post.id)).likeCount).toBe(1);
+  expect(screen.getByRole("button", { name: `Unlike ${content.title}` }).getAttribute("aria-pressed")).toBe("true");
+  await user.click(screen.getByRole("button", { name: `Unlike ${content.title}` }));
+  await screen.findByRole("button", { name: `Like ${content.title}` });
+  expect((await readForum(store, alice, post.id)).likeCount).toBe(0);
+  const copy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+  await user.click(screen.getByRole("button", { name: `Share ${kind}: ${content.title}` }));
+  await waitFor(() => expect(copy).toHaveBeenCalledWith(`${window.location.origin}/community/${post.id}`));
+  await user.click(screen.getByRole("link", { name: `0 comments on ${content.title}` }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Your comment")));
+});
+it("shares the approved question title while My submissions displays a private revision", async () => {
+  const question = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
+  const approved = await commandForum(store, admin, command({ action: "review", id: question.id, version: question.version, decision: "approve" }));
+  await commandForum(store, alice, command({ action: "edit", id: question.id, version: approved.version, content: { ...content, title: "My private revision title" } }));
+  render(wrap(<Community />, "/community?tab=questions&mine=1"));
+  await screen.findByRole("link", { name: "My private revision title" });
+  expect(screen.getByRole("button", { name: `Share question: ${content.title}` })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Share.*private revision/ })).toBeNull();
+});
 it("lets admins review a pending question, records a private reason and keeps all moderation in the existing component", async () => {
   const pending = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
   const user = userEvent.setup();

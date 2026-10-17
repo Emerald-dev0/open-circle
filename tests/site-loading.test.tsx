@@ -10,7 +10,7 @@ import type { ParticipationState } from "../shared/coordination";
 import Index from "../src/pages/Index";
 import Participation from "../src/pages/Participation";
 import { TooltipProvider } from "../src/components/ui/tooltip";
-import { AccountSkeleton, BoardSkeleton, CommunityVotesSkeleton, ParticipationSkeleton, ToolsSkeleton } from "../src/components/site-skeleton";
+import { AccountSkeleton, BoardSkeleton, CommunityVotesSkeleton, ContentSkeleton, ParticipationSkeleton, SettingsSkeleton, ToolsSkeleton } from "../src/components/site-skeleton";
 import { BOARD_KEY } from "../src/hooks/use-board";
 import { api } from "../src/lib/api";
 import { boardFixture, publicMember, repository } from "./helpers/fixtures";
@@ -56,11 +56,12 @@ describe("Public Skelo loading", () => {
       <BoardSkeleton /><BoardSkeleton repositories /><ToolsSkeleton />
       <ParticipationSkeleton /><ParticipationSkeleton checkingSignIn />
       <AccountSkeleton /><CommunityVotesSkeleton />
+      <ContentSkeleton label="Loading content…" /><ContentSkeleton label="Loading details…" detail /><SettingsSkeleton />
     </>);
     expect(measureText).not.toHaveBeenCalled();
     expect(container.querySelectorAll("[data-loading-template][inert]").length).toBeGreaterThan(0);
     expect(container.querySelectorAll("img, input, button, a")).toHaveLength(0);
-    expect(screen.getAllByRole("status")).toHaveLength(7);
+    expect(screen.getAllByRole("status")).toHaveLength(10);
   });
 
   it.each([
