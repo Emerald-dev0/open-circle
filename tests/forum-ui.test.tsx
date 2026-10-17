@@ -122,3 +122,21 @@ it("uses keyboard-operated custom category filters and retains the Questions tab
   expect(screen.getByRole("tab", { name: "Questions" }).getAttribute("data-state")).toBe("active");
   expect(document.querySelector("select:not([aria-hidden='true'])")).toBeNull();
 });
+
+it("shows reported comment context and moderation actions even outside the current comment page", async () => {
+  const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true }));
+  for (let i = 0; i < 16; i++) await commandForum(store, alice, command({ action: "comment", id: post.id, body: `Reported-page comment ${i}` }));
+  const later = await readForum(store, bob, post.id, 2);
+  await commandForum(store, bob, command({ action: "report", id: post.id, commentId: later.comments[0].id, reason: "This later comment needs review" }));
+  const user = userEvent.setup();
+  render(wrap(<AdminForum profile={admin.profile} onUnauthorized={vi.fn()} />));
+  const queue = await screen.findByRole("combobox", { name: "Moderation queue" });
+  queue.focus(); fireEvent.keyDown(queue, { key: "ArrowDown" });
+  await user.click(await screen.findByRole("option", { name: "Reports" }));
+  await user.click(await screen.findByRole("button", { name: content.title }));
+  expect(await screen.findByText("Reported-page comment 15")).toBeTruthy();
+  await user.type(screen.getByLabelText("Private reason or review note"), "Reviewed the reported comment");
+  await user.click(screen.getByRole("button", { name: "Hide reported comment" }));
+  await screen.findByRole("button", { name: "Restore reported comment" });
+  expect((await readForum(store, alice, post.id, 2)).comments.some((c) => c.body === "Reported-page comment 15")).toBe(false);
+});

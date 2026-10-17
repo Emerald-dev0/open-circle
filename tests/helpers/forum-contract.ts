@@ -126,6 +126,11 @@ export function forumContract(create: () => ForumStore) {
     expect(bounded.commentTotal).toBe(34);
     expect(bounded.comments.length).toBeLessThanOrEqual(16);
     expect(bounded.comments.some((c) => c.id === last.comments[0].id)).toBe(true);
+    const reported = bounded.comments.at(-1)!;
+    await commandForum(store, bob, command({ action: "report", id, commentId: reported.id, reason: "Review a comment on a later page" }));
+    const review = await readForum(store, admin, id, 1);
+    expect(review.comments.some((c) => c.id === reported.id)).toBe(false);
+    expect(review.reports?.at(-1)?.reportedComment?.body).toBe(reported.body);
     const q = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
     const approved = await commandForum(store, admin, command({ action: "review", id: q.id, version: q.version, decision: "approve" }));
     const resolved = await commandForum(store, alice, command({ action: "moderate", id: q.id, version: approved.version, operation: "resolve" }));

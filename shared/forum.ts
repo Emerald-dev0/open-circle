@@ -30,7 +30,7 @@ export interface ForumSummary {
 export interface ForumPollView extends ForumPoll { ballot: string; total: number; counts: Record<string, number>; selected: string | null; open: boolean }
 export interface ForumDetail extends ForumSummary {
   comments: ForumComment[]; commentTotal: number; commentPage: number; poll: ForumPollView | null;
-  revision?: ForumContent | null; reviewReason?: string; submittedAt?: number; reports?: ForumReport[]; audit?: ForumAudit[];
+  revision?: ForumContent | null; reviewReason?: string; submittedAt?: number; reports?: (ForumReport & { reportedComment?: ForumComment })[]; audit?: ForumAudit[];
 }
 export interface ForumPage { items: ForumSummary[]; total: number; page: number; pageSize: number }
 export interface ForumFilter { kind: ForumKind; page: number; search: string; category: string; status: string; mine: boolean; queue: string }
