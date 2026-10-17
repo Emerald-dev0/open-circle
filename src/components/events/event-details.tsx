@@ -5,7 +5,7 @@ import { ShareButton } from "@/components/share-button";
 export function EventDetails({ event, admin = false }: { event: EventView; admin?: boolean }) {
   const c = event.content; const [videoError,setVideoError] = useState(false); const [coverError,setCoverError] = useState(false); const video = useRef<HTMLVideoElement>(null);
   return <article className="min-w-0 space-y-8">
-    {event.cover && !coverError && <img className="aspect-video w-full rounded-2xl object-cover" src={eventMediaUrl(event.slug,event.cover.id,admin)} alt={c.coverAlt} onError={() => setCoverError(true)} />}
+    {event.cover && !coverError && <img className="mx-auto h-auto max-h-[70dvh] w-auto max-w-full rounded-2xl object-contain" src={eventMediaUrl(event.slug,event.cover.id,admin)} alt={c.coverAlt} onError={() => setCoverError(true)} />}
     {coverError && <p role="status" className="text-sm text-t3">The cover image is unavailable.</p>}
     <div className="space-y-3"><p className="text-sm text-t3">{eventStatus(event)}</p><h1 className="break-words text-3xl font-medium tracking-[-0.03em]">{c.title || "Untitled event"}</h1><p className="text-t2">{c.summary}</p><p className="text-sm text-t3">{eventDate(c.startsAt,c.timezone)} – {eventDate(c.endsAt,c.timezone)}<br />{c.timezone}</p><p className="text-sm">Hosted by {c.hostUrl ? <a href={c.hostUrl} rel="noopener noreferrer" target="_blank" className="underline">{c.host}</a> : c.host || "To be confirmed"}</p></div>
     {event.published && <ShareButton path={`/events/${event.slug}`} title={c.title} kind="event" />}

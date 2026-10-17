@@ -42,12 +42,12 @@ export default function Events() {
       {admin && <p role="status" className="text-sm text-warn">Admin preview · {data && "published" in data && data.published ? "Published" : "Draft / unpublished"}</p>}
       {signedOut ? <div className="space-y-4"><p className="text-t3">Sign in to find community events, recordings and resources.</p><a className="inline-flex min-h-11 items-center underline underline-offset-4" href={`/api/auth-start?returnTo=${encodeURIComponent(slug ? `/events/${slug}` : "/events")}`}>Sign in with GitHub</a></div> : error ? <div role="alert" className="space-y-3"><p>{error.message}</p>{access ? <Link className="inline-flex min-h-11 items-center underline" to="/participation">Connect your group account</Link> : <TextureButton onClick={() => { void community.refetch(); void query.refetch(); }}>Try again</TextureButton>}</div> : !data ? <ContentSkeleton label={community.isPending && !admin ? "Checking sign-in…" : "Loading events…"} detail={!!slug} /> : "events" in data ? <>
         <Tabs value={tab} onValueChange={setTab}><TabsList aria-label="Event schedule"><TabsTrigger ref={upcomingTab} className="min-h-11 focus-visible:ring-2 focus-visible:ring-foreground/40" value="upcoming">Upcoming</TabsTrigger><TabsTrigger ref={pastTab} className="min-h-11 focus-visible:ring-2 focus-visible:ring-foreground/40" value="past">Past & recordings</TabsTrigger></TabsList>
-        <TabsContent value={tab}><EventList events={data.events} now={now} schedule={tab} onBrowse={browseSchedule} /></TabsContent></Tabs>
+        <TabsContent value={tab}><EventList events={data.events} now={now} schedule={tab} admin={admin} onBrowse={browseSchedule} /></TabsContent></Tabs>
       </> : <EventDetails key={`${data.id}:${identity}:${admin}`} event={data} admin={admin} />}
       </CommunitySections>
     </div></main><Dock /></div>;
 }
-function EventList({ events, now, schedule, onBrowse }: { events: EventView[]; now: number; schedule: string; onBrowse: (value: string) => void }) {
+function EventList({ events, now, schedule, admin, onBrowse }: { events: EventView[]; now: number; schedule: string; admin: boolean; onBrowse: (value: string) => void }) {
   const upcoming = schedule === "upcoming";
   const visible = events.filter(e => upcoming === (!e.content.cancelled && (e.content.endsAt ?? 0) > now)).sort((a,b) => upcoming ? (a.content.startsAt ?? 0)-(b.content.startsAt ?? 0) : (b.content.startsAt ?? 0)-(a.content.startsAt ?? 0));
   if (!visible.length) return (
@@ -74,7 +74,7 @@ function EventList({ events, now, schedule, onBrowse }: { events: EventView[]; n
     </EmptyState>
   );
   return <ul className="divide-y divide-foreground/10">{visible.map(e => <li key={e.id} className="py-6"><Link to={`/events/${e.slug}`} className="group flex min-w-0 flex-col gap-5 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 sm:flex-row">
-    {e.cover && <img className="aspect-video w-full rounded-xl object-cover sm:w-56" src={eventMediaUrl(e.slug,e.cover.id)} alt={e.content.coverAlt} loading="lazy" />}
+    {e.cover && <img className="h-auto w-full self-start rounded-xl object-contain sm:w-56 sm:shrink-0" src={eventMediaUrl(e.slug,e.cover.id,admin)} alt={e.content.coverAlt} loading="lazy" />}
     <div className="min-w-0 space-y-2"><p className="text-xs text-t3">{eventStatus(e,now)}</p><h2 className="break-words text-xl font-medium group-hover:underline">{e.content.title}</h2><p className="text-sm text-t3">{eventDate(e.content.startsAt,e.content.timezone)} · {e.content.timezone}</p><p className="break-words text-sm leading-relaxed text-t2">{e.content.summary}</p><p className="text-sm text-t3">{e.content.host}</p>{e.recording && <p className="text-xs text-t3">Recording · {fileSize(e.recording.size)}</p>}</div>
   </Link>{e.published && <div className="mt-3 flex justify-end"><ShareButton path={`/events/${e.slug}`} title={e.content.title} kind="event" /></div>}</li>)}</ul>;
 }

@@ -15,10 +15,10 @@ vi.mock("../src/components/dock", () => ({ Dock: () => null }));
 
 const clients: QueryClient[] = [];
 
-function mount() {
+function mount(url = "/events") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   clients.push(client);
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={["/events"]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Routes><Route path="/events" element={<Events />} /><Route path="/community" element={<h1>Community discussions</h1>} /></Routes></MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[url]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Routes><Route path="/events" element={<Events />} /><Route path="/community" element={<h1>Community discussions</h1>} /></Routes></MemoryRouter></QueryClientProvider>);
 }
 
 function event(past: boolean, cancelled = false): EventView {
@@ -32,6 +32,22 @@ function event(past: boolean, cancelled = false): EventView {
 
 beforeEach(() => vi.spyOn(eventsApi, "list").mockResolvedValue({ events: [] }));
 afterEach(() => clients.splice(0).forEach(client => client.clear()));
+
+it.each([false, true])("shows the saved event poster with the correct media access in admin preview: %s", async admin => {
+  const saved = event(false);
+  saved.content.coverAlt = "OpenCircle webinar poster";
+  saved.published = !admin;
+  saved.cover = { id: "poster", kind: "cover", title: "Webinar poster", filename: "poster.png", contentType: "image/png", size: 1674929, duration: null, uploadedAt: Date.now() };
+  vi.mocked(eventsApi.list).mockResolvedValue({ events: [saved] });
+  mount(admin ? "/events?preview=1" : "/events");
+  const poster = await screen.findByRole("img", { name: saved.content.coverAlt });
+  const media = new URL(poster.getAttribute("src")!, "https://opencircle.cc");
+  expect(media.pathname).toBe("/api/event-media");
+  expect(media.searchParams.get("slug")).toBe(saved.slug);
+  expect(media.searchParams.get("asset")).toBe(saved.cover.id);
+  expect(media.searchParams.get("admin")).toBe(admin ? "1" : null);
+  expect(poster.closest("a")?.getAttribute("href")).toBe(`/events/${saved.slug}`);
+});
 
 it("explains both empty schedules and gives members a working route to discussions", async () => {
   const user = userEvent.setup();
