@@ -75,6 +75,11 @@ export function forumContract(create: () => ForumStore) {
     expect((await readForum(store, alice, post.id)).poll).toMatchObject({ total: 2, selected: "option_1", open: false });
     await expect(commandForum(store, alice, { ...input, optionId: "option_2" })).rejects.toMatchObject({ code: "forum_retry" });
   });
+  it("rejects closing timestamps that cannot be rendered as a date", async () => {
+    const store = create();
+    await expect(commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true, poll: { ...poll, closesAt: Number.MAX_SAFE_INTEGER } }))).rejects.toMatchObject({ code: "forum_invalid" });
+    expect((await listForum(store, alice, { ...filter, kind: "discussion" })).total).toBe(0);
+  });
   it("rejects an old ballot when an admin changes options before the first vote", async () => {
     const store = create();
     const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true, poll }));

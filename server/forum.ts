@@ -38,7 +38,7 @@ function poll(value: unknown): ForumPoll | null {
   if (!Array.isArray(p.options) || p.options.length < 2 || p.options.length > 6) invalid("Add between two and six poll options.");
   const options = p.options.map((value, index) => ({ id: `option_${index + 1}`, label: text(record(value).label, 1, 120, "each poll option") }));
   if (new Set(options.map((o) => o.label.toLowerCase())).size !== options.length) invalid("Use different poll options.");
-  if (p.closesAt !== null && p.closesAt !== undefined && (!Number.isSafeInteger(p.closesAt) || Number(p.closesAt) <= 0)) invalid("Choose a valid poll closing time.");
+  if (p.closesAt !== null && p.closesAt !== undefined && (!Number.isSafeInteger(p.closesAt) || Number(p.closesAt) <= 0 || !Number.isFinite(new Date(Number(p.closesAt)).getTime()))) invalid("Choose a valid poll closing time.");
   return { question: text(p.question, 5, 240, "a poll question"), options, closesAt: p.closesAt == null ? null : Number(p.closesAt), closed: p.closed === true };
 }
 export async function forumViewer(req: Request, admin = false): Promise<ForumViewer> {
