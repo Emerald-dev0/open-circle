@@ -103,7 +103,7 @@ function detail(data: ForumAggregate, viewer: ForumViewer, page = 1, now = Date.
     ...summary(t, viewer, visibleComments.length), comments: visibleComments.filter((c) => ids.has(c.id)), commentTotal: visibleComments.length, commentPage: page,
     poll: t.poll && (t.published || viewer.admin) ? { ...t.poll, ballot: pollBallot(t.poll), counts, total: Object.values(counts).reduce((a, b) => a + b, 0), selected: data.votes[String(viewer.profile.id)] ?? null, open: !!t.published && !t.hidden && !t.poll.closed && (t.poll.closesAt === null || t.poll.closesAt > now) } : null,
     ...(privateView ? { revision: t.revision, reviewReason: t.reviewReason, submittedAt: t.submittedAt } : {}),
-    ...(viewer.admin ? { reports: data.reports, audit: data.audit } : {}),
+    ...(viewer.admin ? { reports: data.reports.map((report) => ({ ...report, ...(report.commentId ? { reportedComment: data.comments.find((comment) => comment.id === report.commentId) } : {}) })), audit: data.audit } : {}),
   };
 }
 export async function listForum(store: ForumStore, viewer: ForumViewer, filter: ForumFilter): Promise<ForumPage> {
