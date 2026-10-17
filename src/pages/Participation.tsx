@@ -31,7 +31,7 @@ type Field = { required?: boolean; name: string; label: string; type?: "text" | 
  * Compact form. `inline` puts the fields and button on one line from sm up
  * with screen-reader-only labels; otherwise labels sit above each field.
  */
-function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit, inline = false }: { title?: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void; inline?: boolean }) {
+function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit, onCancel, inline = false }: { title?: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void; onCancel?: () => void; inline?: boolean }) {
   const prefix = useId();
   return <form className={cn("space-y-2.5", inline && "sm:flex sm:items-end sm:gap-2 sm:space-y-0")} onChange={onEdit} onSubmit={async (event) => {
     event.preventDefault();
@@ -45,7 +45,10 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
         ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 min-h-24 resize-none rounded-[20px] py-3 text-sm" required={field.required ?? true} minLength={field.min} maxLength={field.max} disabled={busy} />
         : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 h-11 text-sm" type={field.type ?? "text"} required={field.required ?? true} min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={field.type !== "number" ? field.min : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
-    <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+    <div className="flex max-w-full flex-wrap items-center gap-2">
+      <MetalButton type="submit" loading={busy} className="min-h-11" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+      {onCancel && <MetalButton type="button" variant="minimal" size="sm" disabled={busy} onClick={onCancel}>Cancel</MetalButton>}
+    </div>
   </form>;
 }
 
@@ -200,7 +203,7 @@ export default function Participation() {
               <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
               <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
             </div>
-            {challenge.botChatUrl && <MetalButton asChild wrapperClassName="w-full sm:w-auto" className="h-11 w-full sm:w-auto" innerClassName="px-5">
+            {challenge.botChatUrl && <MetalButton asChild className="min-h-11" innerClassName="px-5">
               <a href={challenge.botChatUrl} target="_blank" rel="noopener noreferrer">Open bot chat</a>
             </MetalButton>}
             <p className="text-xs text-t3">{challenge.botChatUrl ? "Open the bot chat and send the prefilled command from the same WhatsApp number. The bot replies there. /link does not work in the group." : "Open the bot's profile in the group and choose Message. It replies after you send the command. /link does not work in the group."}</p>
@@ -283,8 +286,7 @@ export default function Participation() {
               {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
                 <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="Describe your fix, testing, documentation or answer. Include an issue or pull request link if you have one. Useful help earns points after confirmation." />}>
                   <div className="py-4">
-                    <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
-                    <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
+                    <ParticipationForm button="Submit feedback" busy={busy} onCancel={() => setTarget(null)} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
                   </div>
                 </Panel>
               </section>}

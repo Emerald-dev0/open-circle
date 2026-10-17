@@ -96,8 +96,32 @@ it("shares the approved question title while My submissions displays a private r
   await commandForum(store, alice, command({ action: "edit", id: question.id, version: approved.version, content: { ...content, title: "My private revision title" } }));
   render(wrap(<Community />, "/community?tab=questions&mine=1"));
   await screen.findByRole("link", { name: "My private revision title" });
+  expect(screen.getByRole("tab", { name: "My submissions" }).getAttribute("aria-selected")).toBe("true");
   expect(screen.getByRole("button", { name: `Share question: ${content.title}` })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Share.*private revision/ })).toBeNull();
+});
+it("opens private submissions from the Community tab row and returns to all questions", async () => {
+  await commandForum(store, alice, command({ action: "create", kind: "question", content: { ...content, title: "My pending question" } }));
+  const question = await commandForum(store, bob, command({ action: "create", kind: "question", content: { ...content, title: "Another member's approved question" } }));
+  await commandForum(store, admin, command({ action: "review", id: question.id, version: question.version, decision: "approve" }));
+  const user = userEvent.setup();
+  render(wrap(<Community />));
+  await screen.findByRole("link", { name: "Another member's approved question" });
+  const tabs = within(screen.getByRole("tablist", { name: "Community sections" }));
+  expect(tabs.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Discussions", "Questions", "Events", "My submissions"]);
+  expect(screen.queryByRole("button", { name: "My submissions" })).toBeNull();
+  await user.click(tabs.getByRole("tab", { name: "My submissions" }));
+  await screen.findByRole("link", { name: "My pending question" });
+  expect(tabs.getByRole("tab", { name: "My submissions" }).getAttribute("aria-selected")).toBe("true");
+  expect(tabs.getByRole("tab", { name: "Questions" }).getAttribute("aria-selected")).toBe("false");
+  expect(screen.queryByRole("link", { name: "Another member's approved question" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Ask a question" })).toBeTruthy();
+  await user.keyboard("{Home}");
+  await waitFor(() => expect(tabs.getByRole("tab", { name: "Discussions" }).getAttribute("aria-selected")).toBe("true"));
+  await user.click(tabs.getByRole("tab", { name: "Questions" }));
+  await screen.findByRole("link", { name: "Another member's approved question" });
+  expect(screen.queryByRole("link", { name: "My pending question" })).toBeNull();
+  expect(tabs.getByRole("tab", { name: "Questions" }).getAttribute("aria-selected")).toBe("true");
 });
 it("lets admins review a pending question, records a private reason and keeps all moderation in the existing component", async () => {
   const pending = await commandForum(store, alice, command({ action: "create", kind: "question", content }));

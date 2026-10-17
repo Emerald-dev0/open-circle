@@ -55,7 +55,7 @@ export function CommunityMentoring({ data, busy, submit }: { data: MemberCommuni
       <label className="flex items-center gap-3 text-sm"><input type="checkbox" name="available" defaultChecked={data.mentor.available} disabled={busy} className="size-4 accent-foreground" />Available for help requests</label>
       <label className="block space-y-1.5 text-sm"><span>Your mentoring skills, separated by commas</span><input className="field placeholder:text-t3 h-11 text-sm" name="skills" defaultValue={data.mentor.skills.join(", ")} maxLength={240} placeholder="react, typescript, design" disabled={busy} /><span className="block text-xs text-t3">Up to eight skills. Add the same skill names to questions you want help with.</span></label>
       <label className="block space-y-1.5 text-sm"><span>Maximum requests per week</span><input className="field placeholder:text-t3 h-11 text-sm" name="weeklyLimit" type="number" min={1} max={5} required defaultValue={data.mentor.weeklyLimit} placeholder="e.g. 2" disabled={busy} /></label>
-      <MetalButton type="submit" loading={busy} className="h-11 w-full" innerClassName="px-5">Save mentor preferences</MetalButton>
+      <MetalButton type="submit" loading={busy} className="min-h-11" innerClassName="px-5">Save mentor preferences</MetalButton>
     </form>
   </Panel>;
 }

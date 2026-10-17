@@ -17,7 +17,6 @@
 .forum-action:disabled { opacity: .5; cursor: not-allowed; }
 .forum-action-filled { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; background: hsl(var(--foreground) / .08); }
 .forum-action-filled:hover, .forum-action-filled[aria-pressed="true"] { background: hsl(var(--foreground) / .12); color: hsl(var(--foreground)); }
-.forum-action-submissions { padding-inline: 1rem; border-radius: 9999px; }
 .forum-action-report { background: hsl(357 70% 40%); color: hsl(0 0% 100%); }
 .forum-action-report:hover { background: hsl(357 70% 34%); color: hsl(0 0% 100%); }
 .forum-search { position: relative; }

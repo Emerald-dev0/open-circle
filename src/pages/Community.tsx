@@ -41,6 +41,7 @@ function MemberForum({ profile }: { profile: ForumAuthor }) {
   const { id, helpId } = useParams();
   const [params, setParams] = useSearchParams();
   const questions = params.get("tab") === "questions" || !!helpId;
+  const submissions = questions && !helpId && params.get("mine") === "1";
   const page = Number(params.get("page") ?? 1);
   const query = useForumSearch(params); query.set("kind", questions ? "question" : "discussion");
   const [creating, setCreating] = useState(false);
@@ -67,7 +68,6 @@ function MemberForum({ profile }: { profile: ForumAuthor }) {
   const change = (key: string, value: string) => { const next = new URLSearchParams(params); if (value) next.set(key, value); else next.delete(key); if (key !== "page") next.delete("page"); setParams(next, { replace: key === "search" }); };
   const view = <div className="space-y-5">
     {!id && !helpId && !active.isError && <>
-      {questions && <div className="flex flex-wrap items-center gap-3"><button type="button" className="forum-action forum-action-filled forum-action-submissions" disabled={mutation.isPending} aria-pressed={params.get("mine") === "1"} onClick={() => change("mine", params.get("mine") === "1" ? "" : "1")}>{params.get("mine") === "1" ? "Show all questions" : "My submissions"}</button></div>}
       {creating && <ForumEditor key={profile.id} busy={mutation.isPending} onSave={act} onCancel={() => setCreating(false)} />}
       <ForumFilters params={params} onChange={change} questions={questions} />
     </>}
@@ -76,5 +76,5 @@ function MemberForum({ profile }: { profile: ForumAuthor }) {
     </> : null}
     {questions && <LegacyHelp profileId={profile.id} login={profile.login} id={helpId} />}
   </div>;
-  return id ? view : <CommunitySections section={questions ? "questions" : "discussions"} disabled={mutation.isPending} onChange={() => setCreating(false)} actions={questions && !helpId && !active.isError ? <MetalButton type="button" className="min-h-11 w-auto" disabled={mutation.isPending} aria-expanded={creating} onClick={() => setCreating(!creating)}>Ask a question</MetalButton> : undefined}>{view}</CommunitySections>;
+  return id ? view : <CommunitySections section={submissions ? "submissions" : questions ? "questions" : "discussions"} disabled={mutation.isPending} onChange={() => setCreating(false)} actions={questions && !helpId && !active.isError ? <MetalButton type="button" className="min-h-11 w-auto" disabled={mutation.isPending} aria-expanded={creating} onClick={() => setCreating(!creating)}>Ask a question</MetalButton> : undefined}>{view}</CommunitySections>;
 }

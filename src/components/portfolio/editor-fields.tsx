@@ -35,7 +35,7 @@ export function RepositoryPicker({ ownerId, selected, onSelect }: { ownerId: num
   const all = repositories.data?.pages.flatMap((page) => page.repositories) ?? [];
   const filtered = all.filter((repo) => `${repo.name} ${repo.description} ${repo.language}`.toLowerCase().includes(search.toLowerCase()));
   return <>
-    <TextureButton variant="secondary" className="w-full" type="button" onClick={() => setOpen(true)}><CodeSquareIcon className="size-4" aria-hidden />Choose repositories<span className="ml-2 text-t3">{selected.length}/6</span></TextureButton>
+    <TextureButton variant="secondary" type="button" onClick={() => setOpen(true)}><CodeSquareIcon className="size-4" aria-hidden />Choose repositories<span className="ml-2 text-t3">{selected.length}/6</span></TextureButton>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent className="studio-repo-dialog max-w-xl"><DialogTitle>Your repositories</DialogTitle><DialogDescription>Choose up to six public repositories. Only the ones you select will appear on your portfolio.</DialogDescription>
       <div className="relative"><MagnifierIcon className="absolute left-4 top-3.5 size-4 text-t3" aria-hidden /><input className="field pl-11" aria-label="Search loaded repositories" placeholder="Search loaded repositories" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
       <div className="studio-repo-results" aria-busy={repositories.isFetching}>
@@ -47,7 +47,7 @@ export function RepositoryPicker({ ownerId, selected, onSelect }: { ownerId: num
         })}
       </div>
       {repositories.hasNextPage && <TextureButton type="button" variant="secondary" className="w-auto justify-self-center" onClick={() => void repositories.fetchNextPage()} loading={repositories.isFetchingNextPage}>{repositories.isFetchingNextPage ? "Loading…" : "Load more repositories"}</TextureButton>}
-      <TextureButton type="button" className="w-full" onClick={() => setOpen(false)}>Done{selected.length > 0 ? ` · ${selected.length} selected` : ""}</TextureButton>
+      <TextureButton type="button" onClick={() => setOpen(false)}>Done{selected.length > 0 ? ` · ${selected.length} selected` : ""}</TextureButton>
     </DialogContent></Dialog>
   </>;
 }
