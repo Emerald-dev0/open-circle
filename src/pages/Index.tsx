@@ -255,12 +255,13 @@ const Index = () => {
               {activeTab === "tools" ? "Developer tools" : activeTab === "repositories" ? "Repository spotlight" : "Developer leaderboard"}
             </h2>
             <Tabs
+              className="grid grid-cols-1 items-start gap-x-3 sm:grid-cols-[1fr_auto]"
               value={activeTab}
               onValueChange={(value) => {
                 selectPage(`${value === "developers" ? "/" : `/${value}`}${periodSearch}`);
               }}
             >
-              <div className="mb-5 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
+              <div className={`mb-5 flex justify-center sm:mb-8 ${activeTab === "developers" ? "sm:justify-start" : "sm:col-span-2"}`}>
                 <TabsList aria-label="Leaderboard type" className="grid h-auto w-full grid-cols-[1fr_1.15fr_0.7fr] min-[480px]:inline-flex min-[480px]:w-auto">
                   <TabsTrigger value="developers" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "developers" && <TabPill />}
@@ -281,7 +282,7 @@ const Index = () => {
               </div>
 
               {isError && !board && !toolsOpen ? (
-                <div className="surface-quiet flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
+                <div className="surface-quiet col-span-full flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
                   <p className="text-sm text-t2">Couldn't load the board.</p>
                   <TextureButton
                     variant="minimal"
@@ -295,21 +296,20 @@ const Index = () => {
                   </TextureButton>
                 </div>
               ) : (
-                <TabsContent value="developers" asChild>
-                <TabPanel>
+                <TabsContent value="developers" className="contents" asChild>
                   <Tabs value={period} onValueChange={(value) => {
                     const search = new URLSearchParams(location.search);
                     if (value === "all") search.delete("period"); else search.set("period", value);
                     const query = search.toString();
                     selectPage(`${location.pathname}${query ? `?${query}` : ""}`);
                   }}>
-                  <div className="mb-5 flex justify-center">
+                  <div className="mb-5 flex justify-center sm:mb-8 sm:justify-end">
                     <TabsList aria-label="Ranking period">
                       {RANKING_PERIODS.map((value) => <TabsTrigger key={value} value={value} className="min-h-11 px-3 text-xs data-[state=active]:bg-foreground/[0.1] sm:px-4 sm:text-xs">{rankingPeriodLabels[value]}</TabsTrigger>)}
                     </TabsList>
                   </div>
-                  <TabsContent value={period} className="mt-0">
-                  {board?.helpersDelayed && <p role="status" className="mb-4 text-center text-xs text-t3">Help totals are updating. Your last confirmed points stay visible.</p>}
+                  <TabsContent value={period} className="col-span-full mt-0" asChild>
+                  <TabPanel>
                   {periodUnavailable ? <p role="status" className="surface-quiet rounded-2xl px-4 py-8 text-center text-sm text-t3">This period is waiting for help history. Try again shortly.</p> : isPending ? <BoardSkeleton /> : <LeaderboardPodium
                     entries={podium}
                     currentUserId={me}
@@ -334,13 +334,13 @@ const Index = () => {
                     />
                     <Pagination {...pagination} label="Developers" onPageChange={pagination.changePage} />
                   </div>}
+                  </TabPanel>
                   </TabsContent>
                   </Tabs>
-                </TabPanel>
                 </TabsContent>
               )}
               <TabsContent value="repositories" asChild>
-                <TabPanel>
+                <TabPanel className="col-span-full">
                 {isPending ? (
                   <BoardSkeleton repositories />
                 ) : repositories.length > 0 ? (
@@ -361,7 +361,7 @@ const Index = () => {
                 )}
                 </TabPanel>
               </TabsContent>
-              <TabsContent value="tools">
+              <TabsContent value="tools" className="col-span-full">
                 <ToolsDirectory />
               </TabsContent>
             </Tabs>
