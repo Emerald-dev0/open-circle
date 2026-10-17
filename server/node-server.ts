@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import * as events from "../api/events.js";
+import * as eventRegistrations from "../api/event-registrations.js";
 import * as eventUploads from "../api/event-uploads.js";
 import * as eventMedia from "../api/event-media.js";
 import * as botSettings from "../api/bot-settings.js";
@@ -47,6 +48,7 @@ import { readPublicPortfolio } from "./portfolio.js";
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
   events: events as Record<string, Handler>,
+  "event-registrations": eventRegistrations as Record<string, Handler>,
   "event-uploads": eventUploads as Record<string, Handler>,
   "event-media": eventMedia as Record<string, Handler>,
   analytics: analytics as Record<string, Handler>,

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { GET, POST } from "../api/events";
+import { GET as registrationsGET, POST as registrationsPOST } from "../api/event-registrations";
 import { POST as uploadPOST } from "../api/event-uploads";
 import { GET as mediaGET } from "../api/event-media";
 import { LocalEventStore } from "../server/event-store";
@@ -35,6 +36,57 @@ beforeEach(async () => {
   await community.createSession(createHash("sha256").update(memberToken).digest("hex"),profile,Date.now()+60000);
   mock.profile.mockReset().mockResolvedValue({ activity:{ linked:true,login:"Alice",tracking:true } }); mock.send.mockReset();
   vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ success:true,result:url.endsWith("managed") ? { enabled:false } : { domains:[] } }))));
+});
+it("registers members once, keeps their details private and gives only admins the attendee list", async () => {
+  const event = await save({ action: "publish" });
+  const url = `event-registrations?slug=${event.slug}`;
+  expect((await registrationsGET(request(url, undefined, "none"))).status).toBe(401);
+  const empty = await registrationsGET(request(url, undefined, "member"));
+  expect(empty.headers.get("cache-control")).toBe("private, no-store");
+  expect(await empty.json()).toEqual({ registration: null });
+  const body = { slug: event.slug, name: " Alice Builder ", email: " alice@example.com ", memberId: 99, login: "SomeoneElse" };
+  const responses = await Promise.all(Array.from({ length: 4 }, () => registrationsPOST(request("event-registrations", body, "member"))));
+  expect(responses.map(r => r.status)).toEqual([200, 200, 200, 200]);
+  const registrations = await Promise.all(responses.map(r => r.json()));
+  expect(new Set(registrations.map(r => r.registration.id)).size).toBe(1);
+  expect(registrations[0].registration).toMatchObject({ memberId: 42, login: "Alice", name: "Alice Builder", email: "alice@example.com" });
+  expect((await registrationsGET(request(`${url}&admin=1`, undefined, "member"))).status).toBe(401);
+  const adminList = await registrationsGET(request(`${url}&admin=1`));
+  expect(await adminList.json()).toMatchObject({ total: 1, registrations: [registrations[0].registration] });
+  const visible = await GET(request(`events?slug=${event.slug}`, undefined, "member"));
+  expect(JSON.stringify(await visible.json())).not.toContain("alice@example.com");
+  expect(await (await registrationsGET(request(url, undefined, "member"))).json()).toEqual(registrations[0]);
+  const token = "c".repeat(64);
+  await community.createSession(createHash("sha256").update(token).digest("hex"), { ...profile, id: 43, login: "Bob" }, Date.now() + 60000);
+  mock.profile.mockResolvedValueOnce({ activity: { linked: true, login: "Bob", tracking: true } });
+  const other = request(url, undefined, "member"); other.headers.set("cookie", `opencircle_github=${token}`);
+  expect(await (await registrationsGET(other)).json()).toEqual({ registration: null });
+});
+it("validates registration fields, origin, account access, rate limits and event availability", async () => {
+  const event = await save({ action: "publish" });
+  const body = { slug: event.slug, name: "Alice", email: "alice@example.com" };
+  for (const [input, field] of [[{ ...body, name: "  " }, "name"], [{ ...body, name: "Alice\nBuilder" }, "name"], [{ ...body, email: "bad-address" }, "email"]] as const) {
+    const response = await registrationsPOST(request("event-registrations", input, "member"));
+    expect(response.status).toBe(400); expect((await response.json()).error.field).toBe(field);
+  }
+  expect((await registrationsPOST(request("event-registrations", body, "none"))).status).toBe(401);
+  const foreign = request("event-registrations", body, "member"); foreign.headers.set("origin", "https://evil.test");
+  expect((await registrationsPOST(foreign)).status).toBe(403);
+  const nonJson = request("event-registrations", body, "member"); nonJson.headers.set("content-type", "text/plain");
+  expect((await registrationsPOST(nonJson)).status).toBe(415);
+  expect((await registrationsPOST(request("event-registrations?admin=1", body))).status).toBe(400);
+  mock.profile.mockResolvedValueOnce({ activity: { linked: true, login: "Alice", tracking: false } });
+  expect((await registrationsPOST(request("event-registrations", body, "member"))).status).toBe(503);
+  expect((await registrationsGET(request(`event-registrations?slug=${event.slug}&admin=1&page=-1`))).status).toBe(400);
+  await save({ id: event.id, version: event.version, content: { ...event.content, cancelled: true } });
+  expect((await registrationsPOST(request("event-registrations", body, "member"))).status).toBe(409);
+  await save({ id: event.id, version: event.version + 1, action: "unpublish" });
+  expect((await registrationsPOST(request("event-registrations", body, "member"))).status).toBe(404);
+  const ended = await save({ action: "publish", content: { ...content(), startsAt: Date.now()-7200000, endsAt: Date.now()-3600000 } });
+  expect((await registrationsPOST(request("event-registrations", { ...body, slug: ended.slug }, "member"))).status).toBe(409);
+  vi.spyOn(board, "rateLimit").mockImplementation(async key => !key.startsWith("events:register:member:"));
+  const limited = await registrationsPOST(request("event-registrations", body, "member"));
+  expect(limited.status).toBe(429); expect(limited.headers.get("retry-after")).toBe("60");
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 it("protects drafts, membership, admin writes, origin and cached private responses", async () => {

@@ -11,6 +11,11 @@ export interface EventContent {
 export interface EventAsset { id: string; key: string; kind: AssetKind; title: string; filename: string; contentType: string; size: number; duration: number | null; uploadedBy: number; uploadedAt: number }
 export interface EventRecord { id: string; slug: string; content: EventContent; published: boolean; version: number; cover: EventAsset | null; recording: EventAsset | null; files: EventAsset[]; createdBy: number; createdAt: number; updatedAt: number }
 export interface EventUpload { id: string; eventId: string; adminId: number; key: string; multipartId: string; kind: AssetKind; title: string; filename: string; contentType: string; size: number; duration: number | null; state: "uploading" | "complete" | "aborted"; createdAt: number }
+export interface EventRegistrationInput { name: string; email: string }
+export interface EventRegistration extends EventRegistrationInput { id: string; eventId: string; memberId: number; login: string; registeredAt: number }
+export interface EventRegistrationPage { registrations: EventRegistration[]; total: number; page: number; pageSize: number }
+export const EVENT_REGISTRATION_PAGE_SIZE = 50;
+export function eventRegistrationOpen(event: Pick<EventView, "published" | "content">, now = Date.now()) { return event.published && !event.content.cancelled && event.content.endsAt !== null && event.content.endsAt > now; }
 export type EventView = Omit<EventRecord, "createdBy" | "files" | "cover" | "recording"> & { cover: Omit<EventAsset, "key" | "uploadedBy"> | null; recording: Omit<EventAsset, "key" | "uploadedBy"> | null; files: Omit<EventAsset, "key" | "uploadedBy">[] };
 export function emptyEvent(): EventContent { return { title: "", summary: "", description: "", coverAlt: "", host: "", hostUrl: "", startsAt: null, endsAt: null, timezone: "Africa/Lagos", platform: "", joinUrl: "", instructions: "", cancelled: false, botSessionId: "", resources: [] }; }
 export function eventStatus(event: Pick<EventView, "content" | "recording">, now = Date.now()) {

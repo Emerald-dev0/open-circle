@@ -46,6 +46,8 @@ GitHub sign-in is required for portfolio editing, tool voting, group participati
 
 Verified members can open Community, then Events beside Discussions and Questions, or use the Participation link. Organisers manage drafts, publishing, cover images, recordings and ordered file/link resources in the admin Events tab. Recordings use direct multipart uploads to a separate private R2 bucket; the public portfolio bucket is unchanged. See the [Events setup and usage guide](docs/events.md).
 
+Upcoming events have a Register button and a name/email form. Registrations persist per signed-in member; organisers can view the private, paginated attendee list under Manage event > View registrations. Covers open in a full-size viewer with zoom and an original-image link. Apply `008_event_registrations.sql` through the normal migration command before releasing registration support.
+
 ## Member portfolios
 
 [Create your portfolio](https://opencircle.cc/portfolio) with GitHub and publish it at `username.opencircle.cc`. Your page includes your GitHub photo, name, bio and up to six public repositories you own, with links to their source and existing live sites.

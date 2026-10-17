@@ -34,6 +34,7 @@ beforeEach(() => vi.spyOn(eventsApi, "list").mockResolvedValue({ events: [] }));
 afterEach(() => clients.splice(0).forEach(client => client.clear()));
 
 it.each([false, true])("shows the saved event poster with the correct media access in admin preview: %s", async admin => {
+  const user = userEvent.setup();
   const saved = event(false);
   saved.content.coverAlt = "OpenCircle webinar poster";
   saved.published = !admin;
@@ -46,7 +47,10 @@ it.each([false, true])("shows the saved event poster with the correct media acce
   expect(media.searchParams.get("slug")).toBe(saved.slug);
   expect(media.searchParams.get("asset")).toBe(saved.cover.id);
   expect(media.searchParams.get("admin")).toBe(admin ? "1" : null);
-  expect(poster.closest("a")?.getAttribute("href")).toBe(`/events/${saved.slug}`);
+  expect(poster.closest("a")).toBeNull();
+  expect(screen.getByRole("heading", { name: saved.content.title }).closest("a")?.getAttribute("href")).toBe(`/events/${saved.slug}`);
+  await user.click(screen.getByRole("button", { name: `View full-size cover for ${saved.content.title}` }));
+  expect(screen.getByRole("dialog", { name: `Event cover: ${saved.content.title}` })).toBeTruthy();
 });
 
 it("explains both empty schedules and gives members a working route to discussions", async () => {
@@ -76,11 +80,11 @@ it("returns to available upcoming events from the empty archive", async () => {
   const user = userEvent.setup();
   vi.mocked(eventsApi.list).mockResolvedValue({ events: [event(false)] });
   mount();
-  await screen.findByRole("link", { name: /Learn TypeScript/ });
+  await screen.findByRole("heading", { name: "Learn TypeScript" });
   await user.click(screen.getByRole("tab", { name: "Past & recordings" }));
   await user.click(screen.getByRole("button", { name: "View upcoming events" }));
   expect(document.activeElement).toBe(screen.getByRole("tab", { name: "Upcoming" }));
-  expect(screen.getByRole("link", { name: /Learn TypeScript/ })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Learn TypeScript" }).closest("a")?.getAttribute("href")).toBe("/events/typescript-session");
 });
 
 it("keeps cancelled future events in the archive", async () => {

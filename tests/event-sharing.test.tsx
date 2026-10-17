@@ -21,6 +21,9 @@ it("shares the permanent event page from the event list without nesting an actio
   const share = await screen.findByRole("button", { name: "Share event: Learn TypeScript" });
   expect(share.closest("a")).toBeNull();
   expect(screen.getByRole("heading", { name: "Learn TypeScript" }).closest("a")?.getAttribute("href")).toBe("/events/typescript-session");
+  const register = screen.getByRole("link", { name: "Register for Learn TypeScript" });
+  expect(register.getAttribute("href")).toBe("/events/typescript-session#register");
+  expect(register.closest("a")?.querySelector("a")).toBeNull();
   await user.click(share);
   await waitFor(() => expect(copy).toHaveBeenCalledWith(`${window.location.origin}/events/typescript-session`));
 });

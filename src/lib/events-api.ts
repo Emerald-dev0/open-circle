@@ -1,10 +1,13 @@
 import { request } from "./api";
-import type { EventContent, EventView, AssetKind } from "@shared/events";
+import type { EventContent, EventView, AssetKind, EventRegistration, EventRegistrationInput, EventRegistrationPage } from "@shared/events";
 export const eventsApi = {
   list: (admin = false, signal?: AbortSignal) => request<{ events: EventView[]; storageConfigured?: boolean }>(`/api/events${admin ? "?admin=1" : ""}`, { signal, cache: "no-store" }),
   detail: (slug: string, admin = false, signal?: AbortSignal) => request<EventView>(`/api/events?${new URLSearchParams({ slug, ...(admin ? { admin: "1" } : {}) })}`, { signal, cache: "no-store" }),
   save: (id: string, version: number, content: EventContent, action: string) => request<EventView>("/api/events", { method: "POST", headers: { "x-opencircle-admin": "1" }, body: JSON.stringify({ id, version, content, action }) }),
   upload: <T,>(body: Record<string, unknown>, signal?: AbortSignal) => request<T>("/api/event-uploads", { method: "POST", headers: { "x-opencircle-admin": "1" }, body: JSON.stringify(body), signal }),
+  registration: (slug: string, signal?: AbortSignal) => request<{ registration: EventRegistration | null }>(`/api/event-registrations?${new URLSearchParams({ slug })}`, { signal, cache: "no-store" }),
+  register: (slug: string, input: EventRegistrationInput) => request<{ registration: EventRegistration }>("/api/event-registrations", { method: "POST", body: JSON.stringify({ slug, ...input }) }),
+  registrations: (slug: string, page = 1, signal?: AbortSignal) => request<EventRegistrationPage>(`/api/event-registrations?${new URLSearchParams({ slug, admin: "1", page: String(page) })}`, { signal, cache: "no-store" }),
 };
 export function fileContentType(file: File, kind: AssetKind) {
   const ext = file.name.split(".").at(-1)?.toLowerCase();

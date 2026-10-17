@@ -42,7 +42,11 @@ it("offers canonical sharing for published events and hides it for private previ
   const view = wrapper(<EventDetails event={e} admin />);
   expect(screen.queryByRole("button", { name: `Share event: ${e.content.title}` })).toBeNull();
   view.rerender(<EventDetails event={{ ...e, published: true }} admin />);
-  expect(screen.getByRole("button", { name: `Share event: ${e.content.title}` })).toBeTruthy();
+  const share = screen.getByRole("button", { name: `Share event: ${e.content.title}` });
+  const join = screen.getByRole("link", { name: "Join event" });
+  expect(share.parentElement).toBe(join.parentElement);
+  expect(join.nextElementSibling).toBe(share);
+  expect(share.classList.contains("content-action-light")).toBe(true);
 });
 it("retries a failed part without repeating completed parts and only reports a verified attachment", async () => {
   const user = userEvent.setup(); const saved = vi.fn(); const active = vi.fn(); let attempts = 0;

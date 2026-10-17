@@ -9,6 +9,7 @@ import { SharedSelect } from "@/components/ui/select";
 import { ContentSkeleton } from "@/components/site-skeleton";
 import { AssetUpload } from "./asset-upload";
 import { EventDetails } from "./event-details";
+import { EventAttendees } from "./event-attendees";
 export default function AdminEvents({ onUnauthorized }: { onUnauthorized: () => void }) {
   const queryClient = useQueryClient(); const [selected,setSelected] = useState<EventView | null | undefined>(undefined);
   const query = useQuery({ queryKey: ["admin","events"], queryFn: ({ signal }) => eventsApi.list(true,signal), retry: false, gcTime: 0 });
@@ -23,6 +24,7 @@ export default function AdminEvents({ onUnauthorized }: { onUnauthorized: () => 
 }
 function EventEditor({ initial, onSaved, onClose, storage, onUnauthorized }: { initial: EventView | null; onSaved: (event: EventView) => void; onClose: () => void; storage: boolean; onUnauthorized: () => void }) {
   const [id] = useState(initial?.id ?? crypto.randomUUID()); const [current,setCurrent] = useState(initial); const [content,setContent] = useState<EventContent>(initial?.content ?? emptyEvent()); const [busy,setBusy] = useState(false); const [error,setError] = useState(""); const [notice,setNotice] = useState(""); const [preview,setPreview] = useState(false); const [activeUpload,setActiveUpload] = useState<string | null>(null);
+  const [attendees, setAttendees] = useState(false);
   const dirty = JSON.stringify(content) !== JSON.stringify(current?.content ?? emptyEvent());
   const update = <K extends keyof EventContent>(key: K, value: EventContent[K]) => setContent(c => ({ ...c, [key]: value }));
   const accept = (event: EventView) => { setCurrent(event); setContent(event.content); onSaved(event); };
@@ -30,6 +32,7 @@ function EventEditor({ initial, onSaved, onClose, storage, onUnauthorized }: { i
   const field = (key: "title" | "summary" | "description" | "coverAlt" | "host" | "hostUrl" | "platform" | "joinUrl" | "instructions" | "botSessionId", label: string, max: number, multiline = false) => <label className="block min-w-0 space-y-2 text-sm"><span>{label}</span>{multiline ? <textarea className="field h-auto rounded-2xl py-3" rows={key === "description" ? 7 : 3} maxLength={max} value={content[key]} onChange={e => update(key,e.target.value)} /> : <input className="field" maxLength={max} type={key.endsWith("Url") ? "url" : "text"} value={content[key]} onChange={e => update(key,e.target.value)} />}</label>;
   return <div className="space-y-8">
     <button type="button" className="min-h-11 text-sm underline" disabled={!!activeUpload} onClick={() => { if (!dirty || window.confirm("Discard unsaved event changes?")) onClose(); }}>Back to events</button>
+    {current && <details onToggle={e => setAttendees(e.currentTarget.open)}><summary className="cursor-pointer py-3 text-lg font-medium">View registrations</summary>{attendees && <EventAttendees key={current.id} slug={current.slug} />}</details>}
     <form className="space-y-5" onSubmit={e => { e.preventDefault(); void save("save"); }}>
       <fieldset disabled={busy || !!activeUpload} className="space-y-5"><legend className="mb-5 text-lg font-medium">{initial ? "Edit event" : "Create event draft"}</legend>
       {field("title","Title",150)}{field("summary","Short summary",400,true)}{field("description","Full description",20000,true)}
