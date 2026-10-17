@@ -15,6 +15,7 @@ export type SeoPage = {
 const HOME_HEADING = "Paste your username. Take your place.";
 
 export const SEO_PAGES: readonly SeoPage[] = [
+  { path: "/events", title: `Events · ${BRAND_NAME}`, description: "Learning sessions and recordings for OpenCircle members.", summary: "Community events, recordings and resources.", heading: "Events", index: false },
   {
     path: "/",
     title: `${BRAND_NAME} · Community leaderboard for Open Source Circle`,
@@ -119,7 +120,7 @@ export function pageFor(pathname: string) {
 export function seoDocument(pathname: string, originInput = DEFAULT_SITE_URL): SeoDocument {
   const origin = siteOrigin(originInput);
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
-  const page = byPath.get(path) ?? NOT_FOUND;
+  const page = byPath.get(path) ?? (/^\/events\/[a-z0-9-]+$/.test(path) ? { ...byPath.get("/events")!, path } : NOT_FOUND);
   const canonicalPath = page.path || (path.startsWith("/") ? path : "/");
   return {
     ...page,

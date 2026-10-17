@@ -35,11 +35,16 @@ OpenCircle brings the group's GitHub profiles and public projects into one place
 - Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, star repos on GitHub, upvote projects and save links.
 - Find developer tools, submit tools for review and rate them with GitHub sign-in.
 - Share projects, give feedback and answer help requests through group participation.
-- Manage members, tool submissions and ranking settings through the admin page.
+- Find community events, join online sessions, and return for recordings and learning resources.
+- Manage members, events, tool submissions and ranking settings through the admin page.
 
 Choose **Light**, **Dark** or **System** from the Appearance control at the top right. Your choice stays saved in this browser; System follows your device’s appearance setting.
 
 GitHub sign-in is required for portfolio editing, tool voting, group participation and admin access. Joining the board requires a personal GitHub profile and a number in the WhatsApp group.
+
+## Community events
+
+Verified members can open Events from the dock or Participation. Organisers manage drafts, publishing, cover images, recordings and ordered file/link resources in the admin Events tab. Recordings use direct multipart uploads to a separate private R2 bucket; the public portfolio bucket is unchanged. See the [Events setup and usage guide](docs/events.md).
 
 ## Member portfolios
 

@@ -1,3 +1,8 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import * as events from "../api/events.js";
+import * as eventUploads from "../api/event-uploads.js";
+import * as eventMedia from "../api/event-media.js";
 import * as botSettings from "../api/bot-settings.js";
 /**
  * Standalone Node server for hosts that aren't Vercel (e.g. Pxxl): serves the
@@ -38,6 +43,9 @@ import { readPublicPortfolio } from "./portfolio.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
+  events: events as Record<string, Handler>,
+  "event-uploads": eventUploads as Record<string, Handler>,
+  "event-media": eventMedia as Record<string, Handler>,
   analytics: analytics as Record<string, Handler>,
   admin: admin as Record<string, Handler>,
   "bot-settings": botSettings as Record<string, Handler>,
@@ -107,7 +115,8 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
           const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req, maxBytes);
           return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
         });
-        const responseBody = await encodePublicJson(response, req.headers["accept-encoding"] ?? "");
+        const streaming = url.pathname === "/api/event-media" && response.ok && response.body;
+        const responseBody = streaming ? undefined : await encodePublicJson(response, req.headers["accept-encoding"] ?? "");
         res.statusCode = response.status;
         response.headers.forEach((value, key) => {
           // Vercel-only CDN directive; meaningless here.
@@ -116,7 +125,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         const cookies = response.headers.getSetCookie();
         if (cookies.length) res.setHeader("set-cookie", cookies);
         if (response.status === 413) res.setHeader("connection", "close");
-        res.end(responseBody);
+        if (streaming) { await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), res).catch(() => res.destroy()); } else res.end(responseBody);
       } catch (err) {
         console.error(err);
         if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });

@@ -1,0 +1,144 @@
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { GET, POST } from "../api/events";
+import { POST as uploadPOST } from "../api/event-uploads";
+import { GET as mediaGET } from "../api/event-media";
+import { LocalEventStore } from "../server/event-store";
+import { MemoryCommunityStore } from "../server/community-memory";
+import { TestStore } from "./helpers/test-store";
+import { createAdminSession } from "../server/admin-session";
+import { createAppServer } from "../server/node-server";
+import { emptyEvent, eventTimestamp, eventLocalTime, eventStatus, EVENT_PART_BYTES, type EventView, type EventContent } from "../shared/events";
+import { validateEventSignature } from "../server/event-storage";
+import { sessionEvent } from "../shared/event-sessions";
+const mock = vi.hoisted(() => ({ send: vi.fn(), profile: vi.fn() }));
+vi.mock("@aws-sdk/client-s3", async original => { const sdk = await original<typeof import("@aws-sdk/client-s3")>(); return { ...sdk, S3Client: class { send = mock.send; destroy() {} } }; });
+vi.mock("@aws-sdk/s3-request-presigner", () => ({ getSignedUrl: vi.fn(async () => "https://storage.test/signed-part") }));
+vi.mock("../server/participation", () => ({ coordinationRequest: mock.profile }));
+let community: MemoryCommunityStore; let board: TestStore; let events: LocalEventStore; let cookie: string;
+vi.mock("../server/db", () => ({ getStore: () => board }));
+vi.mock("../server/community-store", () => ({ getCommunityStore: () => community }));
+vi.mock("../server/event-store", async original => ({ ...await original<typeof import("../server/event-store")>(), getEventStore: () => events }));
+const origin = "http://localhost"; const memberToken = "b".repeat(64);
+const profile = { id: 42, login: "Alice", avatarUrl: "" };
+function request(pathname = "events", body?: unknown, role: "admin" | "member" | "none" = "admin") { return new Request(`${origin}/api/${pathname}`, { method: body ? "POST" : "GET", headers: { origin, "content-type": "application/json", "x-opencircle-admin": "1", ...(role !== "none" ? { cookie: role === "admin" ? cookie : `opencircle_github=${memberToken}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); }
+function content() { return { ...emptyEvent(),title:"Learn TypeScript",summary:"A beginner session",description:"Build a small project together.",host:"Alice",platform:"Google Meet",joinUrl:"https://meet.google.com/abc-defg-hij",startsAt:Date.now()+3600000,endsAt:Date.now()+7200000,coverAlt:"TypeScript session" }; }
+async function save(input: Partial<{ id: string; version: number; content: EventContent; action: string }> = {}) { const r = await POST(request("events", { id:randomUUID(),version:0,content:content(),action:"save",...input })); expect(r.status).toBe(200); return r.json() as Promise<EventView>; }
+beforeEach(async () => {
+  vi.stubEnv("GITHUB_OAUTH_CLIENT_ID","client"); vi.stubEnv("GITHUB_OAUTH_CLIENT_SECRET","secret"); vi.stubEnv("GITHUB_OAUTH_REDIRECT_URI",`${origin}/api/auth-callback`); vi.stubEnv("ADMIN_GITHUB_IDS","42");
+  vi.stubEnv("EVENT_R2_ACCOUNT_ID","a".repeat(32)); vi.stubEnv("EVENT_R2_BUCKET_NAME",`private-${randomUUID()}`); vi.stubEnv("EVENT_R2_ACCESS_KEY_ID","access"); vi.stubEnv("EVENT_R2_SECRET_ACCESS_KEY","secret"); vi.stubEnv("EVENT_R2_API_TOKEN","read-only-api-token");
+  community = new MemoryCommunityStore(null); board = new TestStore(); events = new LocalEventStore(null);
+  cookie = (await createAdminSession(request(),community,profile)).split(";")[0];
+  await community.createSession(createHash("sha256").update(memberToken).digest("hex"),profile,Date.now()+60000);
+  mock.profile.mockReset().mockResolvedValue({ activity:{ linked:true,login:"Alice",tracking:true } }); mock.send.mockReset();
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => new Response(JSON.stringify({ success:true,result:url.endsWith("managed") ? { enabled:false } : { domains:[] } }))));
+});
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+it("protects drafts, membership, admin writes, origin and cached private responses", async () => {
+  const draft = await save();
+  expect((await GET(request("events",undefined,"none"))).status).toBe(401);
+  expect((await GET(request(`events?slug=${draft.slug}`,undefined,"member"))).status).toBe(404);
+  expect((await POST(request("events",{ id:randomUUID(),version:0,content:content(),action:"publish" },"member"))).status).toBe(401);
+  const foreign = request("events",{ action:"save" }); foreign.headers.set("origin","https://evil.test"); expect((await POST(foreign)).status).toBe(403);
+  const noCsrf = request("events",{}); noCsrf.headers.delete("x-opencircle-admin"); expect((await POST(noCsrf)).status).toBe(403);
+  mock.profile.mockResolvedValueOnce({ activity:{ linked:false,login:null } }); expect((await GET(request("events",undefined,"member"))).status).toBe(403);
+  const response = await GET(request("events?admin=1")); expect(response.headers.get("cache-control")).toBe("private, no-store"); expect(response.headers.get("vary")).toBe("Cookie");
+});
+it("creates one incomplete draft after retries, publishes, reschedules, cancels and unpublishes at the same slug", async () => {
+  const id = randomUUID(); const draft = await save({ id,content:emptyEvent() as ReturnType<typeof content> });
+  const retry = await save({ id }); expect(retry.id).toBe(draft.id); expect((await events.list(true))).toHaveLength(1);
+  const bad = await POST(request("events",{ id,version:1,content:emptyEvent(),action:"publish" })); expect(bad.status).toBe(400);
+  const published = await save({ id,version:1,action:"publish" }); expect(published.slug).toBe(draft.slug);
+  const visible = await GET(request(`events?slug=${draft.slug}`,undefined,"member")); expect(visible.status).toBe(200); expect((await visible.json()).content.joinUrl).toContain("meet.google.com");
+  const cancelled = await save({ id,version:2,content:{ ...content(),title:"New title",startsAt:Date.now()+8000000,endsAt:Date.now()+9000000,cancelled:true } }); expect(cancelled.slug).toBe(draft.slug); expect(eventStatus(cancelled)).toBe("Cancelled");
+  expect((await POST(request("events",{ id,version:2,content:content(),action:"save" }))).status).toBe(409);
+  await save({ id,version:3,action:"unpublish" }); expect((await GET(request(`events?slug=${draft.slug}`,undefined,"member"))).status).toBe(404);
+});
+async function begin(event: EventView, kind = "recording", size = 32) {
+  mock.send.mockResolvedValueOnce({ UploadId:"multipart-1" }); const id = randomUUID();
+  const response = await uploadPOST(request("event-uploads",{ action:"initiate",eventId:event.id,uploadId:id,kind,filename:kind === "cover" ? "cover.png" : kind === "resource" ? "notes.pdf" : "session.mp4",contentType:kind === "cover" ? "image/png" : kind === "resource" ? "application/pdf" : "video/mp4",size,title:"Session" })); expect(response.status).toBe(201); return id;
+}
+function uploadedObject(upload: Awaited<ReturnType<LocalEventStore["upload"]>>, bytes = Buffer.from("0000ftypisom00000000000000000000")) {
+  mock.send.mockImplementation(async (command: { constructor: { name: string }; input: Record<string, unknown> }) => {
+    const name = command.constructor.name;
+    if (name === "HeadObjectCommand") return { ContentLength:upload!.size,ContentType:upload!.contentType,Metadata:{ event:upload!.eventId,admin:String(upload!.adminId),upload:upload!.id } };
+    if (name === "GetObjectCommand") return { ContentLength:bytes.length,ContentRange:command.input.Range ? `bytes 0-${bytes.length-1}/${upload!.size}` : undefined,Body:{ transformToByteArray:async () => bytes,transformToWebStream:() => new ReadableStream({ start(c) { c.enqueue(bytes); c.close(); } }) } };
+    return {};
+  });
+}
+it("attaches only validated uploads, retries completion idempotently and protects replaced and removed assets", async () => {
+  const event = await save({ action:"publish" }); const id = await begin(event); const upload = await events.upload(id); uploadedObject(upload);
+  const complete = () => uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id }));
+  expect((await complete()).status).toBe(200); expect((await complete()).status).toBe(200);
+  const attached = (await events.read(event.id))!; expect(attached.recording?.id).toBe(id); expect(attached.version).toBe(2);
+  const view = await (await GET(request(`events?slug=${event.slug}`,undefined,"member"))).text(); expect(view).not.toContain(upload!.key); expect(view).not.toContain("uploadedBy");
+  const replacement = await begin(event); mock.send.mockResolvedValue({ ContentLength:99,ContentType:"text/html",Metadata:{} });
+  expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id:replacement }))).status).toBe(409);
+  expect((await events.read(event.id))!.recording?.id).toBe(id);
+  expect((await uploadPOST(request("event-uploads",{ action:"part",eventId:randomUUID(),id,part:1 }))).status).toBe(404);
+  mock.send.mockResolvedValue({}); expect((await uploadPOST(request("event-uploads",{ action:"abort",eventId:event.id,id:replacement }))).status).toBe(200);
+  expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id:replacement }))).status).toBe(409);
+});
+it("checks the storage part list and size instead of trusting browser ETags", async () => {
+  const event = await save(); const id = await begin(event,"recording",EVENT_PART_BYTES+32);
+  mock.send.mockImplementation(async (cmd: { constructor: { name: string } }) => { if (cmd.constructor.name === "HeadObjectCommand") throw { $metadata:{ httpStatusCode:404 } }; return { Parts:[{ PartNumber:1,Size:EVENT_PART_BYTES,ETag:"part-1" }] }; });
+  expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id,parts:[{ ETag:"invented" }] }))).status).toBe(409);
+  expect((await events.read(event.id))!.recording).toBeNull();
+  mock.send.mockResolvedValue({});
+  expect((await uploadPOST(request("event-uploads",{ action:"part",eventId:event.id,id,part:3 }))).status).toBe(400);
+  expect((await uploadPOST(request("event-uploads",{ action:"part",eventId:event.id,id,part:2 }))).status).toBe(200);
+});
+it("fails closed for missing or public storage and preserves event details", async () => {
+  const event = await save(); vi.stubEnv("EVENT_R2_API_TOKEN","");
+  expect((await uploadPOST(request("event-uploads",{ action:"initiate",eventId:event.id,uploadId:randomUUID() }))).status).toBe(503);
+  vi.stubEnv("EVENT_R2_API_TOKEN","read-only-api-token"); vi.stubGlobal("fetch",vi.fn(async () => new Response(JSON.stringify({ success:true,result:{ enabled:true,domains:[] } }))));
+  expect((await uploadPOST(request("event-uploads",{ action:"initiate",eventId:event.id,uploadId:randomUUID() }))).status).toBe(503);
+  expect((await events.read(event.id))!.content.title).toBe("Learn TypeScript");
+});
+it("streams authenticated byte ranges through the real Node adapter without buffering the response", async () => {
+  const event = await save({ action:"publish" }); const id = await begin(event); const entry = await events.upload(id); uploadedObject(entry); await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id }));
+  const dir = mkdtempSync(path.join(tmpdir(),"opencircle-events-http-")); writeFileSync(path.join(dir,"index.html"),"<html><head></head><body></body></html>");
+  const server = createAppServer(dir); await new Promise<void>(r => server.listen(0,"127.0.0.1",r)); const address = server.address() as { port: number };
+  vi.unstubAllGlobals();
+  try {
+    const url = `http://127.0.0.1:${address.port}/api/event-media?slug=${event.slug}&asset=${id}`;
+    const response = await fetch(url,{ headers:{ cookie:`opencircle_github=${memberToken}`,range:"bytes=0-31" } }); expect(response.status).toBe(206); expect(response.headers.get("accept-ranges")).toBe("bytes"); expect(response.headers.get("cache-control")).toBe("private, no-store"); expect((await response.arrayBuffer()).byteLength).toBe(32);
+    expect((await fetch(url)).status).toBe(401);
+    const invalid = await mediaGET(request(`event-media?slug=${event.slug}&asset=${id}`,undefined,"member")); expect(invalid.status).toBe(200); await invalid.arrayBuffer();
+  } finally { await new Promise<void>((r,j) => server.close(e => e ? j(e) : r())); rmSync(dir,{ recursive:true,force:true }); }
+});
+it("handles midnight, timezones, status, unsafe resources and file signatures", async () => {
+  const start = eventTimestamp("2026-10-20T23:30","Africa/Lagos")!; const end = eventTimestamp("2026-10-21T01:30","Africa/Lagos")!;
+  expect(end-start).toBe(7200000); expect(eventLocalTime(start,"Africa/Lagos")).toBe("2026-10-20T23:30"); expect(() => eventTimestamp("2026-03-08T02:30","America/New_York")).toThrow();
+  const e = await save({ content:{ ...content(),startsAt:start,endsAt:end } }); expect(eventStatus(e,end+1)).toBe("Ended"); expect(eventStatus(e,start+1)).toBe("Ongoing");
+  expect((await POST(request("events",{ id:e.id,version:1,action:"save",content:{ ...e.content,joinUrl:"javascript:alert(1)" } }))).status).toBe(400);
+  expect((await POST(request("events",{ id:e.id,version:1,action:"save",content:{ ...e.content,resources:[{ id:"file",title:"Foreign",description:"",url:"",assetId:randomUUID() }] } }))).status).toBe(400);
+  expect(() => validateEventSignature(Buffer.from("<html>"),{ kind:"recording",contentType:"video/mp4",size:6 })).toThrow();
+  expect(sessionEvent({ id:"bot-1",title:e.content.title,startsAt:start,endsAt:end },[e])?.id).toBe(e.id);
+});
+it("validates and attaches covers and downloadable resources, preserves failed cover replacement, and revokes removed files", async () => {
+  const event = await save({ action:"publish" }); const cover = await begin(event,"cover");
+  const png = Buffer.alloc(32); Buffer.from([137,80,78,71,13,10,26,10]).copy(png); uploadedObject(await events.upload(cover),png);
+  expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id:cover }))).status).toBe(200);
+  const replacement = await begin(event,"cover"); uploadedObject(await events.upload(replacement),Buffer.alloc(32)); expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id:replacement }))).status).toBe(415); expect((await events.read(event.id))!.cover?.id).toBe(cover);
+  const file = await begin(event,"resource"); const pdf = Buffer.alloc(32); pdf.write("%PDF-1.7"); uploadedObject(await events.upload(file),pdf);
+  const completed = await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id:file })); expect(completed.status).toBe(200); const attached = await completed.json() as EventView;
+  const download = await mediaGET(request(`event-media?slug=${event.slug}&asset=${file}`,undefined,"member")); expect(download.headers.get("content-disposition")).toContain("notes.pdf"); expect(download.headers.get("content-type")).toBe("application/pdf"); await download.arrayBuffer();
+  await save({ id:event.id,version:attached.version,content:{ ...attached.content,resources:[] } }); expect((await mediaGET(request(`event-media?slug=${event.slug}&asset=${file}`,undefined,"member"))).status).toBe(404);
+});
+it("completes all actual multipart parts and rejects other admins and stale membership", async () => {
+  const event = await save({ action:"publish" }); const id = await begin(event,"recording",EVENT_PART_BYTES+32); const upload = (await events.upload(id))!; let completed = false;
+  mock.send.mockImplementation(async (cmd: { constructor: { name: string }; input: Record<string,unknown> }) => {
+    if (cmd.constructor.name === "HeadObjectCommand") { if (!completed) throw { $metadata:{ httpStatusCode:404 } }; return { ContentLength:upload.size,ContentType:upload.contentType,Metadata:{ event:upload.eventId,admin:String(upload.adminId),upload:upload.id } }; }
+    if (cmd.constructor.name === "ListPartsCommand") return { Parts:[{ PartNumber:1,Size:EVENT_PART_BYTES,ETag:"actual-one" },{ PartNumber:2,Size:32,ETag:"actual-two" }] };
+    if (cmd.constructor.name === "CompleteMultipartUploadCommand") { expect(cmd.input.MultipartUpload).toEqual({ Parts:[{ PartNumber:1,ETag:"actual-one" },{ PartNumber:2,ETag:"actual-two" }] }); completed = true; return {}; }
+    return { Body:{ transformToByteArray:async () => Buffer.from("0000ftypisom00000000000000000000") } };
+  });
+  expect((await uploadPOST(request("event-uploads",{ action:"complete",eventId:event.id,id }))).status).toBe(200);
+  vi.stubEnv("ADMIN_GITHUB_IDS","42,43"); const otherCookie = (await createAdminSession(request(),community,{ ...profile,id:43 })).split(";")[0]; const other = request("event-uploads",{ action:"part",eventId:event.id,id,part:1 }); other.headers.set("cookie",otherCookie); expect((await uploadPOST(other)).status).toBe(404);
+  mock.profile.mockResolvedValueOnce({ activity:{ linked:true,login:"Alice",tracking:false } }); expect((await mediaGET(request(`event-media?slug=${event.slug}&asset=${id}`,undefined,"member"))).status).toBe(503);
+  const invalidRange = request(`event-media?slug=${event.slug}&asset=${id}`,undefined,"member"); invalidRange.headers.set("range","bytes=1-2,3-4"); expect((await mediaGET(invalidRange)).status).toBe(416);
+});

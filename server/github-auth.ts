@@ -67,10 +67,12 @@ export function beginGitHubSignIn(req: Request): Response {
   const state = randomBytes(32).toString("hex");
   const verifier = randomBytes(32).toString("base64url");
   const participation = participationDestination(new URL(req.url).searchParams.get("returnTo"));
+  const eventReturn = new URL(req.url).searchParams.get("returnTo");
+  const events = eventReturn && /^\/events(?:\/[a-z0-9-]{1,130})?$/.test(eventReturn) ? eventReturn : null;
   const portfolio = new URL(req.url).searchParams.get("returnTo") === "/portfolio";
   const repositories = new URL(req.url).searchParams.get("returnTo") === "/repositories";
   const stars = !admin && new URL(req.url).searchParams.get("stars") === "1";
-  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio, repositories, stars })).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio, repositories, stars, events })).toString("base64url");
   const signature = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
   const destination = new URL("https://github.com/login/oauth/authorize");
   destination.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirectUri, state, scope: stars ? "public_repo" : "", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
@@ -101,11 +103,12 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     const [payload, signature, extra] = saved.split(".");
     const expected = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
     if (extra || signature?.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
-    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown; portfolio?: unknown; repositories?: unknown; stars?: unknown };
+    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown; portfolio?: unknown; repositories?: unknown; stars?: unknown; events?: unknown };
     if (typeof savedState.state !== "string" || savedState.state.length !== state.length || !timingSafeEqual(Buffer.from(savedState.state), Buffer.from(state)) || typeof savedState.expiresAt !== "number" || savedState.expiresAt <= Date.now() || typeof savedState.verifier !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(savedState.verifier)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
     if (savedState.admin === true) returnTo = "/admin";
     else if (savedState.participation === true) returnTo = "/participation";
     else if (participationDestination(savedState.participation)) returnTo = participationDestination(savedState.participation)!;
+    else if (typeof savedState.events === "string" && /^\/events(?:\/[a-z0-9-]{1,130})?$/.test(savedState.events)) returnTo = savedState.events;
     else if (savedState.portfolio === true) returnTo = "/portfolio";
     else if (savedState.repositories === true) returnTo = "/repositories";
     if (url.searchParams.has("error") || !code || code.length > 256) throw new HttpError(400, "github_denied", "GitHub sign-in was cancelled. Try again when you're ready.");

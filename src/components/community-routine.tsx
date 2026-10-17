@@ -1,3 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { eventsApi } from "@/lib/events-api";
+import { useCommunity } from "@/hooks/use-community";
+import { eventDate, eventStatus } from "@shared/events";
+import { sessionEvent } from "@shared/event-sessions";
 import type { MemberCommunityState, ParticipationAction } from "@shared/coordination";
 import { PaginatedList } from "@/components/pagination";
 import { MetalButton } from "@/components/metal-button";
@@ -21,13 +27,16 @@ export function CommunityGuide({ completed = false }: { completed?: boolean }) {
 }
 
 export function CommunityCatchUp({ data }: { data: MemberCommunityState }) {
+  const account = useCommunity();
+  const events = useQuery({ queryKey: ["events",account.data?.profile?.id,false,"list"], queryFn: ({ signal }) => eventsApi.list(false,signal), enabled: !!account.data?.profile, retry: false, gcTime: 0, refetchInterval: 30000 });
   const date = new Intl.DateTimeFormat("en", { timeZone: data.timezone, dateStyle: "medium", timeStyle: "short" });
   return <Panel header={<PanelHeader title="Catch up" />}>
     {data.groupSchedule && <p className="py-3 text-sm text-t3">Group quiet hours: {String(data.quietStart).padStart(2, "0")}:{String(data.quietStartMinute ?? 0).padStart(2, "0")} to {String(data.quietEnd).padStart(2, "0")}:{String(data.quietEndMinute ?? 0).padStart(2, "0")} ({data.timezone}). You can use this page at any time.</p>}
     {data.sessions.length > 0 && <div className="border-b border-foreground/[0.06] py-4">
       <h2 className="mb-3 text-sm font-medium">Upcoming sessions</h2>
-      <PaginatedList items={data.sessions} label="Upcoming sessions" pageSize={5} className="space-y-3">{(session) => <li key={session.id} className="text-sm"><p>{session.title}</p><p className="text-xs text-t3"><time dateTime={new Date(session.startsAt).toISOString()}>{date.format(session.startsAt)}</time> ({data.timezone}) · {Math.round((session.endsAt - session.startsAt) / 60_000)} minutes</p></li>}</PaginatedList>
+      <PaginatedList items={data.sessions} label="Upcoming sessions" pageSize={5} className="space-y-3">{(session) => { const managed = sessionEvent(session,events.isError ? [] : events.data?.events ?? []); return <li key={session.id} className="text-sm">{managed ? <><Link to={`/events/${managed.slug}`} className="inline-flex min-h-11 items-center underline">{managed.content.title}</Link><p className="text-xs text-t3">{eventStatus(managed)} · {eventDate(managed.content.startsAt,managed.content.timezone)} ({managed.content.timezone})</p></> : <><p>{session.title}</p><p className="text-xs text-t3"><time dateTime={new Date(session.startsAt).toISOString()}>{date.format(session.startsAt)}</time> ({data.timezone}) · {Math.round((session.endsAt - session.startsAt) / 60_000)} minutes · Bot schedule</p></>}</li>; }}</PaginatedList>
     </div>}
+    <Link to="/events" className="inline-flex min-h-11 items-center text-sm underline underline-offset-4">Events, recordings and resources</Link>
     {data.updates.length ? <PaginatedList items={data.updates} label="Catch-up updates" pageSize={5} ordered className="divide-y divide-foreground/[0.06]">{(update) => <li key={update.id} className="space-y-2 py-4">
       <h2 className="break-words text-sm font-medium">{update.title}</h2>
       <time className="block text-xs text-t3" dateTime={new Date(update.createdAt).toISOString()}>{date.format(update.createdAt)}</time>

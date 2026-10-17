@@ -10,6 +10,7 @@ import { TrafficTracker } from "./components/traffic-tracker";
 import { portfolioSlugFromHostname } from "@shared/portfolio";
 import { ThemeProvider } from "./components/theme-provider";
 
+const Events = lazy(() => import("./pages/Events"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Portfolio = lazy(() => import("./pages/Portfolio"));
 const Participation = lazy(() => import("./pages/Participation"));
@@ -33,6 +34,8 @@ const App = () => (
               <Route path="/tools" element={<Index />} />
               <Route path="/participation" element={<Participation />} />
               <Route path="/how-it-works" element={<Index />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/events/:slug" element={<Events />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/portfolio" element={<Portfolio />} />
               <Route path="/p/:slug" element={<PublicPortfolio />} />

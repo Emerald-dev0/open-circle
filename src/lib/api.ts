@@ -39,7 +39,7 @@ export function retryAt(headers: Headers, status: number, now = Date.now()): num
   return status === 429 ? now + 60_000 : undefined;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   init?.signal?.throwIfAborted();
   const reading = !init?.method || init.method === "GET";
   const cooldown = reading ? readCooldowns.get(path) : undefined;

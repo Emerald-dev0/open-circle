@@ -32,6 +32,7 @@ import { useErrorToast } from "@/hooks/use-error-toast";
 import { AdminAnalytics } from "@/components/admin-analytics";
 import { AdminDashboardSkeleton } from "@/components/admin-skeleton";
 
+const AdminEvents = lazy(() => import("@/components/events/admin-events"));
 const AdminBotSettings = lazy(() => import("@/components/admin-bot-settings"));
 
 const SESSION_KEY = ["admin", "session"];
@@ -144,10 +145,12 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="overview">Overview</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="members">Members</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="events">Events</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="overview"><AdminAnalytics onUnauthorized={onUnauthorized} onReviewTools={() => setSection("tools")} /></TabsContent>
       <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
+      <TabsContent value="events"><Suspense fallback={<p role="status">Loading events…</p>}><AdminEvents onUnauthorized={onUnauthorized} /></Suspense></TabsContent>
       <TabsContent value="tools"><FadeIn><ToolModeration onUnauthorized={onUnauthorized} /></FadeIn></TabsContent>
       <TabsContent value="settings" forceMount={settingsVisited || undefined} hidden={section !== "settings"}><FadeIn><div className="space-y-6"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /><Suspense fallback={<p className="py-4 text-sm text-t3" role="status">Loading bot settings…</p>}><AdminBotSettings onUnauthorized={onUnauthorized} /></Suspense></div></FadeIn></TabsContent>
     </Tabs>

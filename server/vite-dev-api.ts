@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { existsSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
@@ -106,7 +108,8 @@ export function devApi(): Plugin {
           const cookies = response.headers.getSetCookie();
           if (cookies.length) res.setHeader("set-cookie", cookies);
           if (response.status === 413) res.setHeader("connection", "close");
-          res.end(Buffer.from(await response.arrayBuffer()));
+          if (url.pathname === "/api/event-media" && response.ok && response.body) await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), res).catch(() => res.destroy());
+          else res.end(Buffer.from(await response.arrayBuffer()));
         } catch (err) {
           server.ssrFixStacktrace(err as Error);
           next(err);
