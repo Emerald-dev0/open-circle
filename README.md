@@ -44,7 +44,7 @@ GitHub sign-in is required for portfolio editing, tool voting, group participati
 
 ## Community events
 
-Verified members can open Events from the dock or Participation. Organisers manage drafts, publishing, cover images, recordings and ordered file/link resources in the admin Events tab. Recordings use direct multipart uploads to a separate private R2 bucket; the public portfolio bucket is unchanged. See the [Events setup and usage guide](docs/events.md).
+Verified members can open Community, then Events beside Discussions and Questions, or use the Participation link. Organisers manage drafts, publishing, cover images, recordings and ordered file/link resources in the admin Events tab. Recordings use direct multipart uploads to a separate private R2 bucket; the public portfolio bucket is unchanged. See the [Events setup and usage guide](docs/events.md).
 
 ## Member portfolios
 

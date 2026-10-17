@@ -118,7 +118,7 @@ export function Dock({
           <DockIcon label="Rank me" onClick={rank} active={onBoard}>
             <CupStarIcon size="100%" aria-hidden />
           </DockIcon>
-          <DockIcon label="Community" onClick={() => go("/community")} active={pathname.startsWith("/community")}>
+          <DockIcon label="Community" onClick={() => go("/community")} active={pathname.startsWith("/community") || pathname.startsWith("/events")}>
             <ChatRoundDotsIcon size="100%" aria-hidden />
           </DockIcon>
           <DockIcon label="Group participation" onClick={() => go("/participation")} active={pathname === "/participation"}>

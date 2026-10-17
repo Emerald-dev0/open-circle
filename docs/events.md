@@ -1,6 +1,6 @@
 # Events
 
-Events lives at `/events`, with one permanent `/events/:slug` address per event. The Events action in the dock and the Participation link open it. GitHub sign-in and a linked, active WhatsApp group account are required, following Participation's access policy. A stale bot membership snapshot fails closed. Admin preview uses the separate existing admin session.
+Events lives at `/events`, with one permanent `/events/:slug` address per event. Choose Community in the dock, then Events beside Discussions and Questions. The Participation link also opens it. GitHub sign-in and a linked, active WhatsApp group account are required, following Participation's access policy. A stale bot membership snapshot fails closed. Admin preview uses the separate existing admin session.
 
 ## Managing events
 
@@ -12,7 +12,7 @@ Add HTTPS resource links or upload files, then edit titles/descriptions, move en
 
 ## Private R2 configuration
 
-The feature requires migration `006_events.sql` through the normal migration command. Apply it only to the intended database after review; `.env.local` may point at production. Existing migrations and community records are unchanged. Production requires Postgres; development without it uses atomic local JSON in ignored `.data/events.json`.
+The feature requires migration `007_events.sql` through the normal migration command. Apply it only to the intended database after review; `.env.local` may point at production. Existing migrations and community records are unchanged. Production requires Postgres; development without it uses atomic local JSON in ignored `.data/events.json`.
 
 Set these server-only variables:
 

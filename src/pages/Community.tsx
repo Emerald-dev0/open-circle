@@ -12,7 +12,7 @@ import { ForumFeed, ForumFilters } from "@/components/forum/feed";
 import { ForumThreadView } from "@/components/forum/thread";
 import { LegacyHelp } from "@/components/forum/legacy-help";
 import { GitHubIcon } from "@/components/brand-icons";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CommunitySections } from "@/components/community-sections";
 import { useCommunity } from "@/hooks/use-community";
 import { useForumSearch } from "@/hooks/use-forum-search";
 import { usePageMeta } from "@/hooks/use-page-meta";
@@ -75,5 +75,5 @@ function MemberForum({ profile }: { profile: ForumAuthor }) {
     </> : null}
     {questions && <LegacyHelp profileId={profile.id} login={profile.login} id={helpId} />}
   </div>;
-  return id ? view : <Tabs value={questions ? "questions" : "discussions"} onValueChange={(tab) => { setCreating(false); setParams({ tab }); }}><TabsList aria-label="Community sections"><TabsTrigger className="min-h-11 focus-visible:ring-2 focus-visible:ring-foreground/40" disabled={mutation.isPending} value="discussions">Discussions</TabsTrigger><TabsTrigger className="min-h-11 focus-visible:ring-2 focus-visible:ring-foreground/40" disabled={mutation.isPending} value="questions">Questions</TabsTrigger></TabsList><TabsContent value={questions ? "questions" : "discussions"}>{view}</TabsContent></Tabs>;
+  return id ? view : <CommunitySections section={questions ? "questions" : "discussions"} disabled={mutation.isPending} onChange={() => setCreating(false)}>{view}</CommunitySections>;
 }

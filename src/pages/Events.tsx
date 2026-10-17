@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { CommunitySections } from "@/components/community-sections";
 import { Dock } from "@/components/dock";
 import { AccountCorner } from "@/components/account-corner";
 import { TextureButton } from "@/components/ui/texture-button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCommunity } from "@/hooks/use-community";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ApiError } from "@/lib/api";
@@ -24,12 +25,15 @@ export default function Events() {
   const data = (admin || (!!identity && !community.isError)) ? query.data : undefined;
   return <div className="relative min-h-dvh"><div className="app-backdrop" aria-hidden /><AccountCorner /><main className="page-container relative z-10 min-w-0 pb-40 pt-28">
     <div className="mx-auto max-w-4xl space-y-6">
-      {slug ? <Link className="inline-flex min-h-11 items-center text-sm text-t3 underline underline-offset-4" to="/events">All events</Link> : <h1 className="text-3xl font-medium tracking-[-0.03em]">Events</h1>}
+      {slug ? <Link className="inline-flex min-h-11 items-center text-sm text-t3 underline underline-offset-4" to="/events">All events</Link> : <h1 className="text-3xl font-medium tracking-[-0.03em]">Community</h1>}
+      <CommunitySections section="events">
+      {!slug && <h2 className="my-5 text-xl font-medium">Events</h2>}
       {admin && <p role="status" className="text-sm text-warn">Admin preview · {data && "published" in data && data.published ? "Published" : "Draft / unpublished"}</p>}
       {signedOut ? <div className="space-y-4"><p className="text-t3">Sign in to find community events, recordings and resources.</p><a className="inline-flex min-h-11 items-center underline underline-offset-4" href={`/api/auth-start?returnTo=${encodeURIComponent(slug ? `/events/${slug}` : "/events")}`}>Sign in with GitHub</a></div> : error ? <div role="alert" className="space-y-3"><p>{error.message}</p>{access ? <Link className="inline-flex min-h-11 items-center underline" to="/participation">Connect your group account</Link> : <TextureButton onClick={() => { void community.refetch(); void query.refetch(); }}>Try again</TextureButton>}</div> : !data ? <p role="status" className="text-t3">Loading events…</p> : "events" in data ? <>
-        <Tabs value={tab} onValueChange={setTab}><TabsList aria-label="Event schedule"><TabsTrigger className="min-h-11" value="upcoming">Upcoming</TabsTrigger><TabsTrigger className="min-h-11" value="past">Past & recordings</TabsTrigger></TabsList></Tabs>
-        <EventList events={data.events.filter(e => tab === "upcoming" ? !e.content.cancelled && (e.content.endsAt ?? 0) > now : e.content.cancelled || (e.content.endsAt ?? 0) <= now).sort((a,b) => tab === "upcoming" ? (a.content.startsAt ?? 0)-(b.content.startsAt ?? 0) : (b.content.startsAt ?? 0)-(a.content.startsAt ?? 0))} now={now} />
+        <Tabs value={tab} onValueChange={setTab}><TabsList aria-label="Event schedule"><TabsTrigger className="min-h-11" value="upcoming">Upcoming</TabsTrigger><TabsTrigger className="min-h-11" value="past">Past & recordings</TabsTrigger></TabsList>
+        <TabsContent value={tab}><EventList events={data.events.filter(e => tab === "upcoming" ? !e.content.cancelled && (e.content.endsAt ?? 0) > now : e.content.cancelled || (e.content.endsAt ?? 0) <= now).sort((a,b) => tab === "upcoming" ? (a.content.startsAt ?? 0)-(b.content.startsAt ?? 0) : (b.content.startsAt ?? 0)-(a.content.startsAt ?? 0))} now={now} /></TabsContent></Tabs>
       </> : <EventDetails key={`${data.id}:${identity}:${admin}`} event={data} admin={admin} />}
+      </CommunitySections>
     </div></main><Dock /></div>;
 }
 function EventList({ events, now }: { events: EventView[]; now: number }) {
