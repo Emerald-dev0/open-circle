@@ -48,6 +48,8 @@ Verified members can open Community, then Events beside Discussions and Question
 
 Upcoming events have a Register button and a name/email form. Registrations persist per signed-in member; organisers can view the private, paginated attendee list under Manage event > View registrations. Covers open in a full-size viewer with zoom and an original-image link. Apply `008_event_registrations.sql` through the normal migration command before releasing registration support.
 
+Event pages use five-character addresses such as `/events/yu48r`. A short address stays the same when the title or schedule changes. Existing title-and-ID links keep opening the same event and switch to its short address; older events receive a short address when saved.
+
 ## Member portfolios
 
 [Create your portfolio](https://opencircle.cc/portfolio) with GitHub and publish it at `username.opencircle.cc`. Your page includes your GitHub photo, name, bio and up to six public repositories you own, with links to their source and existing live sites.

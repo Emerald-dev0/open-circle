@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDateIcon, VideoFramePlayHorizontalIcon } from "@solar-icons/react/bold-duotone";
 import { ArrowRightIcon, ChatRoundDotsIcon } from "@solar-icons/react/linear";
@@ -19,6 +19,7 @@ import { EventDetails } from "@/components/events/event-details";
 import { ContentSkeleton } from "@/components/site-skeleton";
 import { ShareButton } from "@/components/share-button";
 export default function Events() {
+  const navigate = useNavigate(); const location = useLocation();
   const { slug } = useParams(); const [params] = useSearchParams(); const admin = params.get("preview") === "1"; const community = useCommunity();
   const identity = community.data?.profile?.id; const [tab, setTab] = useState("upcoming");
   const upcomingTab = useRef<HTMLButtonElement>(null);
@@ -35,6 +36,7 @@ export default function Events() {
   const error = query.error ?? community.error;
   const access = error instanceof ApiError && error.status === 403;
   const data = (admin || (!!identity && !community.isError)) ? query.data : undefined;
+  useEffect(() => { if (slug && data && !("events" in data) && slug !== data.slug) navigate({ pathname: `/events/${data.slug}`, search: location.search, hash: location.hash }, { replace: true }); }, [slug, data, navigate, location.search, location.hash]);
   return <div className="relative min-h-dvh"><div className="app-backdrop" aria-hidden /><AccountCorner /><main className="page-container relative z-10 min-w-0 pb-40 pt-28">
     <div className="mx-auto max-w-4xl space-y-6">
       {slug ? <Link className="inline-flex min-h-11 items-center text-sm text-t3 underline underline-offset-4" to="/events">All events</Link> : <h1 className="text-3xl font-medium tracking-[-0.03em]">Community</h1>}

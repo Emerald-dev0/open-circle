@@ -8,6 +8,7 @@ import { coordinationRequest } from "./participation.js";
 import { HttpError } from "./http.js";
 import { getEventStore } from "./event-store.js";
 import { parseEvent } from "./event-validation.js";
+import { eventSlugCollision, newEventSlug } from "./event-slug.js";
 export const EVENT_HEADERS = { "cache-control": "private, no-store", vary: "Cookie", "referrer-policy": "no-referrer" };
 export async function eventReader(req: Request) {
   if (new URL(req.url).searchParams.get("admin") === "1") return authorize(req);
@@ -36,7 +37,13 @@ export async function saveEvent(input: Record<string, unknown>, adminId: number)
   const content = parseEvent(input.content ?? existing?.content ?? emptyEvent(), published);
   if (published && existing?.cover && !content.coverAlt) throw new HttpError(400, "cover_alt", "Add alternative text for the cover image before publishing.");
   const now = Date.now();
-  return store.save({ id: input.id, slug: existing?.slug ?? `${content.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g, "").slice(0,70) || "event"}-${input.id}`, content, published, version: Number(input.version) + 1, cover: existing?.cover ?? null, recording: existing?.recording ?? null, files: existing?.files ?? [], createdBy: existing?.createdBy ?? adminId, createdAt: existing?.createdAt ?? now, updatedAt: now }, Number(input.version));
+  const stableSlug = existing && /^[a-z0-9]{5}$/.test(existing.slug) ? existing.slug : null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    try {
+      return await store.save({ id: input.id, slug: stableSlug ?? newEventSlug(), content, published, version: Number(input.version) + 1, cover: existing?.cover ?? null, recording: existing?.recording ?? null, files: existing?.files ?? [], createdBy: existing?.createdBy ?? adminId, createdAt: existing?.createdAt ?? now, updatedAt: now }, Number(input.version));
+    } catch (error) { if (stableSlug || !eventSlugCollision(error)) throw error; }
+  }
+  throw new HttpError(503, "event_address_unavailable", "Could not assign a short event address. Try again.");
 }
 
 export function eventApiHandler(req: Request, run: () => Promise<Response>) { return apiHandler(req, async () => { try { return await run(); } catch (e) { if ((e as { code?: string }).code === "23505") throw new HttpError(409, "event_exists", "That bot session or address already has an event page."); if ((e as { code?: string }).code === "42P01") throw new HttpError(503, "events_migration", "Events storage needs the latest database migrations. Saved community data is unaffected."); throw e; } }); }

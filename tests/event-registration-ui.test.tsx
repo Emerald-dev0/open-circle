@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { eventsApi } from "../src/lib/events-api";
 import { ApiError } from "../src/lib/api";
@@ -86,6 +86,14 @@ it("offers a prominent sign-in registration link and preserves the event destina
   const signin = screen.getByRole("link", { name: "Sign in to register" });
   expect(new URL(signin.getAttribute("href")!, "https://opencircle.test").searchParams.get("returnTo")).toBe("/events/website-session");
   expect(detail).not.toHaveBeenCalled();
+});
+it("replaces legacy event URLs with the short address while retaining preview and registration state", async () => {
+  const e = event(); e.slug = "yu48r";
+  vi.spyOn(eventsApi, "detail").mockResolvedValue(e);
+  function Address() { const location = useLocation(); return <output aria-label="Current address">{location.pathname}{location.search}{location.hash}</output>; }
+  wrap(<Routes><Route path="/events/:slug" element={<><Events /><Address /></>} /></Routes>, "/events/old-title-1cc58640-070d-4e8e-b06b-202f3bddf1b5?preview=1#register");
+  await waitFor(() => expect(screen.getByLabelText("Current address").textContent).toBe("/events/yu48r?preview=1#register"));
+  expect(eventsApi.detail).toHaveBeenCalledWith("yu48r", true, expect.any(AbortSignal));
 });
 it("opens the complete cover, supports zoom and original media, and restores keyboard focus on Escape", async () => {
   const user = userEvent.setup(); const e = event();

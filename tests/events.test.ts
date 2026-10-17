@@ -15,6 +15,7 @@ import { createAppServer } from "../server/node-server";
 import { emptyEvent, eventTimestamp, eventLocalTime, eventStatus, EVENT_PART_BYTES, type EventView, type EventContent } from "../shared/events";
 import { validateEventSignature } from "../server/event-storage";
 import { sessionEvent } from "../shared/event-sessions";
+import * as eventSlugs from "../server/event-slug";
 const mock = vi.hoisted(() => ({ send: vi.fn(), profile: vi.fn() }));
 vi.mock("@aws-sdk/client-s3", async original => { const sdk = await original<typeof import("@aws-sdk/client-s3")>(); return { ...sdk, S3Client: class { send = mock.send; destroy() {} } }; });
 vi.mock("@aws-sdk/s3-request-presigner", () => ({ getSignedUrl: vi.fn(async () => "https://storage.test/signed-part") }));
@@ -101,6 +102,7 @@ it("protects drafts, membership, admin writes, origin and cached private respons
 });
 it("creates one incomplete draft after retries, publishes, reschedules, cancels and unpublishes at the same slug", async () => {
   const id = randomUUID(); const draft = await save({ id,content:emptyEvent() as ReturnType<typeof content> });
+  expect(draft.slug).toMatch(/^[a-z0-9]{5}$/);
   const retry = await save({ id }); expect(retry.id).toBe(draft.id); expect((await events.list(true))).toHaveLength(1);
   const bad = await POST(request("events",{ id,version:1,content:emptyEvent(),action:"publish" })); expect(bad.status).toBe(400);
   const published = await save({ id,version:1,action:"publish" }); expect(published.slug).toBe(draft.slug);
@@ -108,6 +110,39 @@ it("creates one incomplete draft after retries, publishes, reschedules, cancels 
   const cancelled = await save({ id,version:2,content:{ ...content(),title:"New title",startsAt:Date.now()+8000000,endsAt:Date.now()+9000000,cancelled:true } }); expect(cancelled.slug).toBe(draft.slug); expect(eventStatus(cancelled)).toBe("Cancelled");
   expect((await POST(request("events",{ id,version:2,content:content(),action:"save" }))).status).toBe(409);
   await save({ id,version:3,action:"unpublish" }); expect((await GET(request(`events?slug=${draft.slug}`,undefined,"member"))).status).toBe(404);
+});
+it("retries short-address collisions without duplicating events or hiding unrelated failures", async () => {
+  const generate = vi.spyOn(eventSlugs, "newEventSlug").mockReturnValueOnce("yu48r").mockReturnValueOnce("yu48r").mockReturnValueOnce("a9k2q");
+  expect((await save()).slug).toBe("yu48r");
+  expect((await save()).slug).toBe("a9k2q");
+  expect(generate).toHaveBeenCalledTimes(3);
+  expect(await events.list(true)).toHaveLength(2);
+  generate.mockReturnValue("yu48r");
+  const failure = await POST(request("events", { id: randomUUID(), version: 0, action: "save", content: content() }));
+  expect(failure.status).toBe(503);
+  expect((await failure.json()).error.code).toBe("event_address_unavailable");
+  expect(await events.list(true)).toHaveLength(2);
+  expect(eventSlugs.eventSlugCollision({ code: "23505", constraint: "opencircle_events_bot_session" })).toBe(false);
+});
+it("shortens a legacy event while preserving its old link, cover and saved registrations", async () => {
+  const event = await save({ action: "publish" }); const cover = await begin(event, "cover");
+  const png = Buffer.alloc(32); Buffer.from([137,80,78,71,13,10,26,10]).copy(png); uploadedObject(await events.upload(cover), png);
+  expect((await uploadPOST(request("event-uploads", { action: "complete", eventId: event.id, id: cover }))).status).toBe(200);
+  const current = (await events.read(event.id))!; const legacy = `learn-typescript-${event.id}`;
+  const old = await events.save({ ...current, slug: legacy, version: current.version+1 }, current.version);
+  const registered = await registrationsPOST(request("event-registrations", { slug: legacy, name: "Alice", email: "alice@example.com" }, "member"));
+  const receipt = await registered.json(); expect(registered.status).toBe(200);
+  const updated = await save({ id: event.id, version: old.version, action: "save", content: old.content });
+  expect(updated.slug).toMatch(/^[a-z0-9]{5}$/); expect(updated.id).toBe(event.id); expect(updated.cover?.id).toBe(cover);
+  const fromOld = await GET(request(`events?slug=${legacy}`, undefined, "member"));
+  expect(fromOld.status).toBe(200); expect((await fromOld.json()).slug).toBe(updated.slug);
+  expect((await GET(request(`events?slug=${updated.slug}`, undefined, "member"))).status).toBe(200);
+  expect(await (await registrationsGET(request(`event-registrations?slug=${updated.slug}`, undefined, "member"))).json()).toEqual(receipt);
+  const media = await mediaGET(request(`event-media?slug=${legacy}&asset=${cover}`, undefined, "member"));
+  expect(media.status).toBe(200); await media.arrayBuffer();
+  const unpublished = await save({ id: event.id, version: updated.version, action: "unpublish" });
+  expect(unpublished.slug).toBe(updated.slug);
+  expect((await GET(request(`events?slug=${legacy}`, undefined, "member"))).status).toBe(404);
 });
 async function begin(event: EventView, kind = "recording", size = 32) {
   mock.send.mockResolvedValueOnce({ UploadId:"multipart-1" }); const id = randomUUID();

@@ -35,6 +35,18 @@ it("persists registrations without changing event versions, handles retries and 
     expect(await store.register({ ...first, id: randomUUID() })).toEqual(first);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+it("persists a short event address while retaining title-and-ID and UUID lookups after restart", async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "opencircle-event-address-")); const file = path.join(dir, "events.json");
+  try {
+    const original = record(); original.slug = `a-legacy-title-${original.id}`;
+    const store = new LocalEventStore(file); await store.save(original, 0);
+    await store.save({ ...original, slug: "yu48r", version: 2 }, 1);
+    const restarted = new LocalEventStore(file);
+    for (const address of [original.slug, original.id, "yu48r"]) expect((await restarted.read(address))?.slug).toBe("yu48r");
+    await expect(restarted.save({ ...record(), slug: "yu48r" }, 0)).rejects.toMatchObject({ code: "event_slug_conflict" });
+    expect(await restarted.read(`unknown-${randomUUID()}`)).toBeNull();
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
 describe.skipIf(!url)("Events real Postgres persistence", () => {
   let pool: Pool; let store: PostgresEventStore;
   beforeAll(async () => { const parsed = new URL(url!); if (!['localhost','127.0.0.1'].includes(parsed.hostname) || !parsed.pathname.startsWith('/opencircle_events_test_')) throw Error('Use a disposable local Events database.'); pool = new Pool({ connectionString:url,max:2 }); const c = await pool.connect(); try { expect(await runMigrations(c)).toContain('008_event_registrations.sql'); expect(await runMigrations(c)).toEqual([]); } finally { c.release(); } store = new PostgresEventStore(pool); });
@@ -63,5 +75,16 @@ describe.skipIf(!url)("Events real Postgres persistence", () => {
     await store.save({ ...event, version: 2, content: { ...event.content, cancelled: true } }, 1);
     await expect(store.register(registration(event, 200))).rejects.toMatchObject({ status: 409 });
     expect((await store.registrations(event.id, 1)).total).toBe(52);
+  });
+  it("updates the indexed address, preserves legacy links and rolls back short-code collisions", async () => {
+    const original = record(); original.slug = `a-legacy-title-${original.id}`;
+    await store.save(original, 0);
+    const updated = { ...original, slug: "yu48r", version: 2 };
+    await store.save(updated, 1);
+    await expect(store.save({ ...record(), slug: "yu48r" }, 0)).rejects.toMatchObject({ code: "23505", constraint: "opencircle_events_slug_key" });
+    await pool.end(); pool = new Pool({ connectionString: url, max: 2 }); store = new PostgresEventStore(pool);
+    for (const address of [original.slug, original.id, "yu48r"]) expect(await store.read(address)).toEqual(updated);
+    expect(await store.read("not-a-valid-address")).toBeNull();
+    expect(await store.read(`unknown-${randomUUID()}`)).toBeNull();
   });
 });

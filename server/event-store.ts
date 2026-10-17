@@ -5,6 +5,7 @@ import type { Pool, PoolClient } from "pg";
 import { EVENT_REGISTRATION_PAGE_SIZE, eventRegistrationOpen, type EventContent, type EventRecord, type EventUpload, type EventAsset, type EventRegistration, type EventRegistrationPage } from "../shared/events.js";
 import { createPostgresPool } from "./postgres.js";
 import { HttpError } from "./http.js";
+import { eventLookupId } from "./event-slug.js";
 export interface EventStore {
   list(admin: boolean): Promise<EventRecord[]>;
   read(slug: string): Promise<EventRecord | null>;
@@ -42,8 +43,17 @@ export class LocalEventStore implements EventStore {
   constructor(private file: string | null = path.resolve(".data/events.json")) { const saved = file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) as State : { events: [], uploads: [] }; this.data = { ...saved, registrations: "registrations" in saved ? saved.registrations : [] }; }
   private persist(data: State) { if (this.file) { mkdirSync(path.dirname(this.file), { recursive: true }); const tmp = `${this.file}.${randomUUID()}.tmp`; writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 }); renameSync(tmp, this.file); } this.data = data; }
   async list(admin: boolean) { return structuredClone(this.data.events.filter(e => admin || e.published).sort((a,b) => b.updatedAt-a.updatedAt)); }
-  async read(slug: string) { return structuredClone(this.data.events.find(e => e.slug === slug || e.id === slug) ?? null); }
-  async save(record: EventRecord, version: number) { const data = structuredClone(this.data); const index = data.events.findIndex(e => e.id === record.id); const saved = data.events[index]; if (saved && version === 0 && saved.createdBy === record.createdBy) return saved; if ((saved?.version ?? 0) !== version) eventConflict(); validateResourceAssets(record.content, saved ?? null); if (record.content.botSessionId && data.events.some(e => e.id !== record.id && e.content.botSessionId === record.content.botSessionId)) throw new HttpError(409, "event_exists", "That bot session already has an event page."); if (index >= 0) data.events[index] = record; else data.events.push(record); this.persist(data); return structuredClone(record); }
+  async read(slug: string) { const id = eventLookupId(slug) ?? slug; return structuredClone(this.data.events.find(e => e.slug === slug || e.id === id) ?? null); }
+  async save(record: EventRecord, version: number) {
+    const data = structuredClone(this.data); const index = data.events.findIndex(e => e.id === record.id); const saved = data.events[index];
+    if (saved && version === 0 && saved.createdBy === record.createdBy) return structuredClone(saved);
+    if ((saved?.version ?? 0) !== version) eventConflict();
+    validateResourceAssets(record.content, saved ?? null);
+    if (data.events.some(e => e.id !== record.id && e.slug === record.slug)) throw new HttpError(409, "event_slug_conflict", "That event address is already in use.");
+    if (record.content.botSessionId && data.events.some(e => e.id !== record.id && e.content.botSessionId === record.content.botSessionId)) throw new HttpError(409, "event_exists", "That bot session already has an event page.");
+    if (index >= 0) data.events[index] = record; else data.events.push(record);
+    this.persist(data); return structuredClone(record);
+  }
   async addUpload(upload: EventUpload) { const existing = this.data.uploads.find(u => u.id === upload.id); if (existing) return structuredClone(existing); const data = structuredClone(this.data); data.uploads.push(upload); this.persist(data); return structuredClone(upload); }
   async upload(id: string) { return structuredClone(this.data.uploads.find(u => u.id === id) ?? null); }
   async finish(id: string, abort = false) { const data = structuredClone(this.data); const upload = data.uploads.find(u => u.id === id)!; const event = data.events.find(e => e.id === upload.eventId)!; applyUpload(event, upload, abort); this.persist(data); return structuredClone(event); }
@@ -61,7 +71,7 @@ export class LocalEventStore implements EventStore {
 export class PostgresEventStore implements EventStore {
   constructor(private pool: Pool) {}
   async list(admin: boolean) { const { rows } = await this.pool.query<{ record: EventRecord }>("SELECT record FROM opencircle_events WHERE $1 OR published ORDER BY updated_at DESC LIMIT 1000", [admin]); return rows.map(r => r.record); }
-  async read(slug: string) { const { rows } = await this.pool.query<{ record: EventRecord }>("SELECT record FROM opencircle_events WHERE slug = $1 OR id::text = $1", [slug]); return rows[0]?.record ?? null; }
+  async read(slug: string) { const { rows } = await this.pool.query<{ record: EventRecord }>("SELECT record FROM opencircle_events WHERE slug = $1 OR id = $2::uuid", [slug, eventLookupId(slug)]); return rows[0]?.record ?? null; }
   private async transaction<T>(run: (client: PoolClient) => Promise<T>) { const c = await this.pool.connect(); try { await c.query("BEGIN"); const value = await run(c); await c.query("COMMIT"); return value; } catch (e) { await c.query("ROLLBACK"); throw e; } finally { c.release(); } }
   async save(record: EventRecord, version: number) { return this.transaction(async c => {
     if (version === 0) {
@@ -73,7 +83,7 @@ export class PostgresEventStore implements EventStore {
     }
     const saved = (await c.query<{ record: EventRecord }>("SELECT record FROM opencircle_events WHERE id=$1 FOR UPDATE", [record.id])).rows[0]?.record;
     if (!saved || saved.version !== version) eventConflict(); validateResourceAssets(record.content, saved);
-    await c.query("UPDATE opencircle_events SET record=$2,version=$3,published=$4,updated_at=$5 WHERE id=$1", [record.id, JSON.stringify(record), record.version, record.published, record.updatedAt]); return record;
+    await c.query("UPDATE opencircle_events SET slug=$2,record=$3,version=$4,published=$5,updated_at=$6 WHERE id=$1", [record.id, record.slug, JSON.stringify(record), record.version, record.published, record.updatedAt]); return record;
   }); }
   async addUpload(upload: EventUpload) { const { rows } = await this.pool.query<{ record: EventUpload }>("INSERT INTO opencircle_event_uploads (id,event_id,record,created_at) VALUES ($1,$2,$3,$4) ON CONFLICT(id) DO UPDATE SET id=EXCLUDED.id RETURNING record", [upload.id, upload.eventId, JSON.stringify(upload), upload.createdAt]); return rows[0].record; }
   async upload(id: string) { return (await this.pool.query<{ record: EventUpload }>("SELECT record FROM opencircle_event_uploads WHERE id::text=$1", [id])).rows[0]?.record ?? null; }
