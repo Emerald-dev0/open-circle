@@ -61,7 +61,8 @@ it('uses the signed-in GitHub identity through HTTP and protects personal respon
     expect((await POST(request({action:'link',phone:'bad'}))).status).toBe(400);
     expect((await POST(request({action:'help',question:'A question'},'https://foreign.test'))).status).toBe(403);
     payload={activity:{linked:true},projects:[],help:[],contributions:[]};
-    expect((await POST(request({action:'help',question:'How can I improve this?',login:'Other'}))).status).toBe(200);
+    expect((await POST(request({action:'help',question:'How can I improve this?',login:'Other'}))).status).toBe(409);
+    expect((await POST(request({action:'answer',helpId:'existing',text:'A useful existing answer',login:'Other'}))).status).toBe(200);
     expect(calls.at(-1)?.body.login).toBe('Alice');
     status=409;payload={error:'Already reviewed.'};
     await expect(coordinationRequest('action',{})).rejects.toMatchObject({status:409,message:'Already reviewed.'});

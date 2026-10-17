@@ -1,3 +1,4 @@
+import { FORUM_MAX_BYTES } from "../shared/forum.js";
 import { BOT_SETTINGS_MAX_BYTES } from "../shared/bot-settings.js";
 import { MAX_IMAGE_BYTES, MAX_PORTFOLIO_BYTES } from "../shared/portfolio.js";
 import { getStore } from "./db.js";
@@ -6,7 +7,7 @@ import { clientKey } from "./rate-limit.js";
 
 export function apiBodyLimit(pathname: string): number {
   const route = pathname.replace(/\/$/, "");
-  return route === "/api/bot-settings" ? BOT_SETTINGS_MAX_BYTES : route === "/api/portfolio-upload" ? MAX_IMAGE_BYTES : route === "/api/portfolio" ? MAX_PORTFOLIO_BYTES : MAX_REQUEST_BYTES;
+  return ["/api/forum", "/api/forum-admin"].includes(route) ? FORUM_MAX_BYTES : route === "/api/bot-settings" ? BOT_SETTINGS_MAX_BYTES : route === "/api/portfolio-upload" ? MAX_IMAGE_BYTES : route === "/api/portfolio" ? MAX_PORTFOLIO_BYTES : MAX_REQUEST_BYTES;
 }
 
 export function validateApiRequest(req: Request): void {

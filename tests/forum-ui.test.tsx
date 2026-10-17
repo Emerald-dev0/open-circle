@@ -1,0 +1,124 @@
+import { useState } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { beforeEach, expect, it, vi } from "vitest";
+import Community from "../src/pages/Community";
+import AdminForum from "../src/components/forum/admin-forum";
+import { ForumBody } from "../src/components/forum/content";
+import { forumApi } from "../src/lib/forum-api";
+import { ApiError } from "../src/lib/api";
+import { LocalForumStore } from "../server/forum-store";
+import { commandForum, forumFilter, listForum, readForum } from "../server/forum";
+import { admin, alice, bob, command, content, poll } from "./helpers/forum-contract";
+
+const state = vi.hoisted(() => ({ profile: { id: 2, login: "Alice", avatarUrl: "" } as { id: number; login: string; avatarUrl: string } | null }));
+vi.mock("../src/hooks/use-community", () => ({ useCommunity: () => ({ isPending: false, isError: false, data: { profile: state.profile, signInAvailable: true } }) }));
+vi.mock("../src/components/account-corner", () => ({ AccountCorner: () => null }));
+vi.mock("../src/components/dock", () => ({ Dock: () => null }));
+let store: LocalForumStore;
+let client: QueryClient;
+function wrap(element: React.ReactNode, route = "/community?tab=questions") {
+  return <QueryClientProvider client={client}><MemoryRouter initialEntries={[route]}><Routes><Route path="/community" element={element} /><Route path="/community/:id" element={element} /></Routes></MemoryRouter></QueryClientProvider>;
+}
+beforeEach(() => {
+  state.profile = { ...alice.profile };
+  store = new LocalForumStore(null);
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } });
+  vi.spyOn(forumApi, "list").mockImplementation((params, isAdmin) => listForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, forumFilter(new URL(`https://test?${params}`), isAdmin)));
+  vi.spyOn(forumApi, "detail").mockImplementation((id, page, isAdmin) => readForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, id, page));
+  vi.spyOn(forumApi, "command").mockImplementation((input, isAdmin) => commandForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, input));
+});
+it("preserves form input on failure, then submits a private question and displays the approval state", async () => {
+  const user = userEvent.setup();
+  render(wrap(<Community />));
+  await user.click(await screen.findByRole("button", { name: "Ask a question" }));
+  await user.type(screen.getByLabelText("Title"), content.title);
+  await user.type(screen.getByLabelText("Explanation"), content.body);
+  vi.mocked(forumApi.command).mockRejectedValueOnce(new ApiError(503, "unavailable", "Save failed. Try again."));
+  await user.click(screen.getByRole("button", { name: "Submit for approval" }));
+  await screen.findByRole("alert");
+  expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(content.title);
+  expect((screen.getByLabelText("Explanation") as HTMLTextAreaElement).value).toBe(content.body);
+  await user.click(screen.getByRole("button", { name: "Submit for approval" }));
+  await screen.findByText("Awaiting approval");
+  expect(screen.queryByRole("button", { name: "Comment" })).toBeNull();
+  expect((await listForum(store, bob, forumFilter(new URL("https://test?kind=question"), false))).total).toBe(0);
+});
+it("shows persisted poll results, changes a vote, posts a comment and hides commenting after locking", async () => {
+  const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, poll, publish: true }));
+  const user = userEvent.setup();
+  render(wrap(<Community />, `/community/${post.id}`));
+  await user.click(await screen.findByRole("radio", { name: /Git/ }));
+  await user.click(screen.getByRole("button", { name: "Vote" }));
+  await screen.findByText("Your vote");
+  expect((await readForum(store, alice, post.id)).poll?.selected).toBe("option_1");
+  await user.click(screen.getByRole("radio", { name: /Testing/ }));
+  await user.click(screen.getByRole("button", { name: "Change vote" }));
+  await waitFor(async () => expect((await readForum(store, alice, post.id)).poll?.selected).toBe("option_2"));
+  await user.type(screen.getByLabelText("Your comment"), "A useful member comment");
+  await user.click(screen.getByRole("button", { name: "Comment" }));
+  await screen.findByText("A useful member comment");
+  await commandForum(store, admin, command({ action: "moderate", id: post.id, version: 1, operation: "lock", reason: "Discussion complete" }));
+  await client.invalidateQueries({ queryKey: ["forum"] });
+  await screen.findByText("Comments are locked.");
+  expect(screen.queryByLabelText("Your comment")).toBeNull();
+});
+it("lets admins review a pending question, records a private reason and keeps all moderation in the existing component", async () => {
+  const pending = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
+  const user = userEvent.setup();
+  render(wrap(<AdminForum profile={admin.profile} onUnauthorized={vi.fn()} />));
+  await user.click(await screen.findByRole("button", { name: content.title }));
+  await user.type(await screen.findByLabelText("Private reason or review note"), "Please include the error message");
+  await user.click(screen.getByRole("button", { name: "Request changes" }));
+  await screen.findByText("Changes requested");
+  expect((await readForum(store, alice, pending.id)).reviewReason).toBe("Please include the error message");
+  await user.click(screen.getByRole("button", { name: "Back to queue" }));
+  await screen.findByText("No posts in this queue.");
+});
+it("clears drafts across account changes and hides previously fetched content after session failure", async () => {
+  const user = userEvent.setup();
+  function Switcher() {
+    const [, update] = useState(0);
+    return <><button onClick={() => { state.profile = bob.profile; update((v) => v + 1); }}>Switch account</button><Community /></>;
+  }
+  render(wrap(<Switcher />));
+  await user.click(await screen.findByRole("button", { name: "Ask a question" }));
+  await user.type(screen.getByLabelText("Title"), "Private unsaved question draft");
+  await user.click(screen.getByRole("button", { name: "Switch account" }));
+  await waitFor(() => expect(screen.queryByDisplayValue("Private unsaved question draft")).toBeNull());
+  const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true }));
+  expect(post.id).toBeTruthy();
+  vi.mocked(forumApi.list).mockRejectedValue(new ApiError(401, "github_required", "Sign in with GitHub again."));
+  await client.invalidateQueries({ queryKey: ["forum"] });
+  await screen.findByText("Sign in with GitHub again.");
+  expect(screen.queryByText("Private unsaved question draft")).toBeNull();
+});
+it("preserves a permanent link through sign-in and renders untrusted Markdown without executable links, HTML or remote images", async () => {
+  state.profile = null;
+  const id = crypto.randomUUID();
+  const result = render(wrap(<Community />, `/community/${id}`));
+  const signin = await screen.findByRole("link", { name: /Sign in with GitHub/ });
+  expect(new URL(signin.getAttribute("href")!, "https://test").searchParams.get("returnTo")).toBe(`/community/${id}`);
+  result.unmount();
+  const body = render(<ForumBody>{'<script>alert(1)</script>\n\n[unsafe](javascript:alert(1)) ![tracking](https://bad.test/pixel)\n\n[docs](https://react.dev)\n\n```js\nconst safe = true;\n```'}</ForumBody>);
+  expect(body.container.querySelector("script")).toBeNull();
+  expect(body.container.querySelector("img")).toBeNull();
+  expect(body.container.querySelector('a[href^="javascript"]')).toBeNull();
+  expect(screen.getByRole("link", { name: "docs" }).getAttribute("rel")).toContain("noreferrer");
+  expect(body.container.querySelector("pre code")?.textContent).toContain("const safe = true");
+});
+it("uses keyboard-operated custom category filters and retains the Questions tab", async () => {
+  const user = userEvent.setup();
+  render(wrap(<Community />));
+  const category = await screen.findByRole("combobox", { name: "Category" });
+  category.focus();
+  fireEvent.keyDown(category, { key: "ArrowDown" });
+  const listbox = await screen.findByRole("listbox");
+  expect(within(listbox).getByRole("option", { name: "Git / GitHub" })).toBeTruthy();
+  await user.click(within(listbox).getByRole("option", { name: "Git / GitHub" }));
+  await waitFor(() => expect(screen.getByRole("combobox", { name: "Category" }).textContent).toContain("Git / GitHub"));
+  expect(screen.getByRole("tab", { name: "Questions" }).getAttribute("data-state")).toBe("active");
+  expect(document.querySelector("select:not([aria-hidden='true'])")).toBeNull();
+});

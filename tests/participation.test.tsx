@@ -61,7 +61,7 @@ it('keeps drafts across tabs and browser history, then removes every private pan
   await user.click(screen.getByRole('tab',{name:'Projects'}));
   await user.type(screen.getByLabelText('Project name'),'My project draft');
   await user.click(screen.getByRole('tab',{name:'Help'}));
-  await user.type(screen.getByLabelText('Your question'),'My unfinished question');
+  await user.type(screen.getByLabelText(/Your mentoring skills, separated by commas/),'typescript');
   await user.click(screen.getByRole('tab',{name:'Repos'}));
   await user.click(screen.getByText('Submit an open-source repo'));
   await user.type(screen.getByLabelText('What does it do?'),'My unfinished repository description');
@@ -72,7 +72,7 @@ it('keeps drafts across tabs and browser history, then removes every private pan
   expect((screen.getByLabelText('What does it do?') as HTMLTextAreaElement).value).toBe('My unfinished repository description');
   await user.click(screen.getByRole('button',{name:'Go back'}));
   expect(await screen.findByRole('tab',{name:'Help',selected:true})).toBeTruthy();
-  expect((screen.getByLabelText('Your question') as HTMLTextAreaElement).value).toBe('My unfinished question');
+  expect((screen.getByLabelText(/Your mentoring skills, separated by commas/) as HTMLInputElement).value).toBe('typescript');
   await user.click(screen.getByRole('button',{name:'Go forward'}));
   expect(await screen.findByRole('tab',{name:'Repos',selected:true})).toBeTruthy();
   await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
@@ -128,18 +128,17 @@ it('keeps the requested section in the GitHub sign-in link',async()=>{
   expect(new URL(link.getAttribute('href')!,'https://opencircle.test').searchParams.get('returnTo')).toBe('/participation#repositories');
 });
 
-it('opens the feedback editor for a selected question and clears the previous target draft',async()=>{
+it('routes questions to Community and preserves the existing project-feedback draft',async()=>{
   const user=userEvent.setup();
-  mount({...initial,help:[{id:'help_1',owner:'Bob',question:'How can I improve my React menu?',createdAt:1,status:'open'}]});
+  mount();
   await user.click(await screen.findByRole('tab',{name:'Projects'}));
   await user.click(screen.getByRole('button',{name:'Give feedback'}));
   await user.type(screen.getByLabelText('What you tried and a useful observation or suggestion'),'Feedback for the first project');
   await user.click(screen.getByRole('tab',{name:'Help'}));
-  await user.click(screen.getByRole('button',{name:'Help with this'}));
-  expect(await screen.findByRole('tab',{name:'Feedback',selected:true})).toBeTruthy();
-  const field=screen.getByLabelText('What you tried and a useful observation or suggestion');
-  expect((field as HTMLTextAreaElement).value).toBe('');
-  expect(document.activeElement).toBe(field);
+  expect(screen.getByRole('link',{name:'Open questions'}).getAttribute('href')).toBe('/community?tab=questions');
+  expect(screen.queryByRole('button',{name:'Post help request'})).toBeNull();
+  await user.click(screen.getByRole('tab',{name:'Feedback'}));
+  expect((screen.getByLabelText('What you tried and a useful observation or suggestion') as HTMLTextAreaElement).value).toBe('Feedback for the first project');
 });
 
 it('collapses completed onboarding into instructions that can be reopened, and restores the guide after sign-out',async()=>{
@@ -239,15 +238,14 @@ it('shows catch-up and sessions, saves mentor preferences and keeps failed draft
   vi.mocked(api.participate).mockResolvedValue({...initial,community:{...routine,mentor:{available:true,skills:['react','typescript'],weeklyLimit:2}}});
   await user.click(screen.getByRole('button',{name:'Save mentor preferences'}));
   await waitFor(()=>expect(api.participate).toHaveBeenLastCalledWith({action:'mentor',available:true,skills:['react','typescript'],weeklyLimit:2},expect.anything()));
-  await user.click(screen.getByRole('button',{name:'Decline request'}));
-  await waitFor(()=>expect(api.participate).toHaveBeenLastCalledWith({action:'decline-help',id:'help_1'},expect.anything()));
+  expect(screen.getByRole('link',{name:'Open questions'}).getAttribute('href')).toBe('/community?tab=questions');
   await act(async()=>{client.setQueryData(COMMUNITY_KEY,{...community,profile:null});});
   await screen.findByRole('link',{name:'Sign in with GitHub'});
   expect(screen.queryByText('First community task')).toBeNull();
   expect(screen.getByText('Start here')).toBeTruthy();
 });
 
-it('paginates projects, help and feedback independently while keeping later-page actions usable',async()=>{
+it('paginates projects and feedback independently while keeping later-page actions usable',async()=>{
   const data:ParticipationState={...initial,projects:Array.from({length:12},(_,index)=>({...initial.projects[0],id:`project_${index}`,title:`Project ${index}`})),help:Array.from({length:12},(_,index)=>({id:`help_${index}`,owner:'Bob',question:`Question ${index}`,createdAt:1,status:'open'})),contributions:Array.from({length:12},(_,index)=>({id:`feedback_${index}`,by:'Bob',for:'Alice',kind:'review',targetId:'project_1',text:`Feedback ${index}`,status:'pending',createdAt:1}))};
   mount(data);
   const user=userEvent.setup();
@@ -260,9 +258,7 @@ it('paginates projects, help and feedback independently while keeping later-page
   await user.click(within(screen.getByText('Project 10').closest('li')!).getByRole('button',{name:'Give feedback'}));
   expect(screen.getByText('Feedback for Project 10')).toBeTruthy();
   await user.click(screen.getByRole('tab',{name:'Help'}));
-  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(10);
-  await user.click(nav('Help requests').getByRole('button',{name:'Next'}));
-  expect(within(screen.getByRole('list',{name:'Help requests'})).getAllByRole('listitem')).toHaveLength(2);
+  expect(screen.getByRole('link',{name:'Open questions'})).toBeTruthy();
   await user.click(screen.getByRole('tab',{name:'Feedback'}));
   await user.click(nav('Feedback').getByRole('button',{name:'Next'}));
   expect(within(screen.getByRole('list',{name:'Feedback'})).getAllByRole('listitem')).toHaveLength(2);
