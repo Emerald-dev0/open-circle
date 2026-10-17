@@ -65,8 +65,8 @@ export function devApi(): Plugin {
           const handler = mod[method] as
             | ((r: Request) => Promise<Response>)
             | undefined;
-          if (typeof handler !== "function" || !["GET", "POST", "PATCH", "DELETE"].includes(method)) {
-            const response = json({ error: { code: "method_not_allowed", message: "That method is not supported." } }, 405, { allow: Object.keys(mod).filter((key) => /^(GET|POST|PATCH|DELETE)$/.test(key)).join(", ") });
+          if (typeof handler !== "function" || !["GET", "HEAD", "POST", "PATCH", "DELETE"].includes(method)) {
+            const response = json({ error: { code: "method_not_allowed", message: "That method is not supported." } }, 405, { allow: Object.keys(mod).filter((key) => /^(GET|HEAD|POST|PATCH|DELETE)$/.test(key)).join(", ") });
             response.headers.forEach((value, key) => res.setHeader(key, value));
             res.statusCode = response.status;
             return res.end(await response.text());

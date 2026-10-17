@@ -50,6 +50,8 @@ Upcoming events have a Register button and a name/email form. Registrations pers
 
 Event pages use five-character addresses such as `/events/yu48r`. A short address stays the same when the title or schedule changes. Existing title-and-ID links keep opening the same event and switch to its short address; older events receive a short address when saved.
 
+Shared event links show the published event's title, summary and cover image. Only the current cover of a published event is available to preview crawlers through `/api/event-cover`; recordings, resources, registration details and draft covers remain private.
+
 ## Member portfolios
 
 [Create your portfolio](https://opencircle.cc/portfolio) with GitHub and publish it at `username.opencircle.cc`. Your page includes your GitHub photo, name, bio and up to six public repositories you own, with links to their source and existing live sites.

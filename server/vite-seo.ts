@@ -14,10 +14,12 @@ export function seo(siteUrl: string | undefined): Plugin {
     name: "opencircle:seo",
     transformIndexHtml: {
       order: "pre",
-      handler(html, ctx) {
+      async handler(html, ctx) {
         const ready = html.replaceAll("%SITE_URL%", origin);
         const pathname = new URL(ctx.originalUrl ?? "/", origin).pathname;
-        return applySeo(ready, seoDocument(pathname, origin));
+        const dynamic = ctx.server && /^\/events\/[a-z0-9-]+$/.test(pathname) ? await ctx.server.ssrLoadModule("/server/event-seo.ts") : null;
+        const document = await dynamic?.eventSeoDocument(pathname, origin) ?? seoDocument(pathname, origin);
+        return applySeo(ready, document);
       },
     },
     configureServer(server) {

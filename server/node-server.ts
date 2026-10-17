@@ -4,6 +4,7 @@ import * as events from "../api/events.js";
 import * as eventRegistrations from "../api/event-registrations.js";
 import * as eventUploads from "../api/event-uploads.js";
 import * as eventMedia from "../api/event-media.js";
+import * as eventCover from "../api/event-cover.js";
 import * as botSettings from "../api/bot-settings.js";
 /**
  * Standalone Node server for hosts that aren't Vercel (e.g. Pxxl): serves the
@@ -44,6 +45,7 @@ import { readBody } from "./vite-dev-api.js";
 import { handle, HttpError, json } from "./http.js";
 import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
 import { readPublicPortfolio } from "./portfolio.js";
+import { eventSeoDocument } from "./event-seo.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
@@ -51,6 +53,7 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   "event-registrations": eventRegistrations as Record<string, Handler>,
   "event-uploads": eventUploads as Record<string, Handler>,
   "event-media": eventMedia as Record<string, Handler>,
+  "event-cover": eventCover as Record<string, Handler>,
   analytics: analytics as Record<string, Handler>,
   admin: admin as Record<string, Handler>,
   "bot-settings": botSettings as Record<string, Handler>,
@@ -104,7 +107,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       const route = api ? routes[api[1]] : undefined;
       const handler = route?.[req.method ?? "GET"];
       if (!handler) {
-        const response = json({ error: { code: route ? "method_not_allowed" : "not_found", message: route ? "That method is not supported." : "That endpoint does not exist." } }, route ? 405 : 404, route ? { allow: Object.keys(route).filter((method) => /^(GET|POST|PATCH|DELETE)$/.test(method)).join(", ") } : {});
+        const response = json({ error: { code: route ? "method_not_allowed" : "not_found", message: route ? "That method is not supported." : "That endpoint does not exist." } }, route ? 405 : 404, route ? { allow: Object.keys(route).filter((method) => /^(GET|HEAD|POST|PATCH|DELETE)$/.test(method)).join(", ") } : {});
         response.headers.forEach((value, key) => res.setHeader(key, value));
         res.writeHead(response.status).end(await response.text());
         return;
@@ -186,7 +189,13 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       }
       const raw = readFileSync(INDEX, "utf8");
       const origin = originFromHtml(raw, process.env.SITE_URL || DEFAULT_SITE_URL);
-      const document = seoDocument(pathname, origin);
+      let document = seoDocument(pathname, origin);
+      try { document = await eventSeoDocument(pathname, origin) ?? document; }
+      catch (error) {
+        console.error(error);
+        document = { ...document, status: 503 };
+      }
+      if (pathname.startsWith("/events/")) res.setHeader("cache-control", "no-store");
       if (!document.index) res.setHeader("x-robots-tag", "noindex, nofollow");
       res.writeHead(document.status).end(applySeo(raw.replaceAll("%SITE_URL%", origin), document));
       return;

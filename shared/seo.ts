@@ -108,9 +108,10 @@ export const SITE_LINKS = [
 const byPath = new Map(SEO_PAGES.map((page) => [page.path, page]));
 
 export type SeoDocument = SeoPage & {
-  status: 200 | 404;
+  status: 200 | 404 | 503;
   robots: string;
   url: string;
+  image?: { url: string; alt: string; contentType: string };
 };
 
 export function siteOrigin(value = DEFAULT_SITE_URL) {
@@ -184,7 +185,7 @@ export function structuredData(originInput = DEFAULT_SITE_URL) {
 
 export function robotsTxt(originInput = DEFAULT_SITE_URL) {
   const origin = siteOrigin(originInput);
-  return ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
+  return ["User-agent: *", "Allow: /", "Allow: /api/event-cover", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
 }
 
 export function sitemapXml(originInput = DEFAULT_SITE_URL, lastmod = new Date().toISOString().slice(0, 10)) {
@@ -238,30 +239,30 @@ function escapeAttr(value: string) {
 function setAttribute(tag: string, name: string, value: string) {
   const assignment = ` ${name}="${escapeAttr(value)}"`;
   const pattern = new RegExp(`\\s${name}=(?:"[^"]*"|'[^']*')`, "i");
-  if (pattern.test(tag)) return tag.replace(pattern, assignment);
-  return tag.replace(/\s*\/?>$/, `${assignment}$&`);
+  if (pattern.test(tag)) return tag.replace(pattern, () => assignment);
+  return tag.replace(/\s*\/?>$/, (ending) => `${assignment}${ending}`);
 }
 
 function replaceMeta(html: string, attribute: "name" | "property", key: string, content: string) {
   const pattern = new RegExp(`<meta\\b(?=[^>]*\\b${attribute}=["']${key}["'])[^>]*>`, "i");
   const tag = html.match(pattern)?.[0];
   if (!tag) return html;
-  return html.replace(tag, setAttribute(tag, "content", content));
+  return html.replace(tag, () => setAttribute(tag, "content", content));
 }
 
 function replaceCanonical(html: string, href: string) {
   const pattern = /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/i;
   const tag = html.match(pattern)?.[0];
   if (!tag) return html;
-  return html.replace(tag, setAttribute(tag, "href", href));
+  return html.replace(tag, () => setAttribute(tag, "href", href));
 }
 
 export function applySeo(html: string, document: SeoDocument) {
   const json = JSON.stringify(structuredData(new URL(document.url).origin), null, 2).replace(/</g, "\\u003c");
   let next = html
-    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, `<title>${escapeText(document.title)}</title>`)
-    .replace(/(<h1\b[^>]*\bid=["']seo-title["'][^>]*>)[\s\S]*?(<\/h1>)/i, `$1${escapeText(document.heading)}$2`)
-    .replace(/(<p\b[^>]*\bid=["']seo-summary["'][^>]*>)[\s\S]*?(<\/p>)/i, `$1${escapeText(document.summary)}$2`)
+    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, () => `<title>${escapeText(document.title)}</title>`)
+    .replace(/(<h1\b[^>]*\bid=["']seo-title["'][^>]*>)[\s\S]*?(<\/h1>)/i, (_, start, end) => `${start}${escapeText(document.heading)}${end}`)
+    .replace(/(<p\b[^>]*\bid=["']seo-summary["'][^>]*>)[\s\S]*?(<\/p>)/i, (_, start, end) => `${start}${escapeText(document.summary)}${end}`)
     .replace(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/i, `<script type="application/ld+json">\n${json}\n    </script>`);
   next = replaceMeta(next, "name", "description", document.description);
   next = replaceMeta(next, "name", "robots", document.robots);
@@ -270,5 +271,13 @@ export function applySeo(html: string, document: SeoDocument) {
   next = replaceMeta(next, "property", "og:url", document.url);
   next = replaceMeta(next, "name", "twitter:title", document.title);
   next = replaceMeta(next, "name", "twitter:description", document.description);
+  if (document.image) {
+    next = replaceMeta(next, "property", "og:image", document.image.url);
+    next = replaceMeta(next, "property", "og:image:type", document.image.contentType);
+    next = replaceMeta(next, "property", "og:image:alt", document.image.alt);
+    next = replaceMeta(next, "name", "twitter:image", document.image.url);
+    next = replaceMeta(next, "name", "twitter:image:alt", document.image.alt);
+    next = next.replace(/<meta\b(?=[^>]*\bproperty=["']og:image:(?:width|height)["'])[^>]*>\s*/gi, "");
+  }
   return replaceCanonical(next, document.url);
 }
