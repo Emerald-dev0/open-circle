@@ -63,7 +63,7 @@ export async function forumViewer(req: Request, admin = false): Promise<ForumVie
     if (state.activity.linked !== true || (typeof state.activity.login !== "string" || state.activity.login.toLowerCase() !== profile.login.toLowerCase())) throw new HttpError(403, "forum_membership", "Verify your WhatsApp membership from Participation, then try again.");
     participation = state;
   }
-  return { profile: { id: profile.id, login: profile.login, avatarUrl: profile.avatarUrl }, admin, participation };
+  return { profile: { id: profile.id, login: profile.login, ...(profile.name ? { name: profile.name } : {}), avatarUrl: profile.avatarUrl }, admin, participation };
 }
 export function forumFilter(url: URL, admin: boolean): ForumFilter {
   const page = Number(url.searchParams.get("page") ?? "1");

@@ -13,7 +13,7 @@ import { LocalForumStore } from "../server/forum-store";
 import { commandForum, forumFilter, listForum, readForum } from "../server/forum";
 import { admin, alice, bob, command, content, poll } from "./helpers/forum-contract";
 
-const state = vi.hoisted(() => ({ profile: { id: 2, login: "Alice", avatarUrl: "" } as { id: number; login: string; avatarUrl: string } | null }));
+const state = vi.hoisted(() => ({ profile: { id: 2, login: "Alice", avatarUrl: "" } as { id: number; login: string; name?: string | null; avatarUrl: string } | null }));
 vi.mock("../src/hooks/use-community", () => ({ useCommunity: () => ({ isPending: false, isError: false, data: { profile: state.profile, signInAvailable: true } }) }));
 vi.mock("../src/components/account-corner", () => ({ AccountCorner: () => null }));
 vi.mock("../src/components/dock", () => ({ Dock: () => null }));
@@ -29,6 +29,24 @@ beforeEach(() => {
   vi.spyOn(forumApi, "list").mockImplementation((params, isAdmin) => listForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, forumFilter(new URL(`https://test?${params}`), isAdmin)));
   vi.spyOn(forumApi, "detail").mockImplementation((id, page, isAdmin) => readForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, id, page));
   vi.spyOn(forumApi, "command").mockImplementation((input, isAdmin) => commandForum(store, isAdmin ? admin : { profile: state.profile!, admin: false }, input));
+});
+it("shows display names in the feed, thread, comments and reply context with a username fallback", async () => {
+  const author = { ...admin, profile: { ...admin.profile, name: "Naheem Olaide" } };
+  const commenter = { ...alice, profile: { ...alice.profile, name: "Alice Builder" } };
+  const post = await commandForum(store, author, command({ action: "create", kind: "discussion", content, publish: true }));
+  await commandForum(store, commenter, command({ action: "comment", id: post.id, body: "A useful named comment" }));
+  await commandForum(store, bob, command({ action: "comment", id: post.id, body: "A comment without a display name" }));
+  const user = userEvent.setup();
+  render(wrap(<Community />, "/community?tab=discussions"));
+  await screen.findByText("Naheem Olaide");
+  expect(screen.queryByText("@Admin")).toBeNull();
+  await user.click(screen.getByRole("link", { name: content.title }));
+  await screen.findByText("Alice Builder");
+  expect(screen.getByText("Naheem Olaide")).toBeTruthy();
+  expect(screen.queryByText("@Alice")).toBeNull();
+  expect(screen.getByText("@Bob")).toBeTruthy();
+  await user.click(screen.getAllByRole("button", { name: "Reply" })[0]);
+  expect(screen.getByText("Replying to Alice Builder")).toBeTruthy();
 });
 it("preserves form input on failure, then submits a private question and displays the approval state", async () => {
   const user = userEvent.setup();

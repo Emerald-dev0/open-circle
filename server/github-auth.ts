@@ -54,7 +54,7 @@ export async function githubProfile(req: Request, store: CommunityStore): Promis
   if (!githubSignInAvailable()) return null;
   const hash = sessionHash(req);
   const profile = hash ? await store.readSession(hash) : null;
-  return profile ? { id: profile.id, login: profile.login, avatarUrl: profile.avatarUrl, ...(hash && openStarAuthorization(profile.starAuthorization, hash, profile.id) ? { starsConnected: true } : {}) } : null;
+  return profile ? { id: profile.id, login: profile.login, ...(profile.name ? { name: profile.name } : {}), avatarUrl: profile.avatarUrl, ...(hash && openStarAuthorization(profile.starAuthorization, hash, profile.id) ? { starsConnected: true } : {}) } : null;
 }
 
 export function profileActor(profile: GitHubProfile): string {
@@ -119,7 +119,7 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     if (typeof token.access_token !== "string" || token.token_type !== "bearer") throw new HttpError(502, "github_exchange", "GitHub sign-in couldn't finish. Try again.");
     const user = await githubJson("https://api.github.com/user", { headers: { authorization: `Bearer ${token.access_token}`, accept: "application/vnd.github+json", "x-github-api-version": "2026-03-10", "user-agent": "OpenCircle" } });
     if (!Number.isSafeInteger(user.id) || Number(user.id) <= 0 || typeof user.login !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(user.login) || user.type !== "User") throw new HttpError(502, "github_profile", "GitHub didn't return a personal profile. Try again.");
-    const profile: GitHubProfile = { id: Number(user.id), login: user.login, avatarUrl: `https://avatars.githubusercontent.com/u/${user.id}?s=80` };
+    const profile: GitHubProfile = { id: Number(user.id), login: user.login, ...(typeof user.name === "string" && user.name.trim() ? { name: user.name.trim() } : {}), avatarUrl: `https://avatars.githubusercontent.com/u/${user.id}?s=80` };
     if (savedState.admin === true) {
       const adminCookie = await createAdminSession(req, store, profile);
       const headers = new Headers({ location: returnTo, "cache-control": "no-store" });

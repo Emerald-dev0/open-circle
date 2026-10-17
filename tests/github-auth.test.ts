@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryCommunityStore } from "../server/community-memory";
 import { beginGitHubSignIn, finishGitHubSignIn, githubProfile, githubSignInAvailable, profileActor, sessionHash, signOutGitHub } from "../server/github-auth";
+import { adminProfile } from "../server/admin-session";
 
 const callback = "https://opencircle.test/api/auth-callback";
 let store: MemoryCommunityStore;
@@ -24,6 +25,20 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("GitHub sign-in", () => {
+  it("keeps the verified display name in member and admin sessions", async () => {
+    vi.stubEnv("ADMIN_GITHUB_IDS", "123");
+    for (const admin of [false, true]) {
+      const start = beginGitHubSignIn(new Request(`https://opencircle.test/api/auth-start?returnTo=${admin ? "/admin" : "/tools"}`));
+      const state = new URL(start.headers.get("location")!).searchParams.get("state");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ access_token: "private-oauth-token", token_type: "bearer" }))).mockResolvedValueOnce(new Response(JSON.stringify({ id: 123, login: "octocat", name: "  Mona Octocat  ", type: "User" }))));
+      const response = await finishGitHubSignIn(new Request(`${callback}?code=test&state=${state}`, { headers: { cookie: start.headers.get("set-cookie")!.split(";")[0] } }), store);
+      const session = response.headers.getSetCookie().find(cookie => cookie.startsWith(admin ? "__Host-opencircle_admin=" : "opencircle_github="))!.split(";")[0];
+      const request = new Request("https://opencircle.test/api/community", { headers: { cookie: session } });
+      const profile = admin ? await adminProfile(request, store) : await githubProfile(request, store);
+      expect(profile).toEqual({ id: 123, login: "octocat", name: "Mona Octocat", avatarUrl: "https://avatars.githubusercontent.com/u/123?s=80" });
+      expect(JSON.stringify(profile)).not.toContain("private-oauth-token");
+    }
+  });
   it("uses exact callbacks, random state and PKCE without requesting private access", () => {
     const { response, destination } = start();
     expect(destination.origin).toBe("https://github.com");

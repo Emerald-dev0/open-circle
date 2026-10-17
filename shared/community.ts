@@ -35,6 +35,7 @@ export type VoteValue = -1 | 0 | 1;
 export interface GitHubProfile {
   id: number;
   login: string;
+  name?: string | null;
   avatarUrl: string;
   starsConnected?: boolean;
 }

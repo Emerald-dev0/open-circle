@@ -6,7 +6,7 @@ export const forumCategories = ["General development", "Git / GitHub", "Portfoli
 export type ForumCategory = typeof forumCategories[number];
 export type ForumKind = "discussion" | "question";
 export type ReviewStatus = "draft" | "pending" | "approved" | "rejected" | "changes";
-export type ForumAuthor = Pick<GitHubProfile, "id" | "login" | "avatarUrl">;
+export type ForumAuthor = Pick<GitHubProfile, "id" | "login" | "name" | "avatarUrl">;
 export interface ForumContent { title: string; body: string; category: ForumCategory }
 export interface ForumPoll { question: string; options: { id: string; label: string }[]; closesAt: number | null; closed: boolean }
 export interface ForumThread {
@@ -34,6 +34,7 @@ export interface ForumDetail extends ForumSummary {
   revision?: ForumContent | null; reviewReason?: string; submittedAt?: number; reports?: (ForumReport & { reportedComment?: ForumComment })[]; audit?: ForumAudit[];
 }
 export interface ForumPage { items: ForumSummary[]; total: number; page: number; pageSize: number }
+export function forumAuthorName(author?: ForumAuthor) { return typeof author?.name === "string" && author.name.trim() ? author.name.trim() : author ? `@${author.login}` : "member"; }
 export interface ForumFilter { kind: ForumKind; page: number; search: string; category: string; status: string; mine: boolean; queue: string }
 export type ForumCommand = {
   action: "create" | "edit" | "comment" | "vote" | "like" | "report" | "review" | "moderate";

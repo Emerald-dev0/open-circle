@@ -10,6 +10,7 @@ import { TestStore } from "./helpers/test-store";
 import { content, poll } from "./helpers/forum-contract";
 import type { ForumDetail } from "../shared/forum";
 import { randomUUID } from "node:crypto";
+import { memberRecord } from "./helpers/fixtures";
 
 let sessions: MemoryCommunityStore;
 let forum: LocalForumStore;
@@ -39,6 +40,48 @@ beforeEach(async () => {
   for (const [token, id, login, prefix] of [[aliceToken, 2, "Alice", ""], [bobToken, 3, "Bob", ""], [adminToken, 1, "Admin", "admin:"]] as const) await sessions.createSession(createHash("sha256").update(`${prefix}${token}`).digest("hex"), { id, login, avatarUrl: "" }, Date.now() + 60000);
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+it("resolves existing author names across feeds, comments, reports and audit without rewriting posts or exposing member records", async () => {
+  const created = await adminApi.POST(req(cmd({ action: "create", kind: "discussion", content, publish: true }), adminToken, true));
+  const post = await created.json() as ForumDetail;
+  expect(post.author.name).toBeUndefined();
+  for (const [login, name, whatsapp] of [["admin", "Naheem Olaide", "+2341111111111"], ["alice", "Alice Builder", "+2342222222222"], ["bob", "Bob Helper", "+2343333333333"]]) await board.createMember(memberRecord({ login, displayLogin: login, name, nickname: login, whatsapp }));
+  const lookup = vi.spyOn(board, "getMember");
+  const feed = await memberApi.GET(req(undefined, aliceToken, false, "?kind=discussion"));
+  expect((await feed.json()).items[0].author).toMatchObject({ id: 1, login: "Admin", name: "Naheem Olaide" });
+  expect(lookup).toHaveBeenCalledTimes(1);
+  expect(await forum.transact(post.id, false, data => data.thread!.author.name)).toBeUndefined();
+  const commented = await memberApi.POST(req(cmd({ action: "comment", id: post.id, body: "An existing member's comment", author: { name: "Spoofed Name" } })));
+  const comment = (await commented.json()).comments[0];
+  expect(comment.author).toMatchObject({ id: 2, login: "Alice", name: "Alice Builder" });
+  await memberApi.POST(req(cmd({ action: "report", id: post.id, commentId: comment.id, reason: "Please check this comment" }), bobToken));
+  const adminResponse = await adminApi.GET(req(undefined, adminToken, true, `?id=${post.id}`));
+  const adminData = await adminResponse.json() as ForumDetail;
+  expect(adminData.author.name).toBe("Naheem Olaide");
+  expect(adminData.comments[0].author.name).toBe("Alice Builder");
+  expect(adminData.reports![0].author.name).toBe("Bob Helper");
+  expect(adminData.reports![0].reportedComment!.author.name).toBe("Alice Builder");
+  expect(adminData.audit![0].actor.name).toBe("Naheem Olaide");
+  expect(JSON.stringify(adminData)).not.toContain("whatsapp");
+  expect(JSON.stringify(adminData)).not.toContain("+2341111111111");
+  const memberResponse = await memberApi.GET(req(undefined, aliceToken, false, `?id=${post.id}`));
+  const memberData = await memberResponse.json();
+  expect(memberResponse.headers.get("cache-control")).toBe("private, no-store");
+  expect(memberData).not.toHaveProperty("reports");
+  expect(memberData).not.toHaveProperty("audit");
+  expect(memberData.author.name).toBe("Naheem Olaide");
+  expect(await forum.transact(post.id, false, data => data.thread!.author.name)).toBeUndefined();
+});
+it("uses names from verified sessions for new authors and falls back safely when no name exists", async () => {
+  await sessions.createSession(createHash("sha256").update(`admin:${adminToken}`).digest("hex"), { id: 1, login: "Admin", name: "Naheem Olaide", avatarUrl: "" }, Date.now()+60000);
+  const created = await adminApi.POST(req(cmd({ action: "create", kind: "discussion", content, publish: true }), adminToken, true));
+  const post = await created.json() as ForumDetail;
+  expect(post.author.name).toBe("Naheem Olaide");
+  expect(await forum.transact(post.id, false, data => data.thread!.author.name)).toBe("Naheem Olaide");
+  const commented = await memberApi.POST(req(cmd({ action: "comment", id: post.id, body: "A member without a display name" })));
+  const data = await commented.json() as ForumDetail;
+  expect(data.comments[0].author).toEqual({ id: 2, login: "Alice", avatarUrl: "" });
+  expect(data.author.name).toBe("Naheem Olaide");
+});
 it("enforces member verification and admin sessions on every route, including legacy Help", async () => {
   expect((await memberApi.GET(new Request(`${origin}/api/forum`))).status).toBe(401);
   expect((await adminApi.GET(req(undefined, aliceToken, true))).status).toBe(401);
