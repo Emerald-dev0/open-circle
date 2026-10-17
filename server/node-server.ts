@@ -21,6 +21,9 @@ import * as adminSession from "../api/admin-session.js";
 import * as auth from "../api/auth.js";
 import * as authStart from "../api/auth-start.js";
 import * as authCallback from "../api/auth-callback.js";
+import * as forumLegacy from "../api/forum-legacy.js";
+import * as forum from "../api/forum.js";
+import * as forumAdmin from "../api/forum-admin.js";
 import * as community from "../api/community.js";
 import * as tools from "../api/tools.js";
 import * as repositoryStars from "../api/repository-stars.js";
@@ -53,6 +56,9 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   auth: auth as Record<string, Handler>,
   "auth-start": authStart as Record<string, Handler>,
   "auth-callback": authCallback as Record<string, Handler>,
+  "forum-legacy": forumLegacy as Record<string, Handler>,
+  forum: forum as Record<string, Handler>,
+  "forum-admin": forumAdmin as Record<string, Handler>,
   community: community as Record<string, Handler>,
   tools: tools as Record<string, Handler>,
   vote: vote as Record<string, Handler>,
@@ -165,7 +171,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         }
         return;
       }
-      if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/portfolio") {
+      if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/portfolio" || pathname === "/community" || pathname.startsWith("/community/")) {
         res.setHeader("x-robots-tag", "noindex, nofollow");
         res.setHeader("cache-control", "no-store");
         res.setHeader("x-frame-options", "DENY");

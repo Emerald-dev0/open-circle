@@ -53,6 +53,14 @@ export const SEO_PAGES: readonly SeoPage[] = [
     index: true,
   },
   {
+    path: "/community",
+    title: `Community · ${BRAND_NAME}`,
+    description: "Development discussions, questions and polls for verified Open Source Circle members.",
+    summary: "Discuss development and ask the circle for help.",
+    heading: "Community",
+    index: false,
+  },
+  {
     path: "/participation",
     title: `Group participation · ${BRAND_NAME}`,
     description:
@@ -93,6 +101,7 @@ export const SITE_LINKS = [
   { path: "/repositories", label: "Spotlight" },
   { path: "/tools", label: "Developer tools" },
   { path: "/how-it-works", label: "How ranking works" },
+  { path: "/community", label: "Community" },
   { path: "/participation", label: "Group participation" },
 ] as const;
 
@@ -114,13 +123,13 @@ export function siteOrigin(value = DEFAULT_SITE_URL) {
 
 export function pageFor(pathname: string) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
-  return byPath.get(path);
+  return byPath.get(path.startsWith("/community/") ? "/community" : path);
 }
 
 export function seoDocument(pathname: string, originInput = DEFAULT_SITE_URL): SeoDocument {
   const origin = siteOrigin(originInput);
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
-  const page = byPath.get(path) ?? (/^\/events\/[a-z0-9-]+$/.test(path) ? { ...byPath.get("/events")!, path } : NOT_FOUND);
+  const page = byPath.get(path.startsWith("/community/") ? "/community" : path) ?? (/^\/events\/[a-z0-9-]+$/.test(path) ? { ...byPath.get("/events")!, path } : NOT_FOUND);
   const canonicalPath = page.path || (path.startsWith("/") ? path : "/");
   return {
     ...page,

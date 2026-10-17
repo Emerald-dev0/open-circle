@@ -1,0 +1,36 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
+import { expect, it, vi } from "vitest";
+import { LegacyHelp } from "../src/components/forum/legacy-help";
+import { api, ApiError } from "../src/lib/api";
+
+it("keeps earlier help private, paginates requests and preserves answer confirmations and failed answer drafts", async () => {
+  const user = userEvent.setup();
+  const data = { help: Array.from({ length: 12 }, (_, i) => ({ id: `help_${i}`, owner: i === 11 ? "Alice" : "Bob", question: `Earlier private question ${i}`, createdAt: 1, status: "open" })), contributions: [{ id: "answer", by: "Bob", for: "Alice", targetId: "help_11", text: "An earlier answer to confirm", status: "pending", kind: "answer", createdAt: 1 }], assignedHelp: ["help_10"] };
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(data))));
+  const participate = vi.spyOn(api, "participate").mockRejectedValueOnce(new ApiError(503, "offline", "The bot is unavailable."));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  render(<QueryClientProvider client={client}><MemoryRouter><LegacyHelp profileId={2} login="Alice" /></MemoryRouter></QueryClientProvider>);
+  const list = await screen.findByRole("list", { name: "Earlier help" });
+  expect(within(list).getAllByRole("listitem")).toHaveLength(10);
+  await user.click(within(screen.getByRole("navigation", { name: "Earlier help pagination" })).getByRole("button", { name: "Next" }));
+  expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByRole("link", { name: "Earlier private question 10" }).getAttribute("href")).toBe("/community/help/help_10");
+  await user.click(screen.getByRole("button", { name: "Answer" }));
+  const answer = "I reproduced this issue and found a useful fix for it.";
+  await user.type(screen.getByLabelText("Your answer"), answer);
+  await user.click(screen.getByRole("button", { name: "Submit answer" }));
+  await screen.findByText("The bot is unavailable.");
+  expect((screen.getByLabelText("Your answer") as HTMLTextAreaElement).value).toBe(answer);
+  participate.mockResolvedValue({} as Awaited<ReturnType<typeof api.participate>>);
+  await user.click(screen.getByRole("button", { name: "Submit answer" }));
+  await waitFor(() => expect(participate).toHaveBeenLastCalledWith({ action: "answer", helpId: "help_10", text: answer }, expect.anything()));
+  await user.click(screen.getByRole("button", { name: "Decline request" }));
+  await waitFor(() => expect(participate).toHaveBeenLastCalledWith({ action: "decline-help", id: "help_10" }, expect.anything()));
+  await user.click(screen.getByRole("button", { name: "Mark resolved" }));
+  await waitFor(() => expect(participate).toHaveBeenLastCalledWith({ action: "close", id: "help_11" }, expect.anything()));
+  expect(screen.getByRole("link", { name: "Confirm received answers in Participation" }).getAttribute("href")).toBe("/participation#feedback");
+  expect(screen.queryByRole("button", { name: "Post help request" })).toBeNull();
+});

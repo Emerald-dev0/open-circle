@@ -1,6 +1,6 @@
 import { pollApi } from "@/lib/query-policy";
 import { useEffect, useId, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CopyIcon } from "@solar-icons/react/linear";
@@ -269,19 +269,11 @@ export default function Participation() {
           </TabsContent>
           <TabsContent value="help" forceMount hidden={section !== "help"}>
             <section id="help" className="scroll-mt-24 space-y-4 sm:space-y-6">
-              <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
-                {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
-                  {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "answer", id: help.id, title: help.owner }); selectSection("feedback", true); }}>Help with this</MetalButton>}
-                  {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
-                  {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
-                </>}>
-                  <p className="break-words text-sm text-foreground">{help.question}</p>
-                  <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
-                  {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
-                </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
-                <FormFooter>
-                  <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
-                </FormFooter>
+              <Panel header={<PanelHeader title="Questions" />}>
+                <div className="space-y-3 py-4">
+                  <p className="text-sm text-t2">Ask questions and find earlier help requests in Community. Existing answer confirmations stay in Feedback.</p>
+                  <MetalButton asChild className="min-h-11 w-auto"><Link to="/community?tab=questions">Open questions</Link></MetalButton>
+                </div>
               </Panel>
               {data.community && <CommunityMentoring data={data.community} busy={busy} submit={submit} />}
             </section>

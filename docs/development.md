@@ -81,3 +81,15 @@ vitest.config.ts      Test environments and worker limits
 `tsconfig.json` is the single root TypeScript entry point. It holds shared settings and references the app, API, Node tooling and test configurations in `config/typescript/`. Each keeps the checks and libraries its environment needs. Generated TypeScript caches go in `node_modules/.cache/typescript/`.
 
 The frontend uses React 19, Vite 6, TypeScript, Tailwind CSS 3, Radix-based UI primitives and TanStack Query. The API uses Web `Request`/`Response` handlers and Node.js features; it is not an edge-only backend.
+
+### Forum storage verification
+
+The standard suite includes the durable local store contract, authorization handlers, OAuth return paths, moderation and member/admin UI workflows. Run the PostgreSQL contract against a disposable local database named `opencircle_forum_test_*`:
+
+```bash
+createdb opencircle_forum_test_local
+FORUM_TEST_DATABASE_URL=postgresql://localhost/opencircle_forum_test_local pnpm test tests/forum-postgres.test.ts
+dropdb opencircle_forum_test_local
+```
+
+The contract applies all migrations, checks migration idempotence, truncates only forum tables in that disposable database and tests concurrent voting, duplicate requests, closure races, database uniqueness, rollback and persistence through a new store connection. Never point it at a shared or production database. Test workers remain capped at two.

@@ -13,6 +13,7 @@ import { ThemeProvider } from "./components/theme-provider";
 const Events = lazy(() => import("./pages/Events"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Portfolio = lazy(() => import("./pages/Portfolio"));
+const Community = lazy(() => import("./pages/Community"));
 const Participation = lazy(() => import("./pages/Participation"));
 const PublicPortfolio = lazy(() => import("./pages/PublicPortfolio"));
 const portfolioSlug = portfolioSlugFromHostname(window.location.hostname);
@@ -32,6 +33,9 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/repositories" element={<Index />} />
               <Route path="/tools" element={<Index />} />
+              <Route path="/community" element={<Community />} />
+              <Route path="/community/:id" element={<Community />} />
+              <Route path="/community/help/:helpId" element={<Community />} />
               <Route path="/participation" element={<Participation />} />
               <Route path="/how-it-works" element={<Index />} />
               <Route path="/events" element={<Events />} />
