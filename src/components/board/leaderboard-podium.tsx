@@ -5,6 +5,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { diceBearAvatarUrl, formatCount, formatFull, formatHelpDetail } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import "./leaderboard-podium.css";
+
+const medals = { 1: "gold", 2: "silver", 3: "bronze" } as const;
 
 export type LeaderboardEntry = {
   id: string;
@@ -45,7 +48,7 @@ function PodiumSlot({
   flash?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col items-center" id={entry ? `member-${entry.id}` : undefined}>
+    <div className="podium-slot flex min-w-0 flex-1 flex-col items-center" data-medal={entry ? medals[rank] : "empty"} id={entry ? `member-${entry.id}` : undefined}>
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={entry?.id ?? `open-${rank}`}
@@ -56,7 +59,7 @@ function PodiumSlot({
           className={cn("relative mb-2 flex min-w-0 max-w-full flex-col items-center rounded-2xl px-1 pt-1 sm:mb-3 sm:px-1.5", flash && "animate-row-flash")}
         >
           {rank === 1 && (
-            <CrownStarIcon size={24} className="mb-1 text-[#F5C451] sm:mb-1.5" aria-hidden />
+            <CrownStarIcon size={24} className="podium-crown mb-1 sm:mb-1.5" aria-hidden />
           )}
 
           {entry ? (
@@ -66,13 +69,11 @@ function PodiumSlot({
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group flex min-w-0 max-w-full flex-col items-center"
-                aria-label={`${entry.name}, rank ${rank}, ${formatFull(entry.points)} ${unit === "pts" ? "points" : unit}. Open on GitHub`}
+                aria-label={`${entry.name}, rank ${rank}, ${formatFull(entry.points)} ${unit === "pts" ? "points" : unit}. Open on GitHub${isCurrentUser ? ". Your profile" : ""}`}
               >
                 <Avatar
-                  className={cn(
-                    "size-10 border-2 transition-transform group-hover:scale-105 sm:size-14",
-                    isCurrentUser ? "border-alva-accent" : "border-transparent"
-                  )}
+                  className="podium-avatar size-10 border-2 transition-transform group-hover:scale-105 sm:size-14"
+                  data-current-user={isCurrentUser || undefined}
                 >
                   <AvatarImage src={entry.avatarUrl ?? diceBearAvatarUrl(entry.seed, entry.avatarBg)} alt="" />
                   <AvatarFallback className="bg-alva-card text-xs font-medium text-foreground">
@@ -114,11 +115,7 @@ function PodiumSlot({
           rather than a line, and the rank sits inside it rather than under it. */}
       <div className={cn("relative w-full", blockHeight)}>
         <div
-          className="absolute inset-x-0 bottom-0 h-[85%] overflow-hidden rounded-t-[16px] sm:rounded-t-[22px]"
-          style={{
-            background:
-              "linear-gradient(180deg, hsl(0 0% 96%) 0%, hsl(0 0% 80%) 40%, hsl(0 0% 58%) 100%)",
-          }}
+          className="podium-bar absolute inset-x-0 bottom-0 h-[85%] overflow-hidden rounded-t-[16px] sm:rounded-t-[22px]"
         >
           {/* Top lip. Catches light on the leading edge so the bar reads as a
               solid with a top face, not a flat rectangle. */}
@@ -127,7 +124,7 @@ function PodiumSlot({
             className="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-white/70 to-transparent"
           />
 
-          <span className="absolute inset-x-0 top-3 flex sm:top-5 justify-center text-2xl font-bold text-black/25 sm:text-4xl" aria-hidden>
+          <span className="podium-rank absolute inset-x-0 top-3 flex sm:top-5 justify-center text-2xl font-bold sm:text-4xl" aria-hidden>
             {rank}
           </span>
         </div>
