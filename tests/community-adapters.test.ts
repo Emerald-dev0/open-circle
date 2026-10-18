@@ -176,7 +176,7 @@ for (const adapter of adapters) {
 
     it("stores expiring hashed sessions and revokes them on sign-out", async () => {
       const store = fixture.store;
-      const profile = { id: 12, login: "octocat", avatarUrl: "https://avatars.githubusercontent.com/u/12" };
+      const profile = { id: 12, login: "octocat", avatarUrl: "https://avatars.githubusercontent.com/u/12", starAuthorization: "encrypted-authorization" };
       const hash = actor("session-token");
       await store.createSession(hash, profile, Date.now() + 60_000);
       expect(await store.readSession(hash)).toEqual(profile);

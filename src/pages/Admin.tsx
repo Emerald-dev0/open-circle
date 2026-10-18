@@ -31,7 +31,10 @@ import { cn } from "@/lib/utils";
 import { useErrorToast } from "@/hooks/use-error-toast";
 import { AdminAnalytics } from "@/components/admin-analytics";
 import { AdminDashboardSkeleton } from "@/components/admin-skeleton";
+import { ContentSkeleton, SettingsSkeleton } from "@/components/site-skeleton";
 
+const AdminEvents = lazy(() => import("@/components/events/admin-events"));
+const AdminForum = lazy(() => import("@/components/forum/admin-forum"));
 const AdminBotSettings = lazy(() => import("@/components/admin-bot-settings"));
 
 const SESSION_KEY = ["admin", "session"];
@@ -81,7 +84,7 @@ const Admin = () => {
         <main className="min-w-0 pt-[calc(5rem+env(safe-area-inset-top))]">
           {session.isPending ? <AdminDashboardSkeleton label="Checking admin access…" /> : session.isError ? <div className="space-y-3">
             <TextureButton className="w-auto" onClick={() => session.refetch()}>Try again</TextureButton>
-          </div> : profile ? <Dashboard onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
+          </div> : profile ? <Dashboard key={profile.id} profile={profile} onUnauthorized={expire} /> : <SignIn configured={session.data.configured} />}
         </main>
       </div>
       <Dock />
@@ -102,7 +105,7 @@ function SignIn({ configured }: { configured: boolean }) {
   </section>;
 }
 
-function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
+function Dashboard({ profile, onUnauthorized }: { profile: NonNullable<AdminSession["profile"]>; onUnauthorized: () => void }) {
   const [section, setSection] = useState("overview");
   const [settingsVisited, setSettingsVisited] = useState(false);
   const queryClient = useQueryClient();
@@ -144,12 +147,16 @@ function Dashboard({ onUnauthorized }: { onUnauthorized: () => void }) {
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="overview">Overview</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="members">Members</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="tools">Tools{pending ? ` (${pending})` : ""}</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="events">Events</TabsTrigger>
+        <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="community">Community</TabsTrigger>
         <TabsTrigger className="min-h-11 min-w-0 rounded-full focus-visible:ring-2 focus-visible:ring-foreground/40 data-[state=active]:bg-foreground/[0.1]" value="settings">Settings</TabsTrigger>
       </TabsList>
       <TabsContent value="overview"><AdminAnalytics onUnauthorized={onUnauthorized} onReviewTools={() => setSection("tools")} /></TabsContent>
       <TabsContent value="members"><FadeIn><Members members={state.data.members} busy={action.isPending} onAction={(a) => action.mutate(a)} /></FadeIn></TabsContent>
+      <TabsContent value="events"><Suspense fallback={<ContentSkeleton label="Loading events…" />}><AdminEvents onUnauthorized={onUnauthorized} /></Suspense></TabsContent>
       <TabsContent value="tools"><FadeIn><ToolModeration onUnauthorized={onUnauthorized} /></FadeIn></TabsContent>
-      <TabsContent value="settings" forceMount={settingsVisited || undefined} hidden={section !== "settings"}><FadeIn><div className="space-y-6"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /><Suspense fallback={<p className="py-4 text-sm text-t3" role="status">Loading bot settings…</p>}><AdminBotSettings onUnauthorized={onUnauthorized} /></Suspense></div></FadeIn></TabsContent>
+      <TabsContent value="community"><Suspense fallback={<ContentSkeleton label="Loading community moderation…" />}><AdminForum profile={profile} onUnauthorized={onUnauthorized} /></Suspense></TabsContent>
+      <TabsContent value="settings" forceMount={settingsVisited || undefined} hidden={section !== "settings"}><FadeIn><div className="space-y-6"><Settings config={state.data.config} saving={action.isPending} onSave={(config) => action.mutate({ action: "config", config })} /><Suspense fallback={<SettingsSkeleton />}><AdminBotSettings onUnauthorized={onUnauthorized} /></Suspense></div></FadeIn></TabsContent>
     </Tabs>
   </div>;
 }

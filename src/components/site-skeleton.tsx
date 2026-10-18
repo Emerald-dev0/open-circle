@@ -1,6 +1,35 @@
 import { Skeleton } from "skelo";
 import { LoadingSkeleton, SkeletonPlaceholder as Placeholder } from "@/components/loading-skeleton";
 
+export function ContentSkeleton({ label, detail = false, className }: { label: string; detail?: boolean; className?: string }) {
+  return <LoadingSkeleton label={label} className={className}>
+    {detail ? <Skeleton animation="pulse" template={<div className="flex min-w-0 flex-col gap-4 py-6">
+      <Placeholder className="h-2.5 w-28" />
+      <Placeholder className="h-5 w-64" />
+      <div className="flex max-w-xl flex-col gap-3 pt-2">
+        <Placeholder className="h-3 w-full" />
+        <Placeholder className="h-3 w-4/5" />
+        <Placeholder className="h-3 w-1/2" />
+      </div>
+    </div>} /> : <div>
+      {["w-48", "w-36", "w-44"].map((width) => <Skeleton key={width} animation="pulse" template={<div className="flex min-w-0 flex-col gap-3 py-5">
+        <Placeholder className={`h-3 ${width}`} />
+        <Placeholder className="h-2.5 w-72" />
+      </div>} />)}
+    </div>}
+  </LoadingSkeleton>;
+}
+
+export function SettingsSkeleton() {
+  return <LoadingSkeleton label="Loading bot settings…">
+    <Skeleton animation="pulse" template={<div className="flex max-w-md flex-col gap-5 py-6">
+      <Placeholder className="h-3 w-32" />
+      <Placeholder className="h-9 w-full" />
+      <Placeholder className="h-9 w-3/4" />
+    </div>} />
+  </LoadingSkeleton>;
+}
+
 export function BoardSkeleton({ repositories = false }: { repositories?: boolean }) {
   return <LoadingSkeleton label={repositories ? "Loading spotlight repos…" : "Loading developer rankings…"}>
     <div className="space-y-6 py-6">
@@ -37,7 +66,7 @@ export function ToolsSkeleton() {
 
 export function AccountSkeleton() {
   return <LoadingSkeleton label="Checking GitHub sign-in…">
-    <Skeleton animation="pulse" template={<Placeholder className="h-10 w-28 rounded-full" />} />
+    <Skeleton animation="pulse" template={<Placeholder className="size-11 rounded-full" />} />
   </LoadingSkeleton>;
 }
 

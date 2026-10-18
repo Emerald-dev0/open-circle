@@ -1,4 +1,4 @@
-import type { GithubRepository, GithubStats } from "../shared/types.js";
+import type { GithubRepository, GithubStar, GithubStats } from "../shared/types.js";
 import { contributionStart } from "../shared/ranking.js";
 import { isUtcDay, normalizeDays } from "../shared/progression.js";
 
@@ -36,9 +36,16 @@ const CALENDAR_FIELD = `contributionCalendar {
   weeks { contributionDays { date contributionCount } }
 }`;
 
-/** UTC days with at least one public contribution in one collection window. */
+/**
+ * UTC days with at least one verified public contribution in one collection
+ * window. The calendar counts private/restricted contributions too, without
+ * saying which day they landed on, so a window that mixed them in is discarded
+ * rather than credited as public activity.
+ */
 function calendarDays(collection: unknown): string[] {
-  const weeks = (collection as { contributionCalendar?: { weeks?: unknown } } | null)?.contributionCalendar?.weeks;
+  const value = collection as { contributionCalendar?: { weeks?: unknown }; hasAnyRestrictedContributions?: unknown } | null;
+  if (value?.hasAnyRestrictedContributions === true) return [];
+  const weeks = value?.contributionCalendar?.weeks;
   if (!Array.isArray(weeks)) return [];
   const days: string[] = [];
   for (const week of weeks) {
@@ -64,6 +71,12 @@ const REPO_FIELDS = `
 `;
 const REPO_ARGS = `first: 100, ownerAffiliations: OWNER, isFork: false, privacy: PUBLIC,
   orderBy: { field: STARGAZERS, direction: DESC }`;
+const STAR_ARGS = "first: 100, orderBy: { field: STARRED_AT, direction: DESC }";
+const STAR_FIELDS = `
+  isOverLimit
+  pageInfo { hasNextPage endCursor }
+  edges { starredAt node { id isPrivate isFork owner { __typename login } } }
+`;
 const OWNER_FRAGMENT = `
 fragment Owner on RepositoryOwner {
   __typename login avatarUrl(size: 160)
@@ -71,6 +84,7 @@ fragment Owner on RepositoryOwner {
     name
     followers { totalCount }
     repositories(${REPO_ARGS}) { ${REPO_FIELDS} }
+    starredRepositories(${STAR_ARGS}) { ${STAR_FIELDS} }
   }
 }`;
 
@@ -99,7 +113,13 @@ interface OwnerNode {
   name?: string | null;
   followers?: { totalCount: number };
   repositories?: RepoConnection;
+  starredRepositories?: StarConnection;
   [key: `activity${number}`]: Record<string, number> | null;
+}
+interface StarConnection {
+  isOverLimit: boolean;
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  edges: ({ starredAt: string; node: { id: string; isPrivate: boolean; isFork: boolean; owner: { __typename: string; login: string } } } | null)[];
 }
 interface GraphqlResponse {
   data?: Record<string, OwnerNode | null> | null;
@@ -208,6 +228,47 @@ async function allProjects(
   return [...projects.values()];
 }
 
+async function allStars(node: OwnerNode, token: string, deadline: number, now: number): Promise<GithubStar[]> {
+  let connection = node.starredRepositories;
+  const stars = new Map<string, GithubStar>();
+  const cursors = new Set<string>();
+  let previousTime = Infinity;
+  while (true) {
+    if (!connection || !Array.isArray(connection.edges) || typeof connection.isOverLimit !== "boolean" || typeof connection.pageInfo?.hasNextPage !== "boolean") {
+      throw new GithubError("upstream", "GitHub couldn't load stars given.");
+    }
+    for (const edge of connection.edges) {
+      const time = typeof edge?.starredAt === "string" ? Date.parse(edge.starredAt) : NaN;
+      const repo = edge?.node;
+      if (!Number.isSafeInteger(time) || time > now || time > previousTime || !repo || typeof repo.id !== "string" || !repo.id || typeof repo.isPrivate !== "boolean" || typeof repo.isFork !== "boolean" || typeof repo.owner?.login !== "string" || typeof repo.owner.__typename !== "string") {
+        throw new GithubError("upstream", "GitHub returned incomplete star activity.");
+      }
+      previousTime = time;
+      if (time <= 0) throw new GithubError("upstream", "GitHub returned invalid star activity.");
+      if (!repo.isPrivate && !repo.isFork && repo.owner.__typename === "User" && repo.owner.login.toLowerCase() !== node.login.toLowerCase()) {
+        stars.set(repo.id, { repositoryId: repo.id, ownerLogin: repo.owner.login.toLowerCase(), starredAt: time });
+      }
+    }
+    if (!connection.pageInfo.hasNextPage) {
+      if (connection.isOverLimit) throw new GithubError("upstream", "GitHub returned a truncated star history.");
+      return [...stars.values()];
+    }
+    const cursor = connection.pageInfo.endCursor;
+    if (!connection.edges.length || typeof cursor !== "string" || !cursor || cursors.has(cursor)) {
+      throw new GithubError("upstream", "GitHub returned an incomplete star page.");
+    }
+    cursors.add(cursor);
+    const body = await queryGithub(
+      `query($login: String!, $after: String!) {
+        user(login: $login) { starredRepositories(${STAR_ARGS}, after: $after) { ${STAR_FIELDS} } }
+      }`,
+      { login: node.login, after: cursor }, token, deadline,
+    );
+    if (body.errors?.length) throw new GithubError("upstream", "GitHub couldn't load all stars given.");
+    connection = body.data?.user?.starredRepositories;
+  }
+}
+
 async function lookupBatch(
   logins: string[],
   token: string,
@@ -233,6 +294,7 @@ async function lookupBatch(
       variables[`f${i}_${j}`] = new Date(range.from).toISOString();
       variables[`t${i}_${j}`] = new Date(range.to).toISOString();
       return `activity${j}: contributionsCollection(from: $f${i}_${j}, to: $t${i}_${j}) {
+        hasAnyRestrictedContributions
         ${CONTRIBUTION_FIELDS.join(" ")}
         ${CALENDAR_FIELD}
       }`;
@@ -265,6 +327,7 @@ async function lookupBatch(
       else {
         try {
           const projects = await allProjects(node, token, deadline);
+          const starredRepositories = await allStars(node, token, deadline, now);
           const days: string[] = [];
           const totals: Record<(typeof CONTRIBUTION_FIELDS)[number], number> = {
             totalCommitContributions: 0,
@@ -299,6 +362,8 @@ async function lookupBatch(
               issues: totals.totalIssueContributions,
               activityDays: normalizeDays(days),
               projects,
+              starredRepositories,
+              starHistoryVersion: 2,
             },
           };
         } catch (err) {

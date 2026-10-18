@@ -12,20 +12,20 @@ import { Spinner } from "@/components/ui/spinner"
 // (padding over a gradient) still gives the bevel. Metal-wrapped buttons get
 // their edge from MetalFx instead, see metal-button.tsx.
 const buttonVariantsOuter = cva(
-  "touch-target inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer select-none no-underline disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:min-w-0",
+  "touch-target inline-flex w-fit max-w-full min-h-11 min-w-11 shrink-0 self-start justify-self-start cursor-pointer select-none no-underline disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-0 sm:min-w-0",
   {
     variants: {
       variant: {
         primary:
-          "w-full bg-gradient-to-b from-black/70 to-black p-[1px] transition duration-300 ease-in-out dark:from-white/25 dark:to-white/5",
+          "bg-gradient-to-b from-black/70 to-black p-[1px] transition duration-300 ease-in-out dark:from-white/25 dark:to-white/5",
         accent:
-          "w-full bg-gradient-to-b from-indigo-300/90 to-indigo-500 p-[1px] transition duration-300 ease-in-out dark:from-indigo-200/70 dark:to-indigo-500",
+          "bg-gradient-to-b from-indigo-300/90 to-indigo-500 p-[1px] transition duration-300 ease-in-out dark:from-indigo-200/70 dark:to-indigo-500",
         destructive:
-          "w-full bg-gradient-to-b from-red-300/90 to-red-500 p-[1px] transition duration-300 ease-in-out dark:from-red-300/90 dark:to-red-500",
+          "bg-gradient-to-b from-red-300/90 to-red-500 p-[1px] transition duration-300 ease-in-out dark:from-red-300/90 dark:to-red-500",
         secondary:
-          "w-full bg-white/50 p-[1px] transition duration-300 ease-in-out dark:bg-neutral-600/50",
+          "bg-white/50 p-[1px] transition duration-300 ease-in-out dark:bg-neutral-600/50",
         minimal:
-          "group/texture-button w-full bg-white/50 to-white p-[1px] hover:bg-gradient-to-t hover:from-neutral-100 active:bg-neutral-200 dark:bg-neutral-600/80 dark:hover:from-neutral-600/50 dark:hover:to-neutral-600/70 dark:active:bg-neutral-800",
+          "group/texture-button bg-white/50 to-white p-[1px] hover:bg-gradient-to-t hover:from-neutral-100 active:bg-neutral-200 dark:bg-neutral-600/80 dark:hover:from-neutral-600/50 dark:hover:to-neutral-600/70 dark:active:bg-neutral-800",
         icon: "group/texture-button rounded-full bg-white/50 to-white p-[1px] hover:bg-gradient-to-t hover:from-neutral-100 active:bg-neutral-200 dark:bg-neutral-600/50 dark:hover:from-neutral-700 dark:hover:to-neutral-600 dark:active:bg-neutral-800",
       },
       size: {
@@ -43,7 +43,7 @@ const buttonVariantsOuter = cva(
 )
 
 const innerDivVariants = cva(
-  "text-muted-foreground flex w-full self-stretch items-center justify-center whitespace-nowrap font-medium",
+  "text-muted-foreground flex min-w-0 w-full self-stretch items-center justify-center whitespace-normal break-words text-center font-medium",
   {
     variants: {
       variant: {

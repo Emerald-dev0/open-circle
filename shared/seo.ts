@@ -15,6 +15,7 @@ export type SeoPage = {
 const HOME_HEADING = "Paste your username. Take your place.";
 
 export const SEO_PAGES: readonly SeoPage[] = [
+  { path: "/events", title: `Events · ${BRAND_NAME}`, description: "Learning sessions and recordings for OpenCircle members.", summary: "Community events, recordings and resources.", heading: "Events", index: false },
   {
     path: "/",
     title: `${BRAND_NAME} · Community leaderboard for Open Source Circle`,
@@ -50,6 +51,14 @@ export const SEO_PAGES: readonly SeoPage[] = [
     summary: "How confirmed help and GitHub reputation become a rank.",
     heading: HOME_HEADING,
     index: true,
+  },
+  {
+    path: "/community",
+    title: `Community · ${BRAND_NAME}`,
+    description: "Development discussions, questions and polls for verified Open Source Circle members.",
+    summary: "Discuss development and ask the circle for help.",
+    heading: "Community",
+    index: false,
   },
   {
     path: "/participation",
@@ -92,15 +101,17 @@ export const SITE_LINKS = [
   { path: "/repositories", label: "Spotlight" },
   { path: "/tools", label: "Developer tools" },
   { path: "/how-it-works", label: "How ranking works" },
+  { path: "/community", label: "Community" },
   { path: "/participation", label: "Group participation" },
 ] as const;
 
 const byPath = new Map(SEO_PAGES.map((page) => [page.path, page]));
 
 export type SeoDocument = SeoPage & {
-  status: 200 | 404;
+  status: 200 | 404 | 503;
   robots: string;
   url: string;
+  image?: { url: string; alt: string; contentType: string; width?: number; height?: number };
 };
 
 export function siteOrigin(value = DEFAULT_SITE_URL) {
@@ -113,14 +124,14 @@ export function siteOrigin(value = DEFAULT_SITE_URL) {
 
 export function pageFor(pathname: string) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
-  return byPath.get(path);
+  return byPath.get(path.startsWith("/community/") ? "/community" : path);
 }
 
 export function seoDocument(pathname: string, originInput = DEFAULT_SITE_URL): SeoDocument {
   const origin = siteOrigin(originInput);
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
-  const page = byPath.get(path) ?? NOT_FOUND;
-  const canonicalPath = page.path || (path.startsWith("/") ? path : "/");
+  const page = byPath.get(path.startsWith("/community/") ? "/community" : path) ?? (/^\/events\/[a-z0-9-]+$/.test(path) ? { ...byPath.get("/events")!, path } : NOT_FOUND);
+  const canonicalPath = path.startsWith("/community/") ? path : page.path || (path.startsWith("/") ? path : "/");
   return {
     ...page,
     path: canonicalPath,
@@ -174,7 +185,7 @@ export function structuredData(originInput = DEFAULT_SITE_URL) {
 
 export function robotsTxt(originInput = DEFAULT_SITE_URL) {
   const origin = siteOrigin(originInput);
-  return ["User-agent: *", "Allow: /", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
+  return ["User-agent: *", "Allow: /", "Allow: /api/event-cover", "Allow: /api/forum-image", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
 }
 
 export function sitemapXml(originInput = DEFAULT_SITE_URL, lastmod = new Date().toISOString().slice(0, 10)) {
@@ -202,7 +213,7 @@ export function llmsTxt(originInput = DEFAULT_SITE_URL) {
     "",
     "> The community leaderboard for the Open Source Circle developer community.",
     "",
-    "OpenCircle rewards confirmed useful help in the last 28 days: 20 points per contribution and 5 per different member helped. GitHub reputation and repo upvotes add at most 20 points in total. Giving stars is voluntary and earns no helper points. Spotlight features one public, original repository per developer with at least 5 stars. Developers can choose an eligible repo when joining, or use the automatic most-starred pick. Members also share developer tools.",
+    "OpenCircle rewards community help without expiring earned credit, with all-time, 7-day and 30-day views: 20 points per confirmed contribution and 5 per different member helped. Starring another member's public, original repo earns 20 helper points, once per recipient. GitHub reputation and repo upvotes add at most 20 points in total. Spotlight includes the OpenCircle community repo and one public, original repository per developer with at least 5 stars. Developers can choose an eligible repo when joining, or use the automatic most-starred pick. Members also share developer tools.",
     "",
     "## Pages",
     "",
@@ -228,30 +239,30 @@ function escapeAttr(value: string) {
 function setAttribute(tag: string, name: string, value: string) {
   const assignment = ` ${name}="${escapeAttr(value)}"`;
   const pattern = new RegExp(`\\s${name}=(?:"[^"]*"|'[^']*')`, "i");
-  if (pattern.test(tag)) return tag.replace(pattern, assignment);
-  return tag.replace(/\s*\/?>$/, `${assignment}$&`);
+  if (pattern.test(tag)) return tag.replace(pattern, () => assignment);
+  return tag.replace(/\s*\/?>$/, (ending) => `${assignment}${ending}`);
 }
 
 function replaceMeta(html: string, attribute: "name" | "property", key: string, content: string) {
   const pattern = new RegExp(`<meta\\b(?=[^>]*\\b${attribute}=["']${key}["'])[^>]*>`, "i");
   const tag = html.match(pattern)?.[0];
   if (!tag) return html;
-  return html.replace(tag, setAttribute(tag, "content", content));
+  return html.replace(tag, () => setAttribute(tag, "content", content));
 }
 
 function replaceCanonical(html: string, href: string) {
   const pattern = /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/i;
   const tag = html.match(pattern)?.[0];
   if (!tag) return html;
-  return html.replace(tag, setAttribute(tag, "href", href));
+  return html.replace(tag, () => setAttribute(tag, "href", href));
 }
 
 export function applySeo(html: string, document: SeoDocument) {
   const json = JSON.stringify(structuredData(new URL(document.url).origin), null, 2).replace(/</g, "\\u003c");
   let next = html
-    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, `<title>${escapeText(document.title)}</title>`)
-    .replace(/(<h1\b[^>]*\bid=["']seo-title["'][^>]*>)[\s\S]*?(<\/h1>)/i, `$1${escapeText(document.heading)}$2`)
-    .replace(/(<p\b[^>]*\bid=["']seo-summary["'][^>]*>)[\s\S]*?(<\/p>)/i, `$1${escapeText(document.summary)}$2`)
+    .replace(/<title\b[^>]*>[\s\S]*?<\/title>/i, () => `<title>${escapeText(document.title)}</title>`)
+    .replace(/(<h1\b[^>]*\bid=["']seo-title["'][^>]*>)[\s\S]*?(<\/h1>)/i, (_, start, end) => `${start}${escapeText(document.heading)}${end}`)
+    .replace(/(<p\b[^>]*\bid=["']seo-summary["'][^>]*>)[\s\S]*?(<\/p>)/i, (_, start, end) => `${start}${escapeText(document.summary)}${end}`)
     .replace(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/i, `<script type="application/ld+json">\n${json}\n    </script>`);
   next = replaceMeta(next, "name", "description", document.description);
   next = replaceMeta(next, "name", "robots", document.robots);
@@ -260,5 +271,16 @@ export function applySeo(html: string, document: SeoDocument) {
   next = replaceMeta(next, "property", "og:url", document.url);
   next = replaceMeta(next, "name", "twitter:title", document.title);
   next = replaceMeta(next, "name", "twitter:description", document.description);
+  if (document.image) {
+    next = replaceMeta(next, "property", "og:image", document.image.url);
+    next = replaceMeta(next, "property", "og:image:type", document.image.contentType);
+    next = replaceMeta(next, "property", "og:image:alt", document.image.alt);
+    next = replaceMeta(next, "name", "twitter:image", document.image.url);
+    next = replaceMeta(next, "name", "twitter:image:alt", document.image.alt);
+    for (const dimension of ["width", "height"] as const) {
+      if (document.image[dimension]) next = replaceMeta(next, "property", `og:image:${dimension}`, String(document.image[dimension]));
+      else next = next.replace(new RegExp(`<meta\\b(?=[^>]*\\bproperty=["']og:image:${dimension}["'])[^>]*>\\s*`, "gi"), "");
+    }
+  }
   return replaceCanonical(next, document.url);
 }

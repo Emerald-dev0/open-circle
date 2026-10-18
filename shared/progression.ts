@@ -60,6 +60,8 @@ export const ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENTS) as AchievementId[];
 export interface Streaks {
   current: number;
   longest: number;
+  /** First UTC day of the current run; "" when the streak is not alive. */
+  start: string;
 }
 
 export function isUtcDay(value: unknown): value is string {
@@ -98,20 +100,40 @@ export function mergeActivityDays(
  * `longest` is the running maximum, floored by any already-recorded value so
  * trimming old history never shrinks it. `current` counts consecutive UTC days
  * ending today, or yesterday when today has no activity yet.
+ *
+ * `startFloor` is the first day of the streak counted last time. History is
+ * trimmed to `ACTIVITY_HISTORY_DAYS`, so a longer ongoing run loses its oldest
+ * days; carrying the floor lets the run keep growing past the trim instead of
+ * freezing at the cap. It is only honoured while the run is still alive.
  */
-export function computeStreaks(days: readonly string[], today: string, longestFloor = 0): Streaks {
+export function computeStreaks(days: readonly string[], today: string, longestFloor = 0, startFloor = ""): Streaks {
   const ordered = normalizeDays(days);
   let longest = Number.isSafeInteger(longestFloor) && longestFloor > 0 ? longestFloor : 0;
   let run = 0;
   let last = 0;
+  let runStart = "";
   for (const day of ordered) {
-    const start = dayStart(day);
-    run = last > 0 && start - last === DAY_MS ? run + 1 : 1;
-    last = start;
+    const at = dayStart(day);
+    if (last > 0 && at - last === DAY_MS) run += 1;
+    else {
+      run = 1;
+      runStart = day;
+    }
+    last = at;
     if (run > longest) longest = run;
   }
   const alive = isUtcDay(today) && last >= dayStart(today) - DAY_MS;
-  return { current: alive ? run : 0, longest };
+  if (!alive) return { current: 0, longest, start: "" };
+  let current = run;
+  let start = runStart;
+  // Only a run that reaches the trim boundary can have lost older days, so the
+  // floor is applied just there — never across a gap the retained days reveal.
+  if (ordered.length >= ACTIVITY_HISTORY_DAYS && runStart === ordered[0] && isUtcDay(startFloor) && dayStart(startFloor) < dayStart(runStart)) {
+    current = run + Math.round((dayStart(runStart) - dayStart(startFloor)) / DAY_MS);
+    start = startFloor;
+  }
+  if (current > longest) longest = current;
+  return { current, longest, start };
 }
 
 /** Verified activity days that fall inside the window ending on `today`. */

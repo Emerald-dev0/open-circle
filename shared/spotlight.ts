@@ -1,6 +1,7 @@
 import type { GithubRepository } from "./types.js";
 
 export const SPOTLIGHT_MIN_STARS = 5;
+export const COMMUNITY_REPOSITORY = "opencirclehq/open-circle";
 
 export function spotlightCandidates<T extends GithubRepository>(projects: T[]): T[] {
   return projects.filter((repo) => repo.stars >= SPOTLIGHT_MIN_STARS).sort(

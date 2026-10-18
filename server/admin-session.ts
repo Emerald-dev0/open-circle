@@ -49,7 +49,7 @@ export function requireAdminOrigin(req: Request, mutation = false): void {
 export async function adminProfile(req: Request, store: CommunityStore): Promise<GitHubProfile | null> {
   const hash = adminSessionHash(req);
   const profile = hash ? await store.readSession(hash) : null;
-  return profile && adminUserIds().has(String(profile.id)) ? profile : null;
+  return profile && adminUserIds().has(String(profile.id)) ? { id: profile.id, login: profile.login, ...(profile.name ? { name: profile.name } : {}), avatarUrl: profile.avatarUrl } : null;
 }
 
 export async function createAdminSession(req: Request, store: CommunityStore, profile: GitHubProfile): Promise<string> {

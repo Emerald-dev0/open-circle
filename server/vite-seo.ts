@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
 import { DEFAULT_SITE_URL } from "../shared/brand";
+import { forumPreviewId } from "../shared/forum-seo";
 import { applySeo, llmsTxt, robotsTxt, seoDocument, siteOrigin, sitemapXml } from "../shared/seo";
 
 /**
@@ -14,10 +15,13 @@ export function seo(siteUrl: string | undefined): Plugin {
     name: "opencircle:seo",
     transformIndexHtml: {
       order: "pre",
-      handler(html, ctx) {
+      async handler(html, ctx) {
         const ready = html.replaceAll("%SITE_URL%", origin);
         const pathname = new URL(ctx.originalUrl ?? "/", origin).pathname;
-        return applySeo(ready, seoDocument(pathname, origin));
+        const module = forumPreviewId(pathname) ? { path: "/server/forum-seo.ts", name: "communitySeoDocument" } : /^\/events\/[a-z0-9-]+$/.test(pathname) ? { path: "/server/event-seo.ts", name: "eventSeoDocument" } : null;
+        const dynamic = ctx.server && module ? await ctx.server.ssrLoadModule(module.path) : null;
+        const document = module && dynamic ? await dynamic[module.name](pathname, origin) : null;
+        return applySeo(ready, document ?? seoDocument(pathname, origin));
       },
     },
     configureServer(server) {

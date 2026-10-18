@@ -32,14 +32,25 @@ OpenCircle brings the group's GitHub profiles and public projects into one place
 
 - Join the developer leaderboard and follow rank changes.
 - Build a customizable GitHub portfolio at `username.opencircle.cc`.
-- Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, upvote projects and save links.
+- Browse Spotlight: one repo per developer with at least 5 stars. Filter by language, star repos on GitHub, upvote projects and save links.
 - Find developer tools, submit tools for review and rate them with GitHub sign-in.
 - Share projects, give feedback and answer help requests through group participation.
-- Manage members, tool submissions and ranking settings through the admin page.
+- Find community events, join online sessions, and return for recordings and learning resources.
+- Manage members, events, tool submissions and ranking settings through the admin page.
 
 Choose **Light**, **Dark** or **System** from the Appearance control at the top right. Your choice stays saved in this browser; System follows your device’s appearance setting.
 
 GitHub sign-in is required for portfolio editing, tool voting, group participation and admin access. Joining the board requires a personal GitHub profile and a number in the WhatsApp group.
+
+## Community events
+
+Verified members can open Community, then Events beside Discussions and Questions, or use the Participation link. Organisers manage drafts, publishing, cover images, recordings and ordered file/link resources in the admin Events tab. Recordings use direct multipart uploads to a separate private R2 bucket; the public portfolio bucket is unchanged. See the [Events setup and usage guide](docs/events.md).
+
+Upcoming events have a Register button and a name/email form. Registrations persist per signed-in member; organisers can view the private, paginated attendee list under Manage event > View registrations. Covers open in a full-size viewer with zoom and an original-image link. Apply `008_event_registrations.sql` through the normal migration command before releasing registration support.
+
+Event pages use five-character addresses such as `/events/yu48r`. A short address stays the same when the title or schedule changes. Existing title-and-ID links keep opening the same event and switch to its short address; older events receive a short address when saved.
+
+Shared event links show the published event's title, summary and cover image. Only the current cover of a published event is available to preview crawlers through `/api/event-cover`; recordings, resources, registration details and draft covers remain private.
 
 ## Member portfolios
 
@@ -73,7 +84,7 @@ Start with [`.env.example`](.env.example) and the [configuration guide](docs/con
 
 ## How ranking works
 
-Confirmed help leads the developer board. Each useful contribution confirmed by its recipient or an admin earns 20 points, plus 5 for each different member helped in the last 28 days. Up to three contributions per UTC day and two per recipient count; each project or question counts once. Copied feedback and self-reviews earn nothing. Members can record fixes, testing, documentation and answers from Participation.
+Confirmed help leads the developer board. Each useful contribution confirmed by its recipient or an admin earns 20 points, plus 5 for each different member helped. Earned help no longer expires. All time is the default; 7 days and 30 days filter help by its submission date. Up to three contributions per UTC day and two per recipient in any 30 days count; each project or question counts once. Copied feedback and self-reviews earn nothing. Members can record fixes, testing, documentation and answers from Participation.
 
 GitHub reputation and repo upvotes add at most 20 points in total, using these default weights:
 
@@ -85,9 +96,11 @@ GitHub reputation and repo upvotes add at most 20 points in total, using these d
 | Public GitHub contributions since joining OpenCircle | 1 each |
 | Community upvotes on owned repositories | 1 each |
 
-GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, members helped, GitHub reputation, stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary and earns no helper points. Bot outages preserve the last confirmed helper scores and mark them delayed.
+Starring another visible community member's public, original repo adds 20 helper points, once per recipient across their qualifying repos, without a time limit. Stars given directly on GitHub count too. More stars across the same member's repos add no extra credit. Self-stars, private repos, forks and nonmembers earn nothing. Removing a star removes its credit on the next successful GitHub refresh; another qualifying star for the same member can still count.
 
-Spotlight picks each developer's most-starred eligible repo automatically, or they can choose one during registration. Projects rank by GitHub stars, then forks and repository name. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
+GitHub totals include the whole joining day in UTC and keep accumulating within the 20-point reputation limit. Ties favour helper points, confirmed members helped, GitHub reputation, received stars and earlier registration. Organisers can change the reputation weights. Giving GitHub stars is voluntary. Bot outages preserve the last confirmed helper scores and mark them delayed. GitHub outages preserve cached star activity and mark stats delayed. The GitHub reputation bonus is the same in every period; recent views filter helper credit. Star support is dated from the earliest qualifying star still held for each member.
+
+Spotlight includes the [OpenCircle community repo](https://github.com/opencirclehq/open-circle) alongside each developer's most-starred eligible repo, or their selection during registration. Projects rank by GitHub stars, then forks and repository name. The community repo uses live GitHub metadata and supports the same search, upvotes and bookmarks; its upvotes do not add points to a developer. Tool votes are separate from developer scores. Read the [full ranking and voting rules](docs/reference.md#how-ranking-works) for details.
 
 ## Built with
 
@@ -163,3 +176,15 @@ Keep real member details and credentials out of issues and pull requests. See th
 ## License
 
 [MIT](LICENSE). The bundled Aspekta font uses the [SIL Open Font License 1.1](public/fonts/OFL.txt).
+
+## Community discussions and questions
+
+Verified group members use `/community` for admin discussions, single-choice polls and approved member questions. Sign-in returns to the selected tab or thread. Admins manage drafts, question revisions, reports, visibility, comments and polls from **Admin → Community**. New questions stay private until approved; an approved version remains visible during revision review.
+
+Community requires PostgreSQL in production, including installations that use Redis for other features. Apply the additive `006_forum.sql` migration through `pnpm db:migrate` before releasing the code. Development without a remote store uses `.data/forum.json`; this file store supports one development process and is not a production adapter. Failed saves are reported and never fall back to browser storage.
+
+Shared discussion and question links show the published title, a short excerpt and a generated preview image. Drafts, hidden posts, pending revisions and comments stay out of previews. Reading and replying still require verified membership. Preview images use the bundled Aspekta fonts under `public/fonts/` and need no external image service.
+
+Member access reuses GitHub sessions and the coordination service's verified link and current tracking flag. If membership checks are paused, stale or unavailable, Community blocks access until they recover. Admin moderation uses the separate admin session. Poll votes use numeric GitHub IDs and a PostgreSQL unique key; thread locks serialize voting, closure and moderation. Only aggregate choices and the viewer's own selection are returned.
+
+Existing Help records remain in **Community → Questions → Earlier help requests**, with their original access, answer confirmations and scores. Participation's Help destination links there, while received-answer confirmation stays under Participation → Feedback. New website help requests must use the moderated Questions form. No records are imported into the new feed, and forum posts, comments and votes do not send WhatsApp messages or earn ranking points.

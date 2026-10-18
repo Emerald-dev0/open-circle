@@ -11,7 +11,7 @@ import { MetalButton } from "@/components/metal-button";
 import { SharedSelect } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LoadingSkeleton, SkeletonPlaceholder } from "@/components/loading-skeleton";
+import { SettingsSkeleton } from "@/components/site-skeleton";
 import { AdminBotMessages } from "@/components/admin-bot-messages";
 
 const KEY = ["admin", "bot-settings"];
@@ -37,7 +37,7 @@ export default function AdminBotSettings({ onUnauthorized }: { onUnauthorized: (
     onError: (error) => { if (error instanceof ApiError && ["unauthorized", "admin_disabled", "admin_origin"].includes(error.code)) onUnauthorized(); if (error instanceof ApiError && error.status === 409) void client.invalidateQueries({ queryKey: KEY }); },
   });
   if (!draft || !query.data) return <Panel header={<PanelHeader title="Bot settings" />}>
-    {query.isPending ? <LoadingSkeleton label="Loading bot settings…"><div className="space-y-4 py-6"><SkeletonPlaceholder className="h-5 w-44" /><SkeletonPlaceholder className="h-11 w-full rounded-full" /><SkeletonPlaceholder className="h-11 w-full rounded-full" /></div></LoadingSkeleton> : <div className="space-y-4 py-5"><p className="max-w-prose text-sm text-t2" role="alert">{query.error?.message ?? "Bot settings could not be loaded."}</p><MetalButton type="button" variant="minimal" className="h-10 w-auto" innerClassName="px-4" onClick={() => query.refetch()}>Retry bot settings</MetalButton></div>}
+    {query.isPending ? <SettingsSkeleton /> : <div className="space-y-4 py-5"><p className="max-w-prose text-sm text-t2" role="alert">{query.error?.message ?? "Bot settings could not be loaded."}</p><MetalButton type="button" variant="minimal" className="h-10 w-auto" innerClassName="px-4" onClick={() => query.refetch()}>Retry bot settings</MetalButton></div>}
   </Panel>;
   const state = query.data;
   const patchPolicy = (patch: Partial<CoordinationPolicy>) => setDraft({ ...draft, policy: { ...draft.policy, ...patch } });
@@ -94,7 +94,7 @@ export default function AdminBotSettings({ onUnauthorized }: { onUnauthorized: (
       {invalidMessage && <p className="py-3 text-sm text-[hsl(var(--down))]" role="status">{invalidMessage}</p>}
       {save.error && <p className="py-3 text-sm text-[hsl(var(--down))]" role="alert">{save.error.message} Your changes are still here.</p>}
       {query.isError && <p className="py-3 text-sm text-t2" role="status">The latest bot check failed. Your draft is preserved.</p>}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/[0.06] py-4"><span className="text-xs text-t3" aria-live="polite">{dirty ? "Unsaved bot changes" : `Saved · version ${draft.version}`}</span><div className="flex gap-2">{dirty && <MetalButton type="button" variant="minimal" wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-5" disabled={busy} onClick={() => { setDraft(structuredClone(saved)); save.reset(); }}>Cancel bot changes</MetalButton>}<MetalButton type="submit" wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-5" loading={busy} disabled={!dirty || !!invalidMessage || newer} aria-label="Save bot settings">{busy ? "Saving…" : "Save bot settings"}</MetalButton></div></div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-foreground/[0.06] py-4"><span className="text-xs text-t3" aria-live="polite">{dirty ? "Unsaved bot changes" : `Saved · version ${draft.version}`}</span><div className="flex max-w-full flex-wrap items-center gap-2">{dirty && <MetalButton type="button" variant="minimal" wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-5" disabled={busy} onClick={() => { setDraft(structuredClone(saved)); save.reset(); }}>Cancel bot changes</MetalButton>}<MetalButton type="submit" wrapperClassName="overflow-clip rounded-full" className="h-10 w-auto" innerClassName="px-5" loading={busy} disabled={!dirty || !!invalidMessage || newer} aria-label="Save bot settings">{busy ? "Saving…" : "Save bot settings"}</MetalButton></div></div>
     </Panel>
   </form>;
 }

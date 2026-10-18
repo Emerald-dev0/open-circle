@@ -1,12 +1,11 @@
-import { DEFAULT_WEIGHTS } from "@shared/ranking";
 import { HELPER_POLICY } from "@shared/coordination";
+import { STAR_HELP_POINTS } from "@shared/star-help";
 import type { Weights } from "@shared/types";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 export function HowItWorks({
   open,
   onOpenChange,
-  weights = DEFAULT_WEIGHTS,
   helpersDelayed = false,
 }: {
   open: boolean;
@@ -14,41 +13,22 @@ export function HowItWorks({
   weights?: Weights;
   helpersDelayed?: boolean;
 }) {
-  const rows: [string, string][] = [
-    ["Star on a repo you own", `${weights.stars}`],
-    ["Follower", `${weights.followers}`],
-    [`Public repo, up to ${weights.reposCap}`, `${weights.repos}`],
-    ["Contribution since joining OpenCircle", `${weights.activity}`],
-    ["Community upvote on a repo you own", `${weights.upvotes}`],
-  ];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-sm gap-0 overflow-y-auto rounded-[28px] border-0 bg-popover p-6 shadow-none sm:rounded-[28px]">
         <DialogTitle className="pr-8 text-base font-medium tracking-tight">How ranking works</DialogTitle>
-        <DialogDescription className="mt-1 text-xs text-t3">Help each other. Confirmed contributions lead the board.</DialogDescription>
+        <DialogDescription className="mt-1 text-sm text-t3">Earn points by helping other members.</DialogDescription>
 
-        <dl className="mt-5 space-y-2.5 text-sm">
-          <div className="flex items-baseline justify-between gap-4"><dt className="text-t3">Confirmed useful contribution</dt><dd className="whitespace-nowrap font-medium tabular">{HELPER_POLICY.contributionPoints} pts</dd></div>
-          <div className="flex items-baseline justify-between gap-4"><dt className="text-t3">Each different member helped</dt><dd className="whitespace-nowrap font-medium tabular">+{HELPER_POLICY.peerPoints} pts</dd></div>
+        <dl className="mt-5 space-y-3 text-sm">
+          <div className="flex items-baseline justify-between gap-4"><dt className="text-t2">Confirmed useful help</dt><dd className="whitespace-nowrap font-medium tabular">{HELPER_POLICY.contributionPoints} pts</dd></div>
+          <div className="flex items-baseline justify-between gap-4"><dt className="text-t2">Each different member helped</dt><dd className="whitespace-nowrap font-medium tabular">+{HELPER_POLICY.peerPoints} pts</dd></div>
+          <div className="flex items-baseline justify-between gap-4"><dt className="text-t2">Star another member's repo</dt><dd className="whitespace-nowrap font-medium tabular">{STAR_HELP_POINTS} pts</dd></div>
         </dl>
-        <p className="mt-3 text-xs leading-relaxed text-t3">Help counts for {HELPER_POLICY.windowDays} days, with up to {HELPER_POLICY.dailyLimit} contributions per UTC day and {HELPER_POLICY.perPeerLimit} per recipient. Each project or question counts once. The recipient or an admin must confirm it. Copied feedback and self-reviews earn nothing.</p>
-        {helpersDelayed && <p role="status" className="mt-3 text-xs leading-relaxed text-t3">Helper scores are waiting for the bot. Previously confirmed points stay visible until it reconnects.</p>}
-        <p className="mt-5 text-xs leading-relaxed text-t3">GitHub stats and repo upvotes add at most {HELPER_POLICY.reputationCap} points in total, using these weights:</p>
-
-        <dl className="mt-5 space-y-2.5 text-sm">
-          {rows.map(([what, pts]) => (
-            <div key={what} className="flex items-baseline justify-between gap-4">
-              <dt className="text-t3">{what}</dt>
-              <dd className="whitespace-nowrap font-medium tabular text-foreground">{pts} pts</dd>
-            </div>
-          ))}
-        </dl>
-
-        <p className="mt-5 text-xs leading-relaxed text-t3">Ties go to more helper points, then helping more members, GitHub reputation, stars and joining order. Forks and private repos don't count. Giving stars is voluntary and earns no helper points.</p>
-        <p className="mt-3 text-xs leading-relaxed text-t3">Public commits, issues, pull requests, reviews and new repos count from the UTC day you join. These GitHub totals keep adding up; their ranking points stay within the {HELPER_POLICY.reputationCap}-point limit. Removing an upvote removes its points.</p>
-        <p className="mt-3 text-xs leading-relaxed text-t3">Spotlight shows one public, original repo per developer with at least 5 stars. We pick the most-starred eligible repo automatically, or you can choose one when joining. Projects rank by stars, then forks, then name.</p>
-        <p className="mt-3 text-xs leading-relaxed text-t3">The board checks for updates every 10 seconds. GitHub stats refresh about once a minute, in batches for larger groups.</p>
+        <p className="mt-5 text-sm leading-relaxed text-t3">Your confirmed help doesn't expire. Choose All time, 7 days or 30 days to change the period shown.</p>
+        <p className="mt-3 text-sm leading-relaxed text-t3">The member or an admin must confirm your help. We count up to {HELPER_POLICY.dailyLimit} helps a day and {HELPER_POLICY.perPeerLimit} per person in {HELPER_POLICY.perPeerWindowDays} days. Copied feedback and helping yourself don't count.</p>
+        <p className="mt-3 text-sm leading-relaxed text-t3">Stars count once per member, here or on GitHub, on public, original repos. Removing your last qualifying star removes that credit.</p>
+        <p className="mt-3 text-sm leading-relaxed text-t3">GitHub stats and community upvotes add up to {HELPER_POLICY.reputationCap} extra points in every view.</p>
+        {helpersDelayed && <p role="status" className="mt-3 text-sm leading-relaxed text-t3">Help totals are updating. Your last confirmed points stay visible.</p>}
       </DialogContent>
     </Dialog>
   );

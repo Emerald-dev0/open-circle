@@ -1,6 +1,8 @@
+import type { HelperPeriodScores } from "../shared/coordination.js";
 import type {
   Board,
   GithubRepository,
+  GithubStar,
   InviteConfig,
   Weights,
 } from "../shared/types.js";
@@ -29,13 +31,19 @@ export interface MemberRecord {
   currentStreak?: number;
   /** Longest verified daily streak on record. */
   longestStreak?: number;
+  /** First UTC day of the current streak; kept so trimming old history can't freeze a long run. */
+  streakStart?: string;
   /** Earned achievement ids mapped to the award time. */
   achievements?: Record<string, number>;
   helperPoints?: number;
   helpfulContributions?: number;
   helpedMembers?: number;
+  helperPeriods?: HelperPeriodScores;
   activitySince?: number;
   projects?: GithubRepository[];
+  starredRepositories?: GithubStar[];
+  starSupportUpdatedAt?: number;
+  starHistoryVersion?: number;
   spotlightRepositoryId?: string;
   hidden: boolean;
   createdAt: number;
@@ -61,6 +69,11 @@ export interface Store {
   createMember(member: MemberRecord): Promise<CreateResult>;
   /** No-op if the member was deleted in the meantime. */
   patchMember(login: string, patch: Partial<MemberRecord>): Promise<void>;
+  /**
+   * Adds achievement awards without dropping ones a concurrent writer made.
+   * Awards already recorded keep their original time. No-op if the member is gone.
+   */
+  mergeAchievements(login: string, awards: Record<string, number>): Promise<void>;
   deleteMember(login: string): Promise<void>;
   getConfig(): Promise<Partial<AppConfig> | null>;
   setConfig(config: AppConfig): Promise<void>;
@@ -86,6 +99,8 @@ const NUMERIC = [
   "helpfulContributions",
   "helpedMembers",
   "activitySince",
+  "starSupportUpdatedAt",
+  "starHistoryVersion",
   "createdAt",
   "statsUpdatedAt",
   "currentStreak",
@@ -128,6 +143,9 @@ export function decodeMember(hash: Record<string, string>): MemberRecord {
     projects: hash.projects ? JSON.parse(hash.projects) : [],
     activityDays: hash.activityDays ? JSON.parse(hash.activityDays) : [],
     achievements: hash.achievements ? JSON.parse(hash.achievements) : {},
+    streakStart: hash.streakStart || undefined,
+    starredRepositories: hash.starredRepositories ? JSON.parse(hash.starredRepositories) : undefined,
+    helperPeriods: hash.helperPeriods ? JSON.parse(hash.helperPeriods) : undefined,
     spotlightRepositoryId: hash.spotlightRepositoryId || undefined,
   } as MemberRecord;
   for (const key of NUMERIC) record[key] = Number(hash[key]) || 0;

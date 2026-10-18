@@ -1,6 +1,6 @@
 import { pollApi } from "@/lib/query-policy";
 import { useEffect, useId, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CopyIcon } from "@solar-icons/react/linear";
@@ -31,7 +31,7 @@ type Field = { required?: boolean; name: string; label: string; type?: "text" | 
  * Compact form. `inline` puts the fields and button on one line from sm up
  * with screen-reader-only labels; otherwise labels sit above each field.
  */
-function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit, inline = false }: { title?: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void; inline?: boolean }) {
+function ParticipationForm({ title, button, fields, busy, submit, reset = true, onEdit, onCancel, inline = false }: { title?: string; button: string; fields: Field[]; busy: boolean; submit: (data: FormData) => Promise<boolean>; reset?: boolean; onEdit?: () => void; onCancel?: () => void; inline?: boolean }) {
   const prefix = useId();
   return <form className={cn("space-y-2.5", inline && "sm:flex sm:items-end sm:gap-2 sm:space-y-0")} onChange={onEdit} onSubmit={async (event) => {
     event.preventDefault();
@@ -45,7 +45,10 @@ function ParticipationForm({ title, button, fields, busy, submit, reset = true, 
         ? <textarea id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 min-h-24 resize-none rounded-[20px] py-3 text-sm" required={field.required ?? true} minLength={field.min} maxLength={field.max} disabled={busy} />
         : <input id={`${prefix}-${field.name}`} name={field.name} placeholder={field.placeholder} className="field placeholder:text-t3 h-11 text-sm" type={field.type ?? "text"} required={field.required ?? true} min={field.type === "number" ? field.min : undefined} max={field.type === "number" ? field.max : undefined} minLength={field.type !== "number" ? field.min : undefined} maxLength={field.type !== "number" ? field.max : undefined} defaultValue={field.value} autoComplete={field.type === "tel" ? "tel" : "off"} disabled={busy} />}
     </label>)}
-    <MetalButton type="submit" loading={busy} wrapperClassName={inline ? "w-full sm:w-auto" : "w-full"} className="h-11 w-full" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+    <div className="flex max-w-full flex-wrap items-center gap-2">
+      <MetalButton type="submit" loading={busy} className="min-h-11" innerClassName="px-5">{busy ? "Saving…" : button}</MetalButton>
+      {onCancel && <MetalButton type="button" variant="minimal" size="sm" disabled={busy} onClick={onCancel}>Cancel</MetalButton>}
+    </div>
   </form>;
 }
 
@@ -180,7 +183,7 @@ export default function Participation() {
           <div className="flex justify-center py-6">
             {community.data?.signInAvailable
               ? <MetalButton asChild className="h-11 w-auto" innerClassName="px-6"><a href={`/api/auth-start?${new URLSearchParams({ returnTo: participationDestination(`/participation${location.hash}`) ?? "/participation" })}`}><GitHubIcon className="size-4" />Sign in with GitHub</a></MetalButton>
-              : <p className="text-sm text-t3">{community.isPending ? "Checking sign-in…" : "GitHub sign-in is being set up."}</p>}
+              : <p className="text-sm text-t3">GitHub sign-in is being set up.</p>}
           </div>
         </Panel>
 
@@ -200,7 +203,7 @@ export default function Participation() {
               <code className="min-w-0 flex-1 truncate font-mono text-base text-foreground">/link {challenge.code}</code>
               <button type="button" aria-label="Copy command" className="flex size-8 items-center justify-center rounded-full text-t3 hover:text-foreground" onClick={async () => { try { await navigator.clipboard.writeText(`/link ${challenge.code}`); toast.success("Copied."); } catch { toast.error("Couldn't copy."); } }}><CopyIcon size={16} aria-hidden /></button>
             </div>
-            {challenge.botChatUrl && <MetalButton asChild wrapperClassName="w-full sm:w-auto" className="h-11 w-full sm:w-auto" innerClassName="px-5">
+            {challenge.botChatUrl && <MetalButton asChild className="min-h-11" innerClassName="px-5">
               <a href={challenge.botChatUrl} target="_blank" rel="noopener noreferrer">Open bot chat</a>
             </MetalButton>}
             <p className="text-xs text-t3">{challenge.botChatUrl ? "Open the bot chat and send the prefilled command from the same WhatsApp number. The bot replies there. /link does not work in the group." : "Open the bot's profile in the group and choose Message. It replies after you send the command. /link does not work in the group."}</p>
@@ -269,19 +272,11 @@ export default function Participation() {
           </TabsContent>
           <TabsContent value="help" forceMount hidden={section !== "help"}>
             <section id="help" className="scroll-mt-24 space-y-4 sm:space-y-6">
-              <Panel header={<PanelHeader title="Help requests" subtitle="Ask the circle, or help someone out." />}>
-                {data.help.length ? <PaginatedList items={data.help} label="Help requests" resetKey={String(profile?.id)} disabled={busy}>{(help) => <Item key={help.id} action={<>
-                  {help.status === "open" && !mine(help.owner) && <MetalButton variant="secondary" size="sm" className="w-auto" disabled={busy} onClick={() => { setTarget({ kind: "answer", id: help.id, title: help.owner }); selectSection("feedback", true); }}>Help with this</MetalButton>}
-                  {data.community?.assignedHelp.includes(help.id) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "decline-help", id: help.id })}>Decline request</MetalButton>}
-                  {help.status === "open" && mine(help.owner) && <MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => submit({ action: "close", id: help.id })}>Mark resolved</MetalButton>}
-                </>}>
-                  <p className="break-words text-sm text-foreground">{help.question}</p>
-                  <p className="text-xs text-t3">@{help.owner} · {help.status}{help.skills?.length ? ` · ${help.skills.join(", ")}` : ""}</p>
-                  {data.community?.assignedHelp.includes(help.id) && <p className="text-xs text-t2">This question matches your volunteer skills.</p>}
-                </Item>}</PaginatedList> : <Empty>No open help requests.</Empty>}
-                <FormFooter>
-                  <ParticipationForm title="Ask the group for help" button="Post help request" busy={busy} fields={[{ name: "question", label: "Your question", type: "textarea", min: 15, max: 500, placeholder: "e.g. How can I add keyboard navigation to my React menu?" }, { name: "skills", label: "Skills needed, separated by commas", max: 240, required: false, placeholder: "react, accessibility" }]} submit={(form) => submit({ action: "help", question: String(form.get("question")), skills: String(form.get("skills") ?? "").split(",").map((skill) => skill.trim()).filter(Boolean) })} />
-                </FormFooter>
+              <Panel header={<PanelHeader title="Questions" />}>
+                <div className="space-y-3 py-4">
+                  <p className="text-sm text-t2">Ask questions and find earlier help requests in Community. Existing answer confirmations stay in Feedback.</p>
+                  <MetalButton asChild className="min-h-11 w-auto"><Link to="/community?tab=questions">Open questions</Link></MetalButton>
+                </div>
               </Panel>
               {data.community && <CommunityMentoring data={data.community} busy={busy} submit={submit} />}
             </section>
@@ -291,8 +286,7 @@ export default function Participation() {
               {target && <section key={`${target.kind}:${target.id}`} ref={feedbackForm}>
                 <Panel header={<PanelHeader title={`Feedback for ${target.title}`} subtitle="Describe your fix, testing, documentation or answer. Include an issue or pull request link if you have one. Useful help earns points after confirmation." />}>
                   <div className="py-4">
-                    <ParticipationForm button="Submit feedback" busy={busy} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
-                    <div className="mt-2 flex justify-center"><MetalButton variant="minimal" size="sm" className="w-auto" disabled={busy} onClick={() => setTarget(null)}>Cancel</MetalButton></div>
+                    <ParticipationForm button="Submit feedback" busy={busy} onCancel={() => setTarget(null)} fields={[{ name: "feedback", label: "What you tried and a useful observation or suggestion", type: "textarea", min: 30, max: 1000, placeholder: "I tried the search on mobile. A clear button would help." }]} submit={(form) => submit(target.kind === "review" ? { action: "review", projectId: target.id, text: String(form.get("feedback")) } : { action: "answer", helpId: target.id, text: String(form.get("feedback")) })} />
                   </div>
                 </Panel>
               </section>}

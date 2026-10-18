@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACTIVITY_HISTORY_DAYS,
   activeDaysInWindow,
   computeStreaks,
   evaluateAchievements,
@@ -51,28 +52,40 @@ describe("streak calculation", () => {
   const today = "2026-10-14";
 
   it("returns no streak without activity", () => {
-    expect(computeStreaks([], today)).toEqual({ current: 0, longest: 0 });
+    expect(computeStreaks([], today)).toEqual({ current: 0, longest: 0, start: "" });
   });
 
   it("counts consecutive days ending today", () => {
-    expect(computeStreaks(["2026-10-12", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 3, longest: 3 });
+    expect(computeStreaks(["2026-10-12", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 3, longest: 3, start: "2026-10-12" });
   });
 
   it("keeps yesterday's run alive until today is missed", () => {
-    expect(computeStreaks(["2026-10-11", "2026-10-12", "2026-10-13"], today)).toEqual({ current: 3, longest: 3 });
+    expect(computeStreaks(["2026-10-11", "2026-10-12", "2026-10-13"], today)).toEqual({ current: 3, longest: 3, start: "2026-10-11" });
   });
 
   it("breaks the current streak after a missed day but remembers the longest", () => {
-    expect(computeStreaks(["2026-10-10", "2026-10-11", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 2, longest: 2 });
-    expect(computeStreaks(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], today)).toEqual({ current: 0, longest: 4 });
+    expect(computeStreaks(["2026-10-10", "2026-10-11", "2026-10-13", "2026-10-14"], today)).toEqual({ current: 2, longest: 2, start: "2026-10-13" });
+    expect(computeStreaks(["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04"], today)).toEqual({ current: 0, longest: 4, start: "" });
   });
 
   it("treats UTC days as consecutive across a daylight-saving change", () => {
-    expect(computeStreaks(["2026-03-07", "2026-03-08", "2026-03-09"], "2026-03-09")).toEqual({ current: 3, longest: 3 });
+    expect(computeStreaks(["2026-03-07", "2026-03-08", "2026-03-09"], "2026-03-09")).toEqual({ current: 3, longest: 3, start: "2026-03-07" });
   });
 
   it("never lets trimming old history shrink the longest streak", () => {
-    expect(computeStreaks(["2026-10-13", "2026-10-14"], today, 12)).toEqual({ current: 2, longest: 12 });
+    expect(computeStreaks(["2026-10-13", "2026-10-14"], today, 12)).toEqual({ current: 2, longest: 12, start: "2026-10-13" });
+  });
+
+  it("keeps an ongoing run growing past the history trim", () => {
+    const end = Date.parse(`${today}T00:00:00Z`);
+    const full = Array.from({ length: ACTIVITY_HISTORY_DAYS + 1 }, (_, i) => utcDay(end - (ACTIVITY_HISTORY_DAYS - i) * 86_400_000));
+    const trimmed = full.slice(-ACTIVITY_HISTORY_DAYS);
+    expect(computeStreaks(trimmed, today)).toEqual({ current: ACTIVITY_HISTORY_DAYS, longest: ACTIVITY_HISTORY_DAYS, start: trimmed[0] });
+    expect(computeStreaks(trimmed, today, ACTIVITY_HISTORY_DAYS, full[0])).toEqual({ current: ACTIVITY_HISTORY_DAYS + 1, longest: ACTIVITY_HISTORY_DAYS + 1, start: full[0] });
+  });
+
+  it("ignores a stored start that a gap has already broken", () => {
+    expect(computeStreaks(["2026-10-14"], today, 0, "2020-01-01")).toEqual({ current: 1, longest: 1, start: "2026-10-14" });
   });
 });
 

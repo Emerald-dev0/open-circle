@@ -34,6 +34,7 @@ export function POST(req: Request): Promise<Response> {
       if (!phone.ok) throw new HttpError(400, "invalid_whatsapp", phone.error, "whatsapp");
       return json(await coordinationRequest<LinkChallenge>("link", { login: profile.login, phone: phone.value }), 201, { "cache-control": "private, no-store" });
     }
+    if (body?.action === "help") throw new HttpError(409, "questions_moved", "Ask your question in Community. New questions need admin approval.");
     return json(await coordinationRequest<ParticipationState>("action", { login: profile.login, input: body }), 200, { "cache-control": "private, no-store" });
   });
 }

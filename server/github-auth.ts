@@ -3,6 +3,8 @@ import type { GitHubProfile } from "../shared/community.js";
 import type { CommunityStore } from "./community-contract.js";
 import { HttpError } from "./http.js";
 import { adminUserIds, createAdminSession } from "./admin-session.js";
+import { openStarAuthorization, sealStarAuthorization } from "./github-star-authorization.js";
+import { forumDestination } from "../shared/forum.js";
 import { participationDestination } from "../shared/participation-navigation.js";
 
 const SESSION_COOKIE = "opencircle_github";
@@ -51,7 +53,8 @@ export function sessionHash(req: Request): string | null {
 export async function githubProfile(req: Request, store: CommunityStore): Promise<GitHubProfile | null> {
   if (!githubSignInAvailable()) return null;
   const hash = sessionHash(req);
-  return hash ? store.readSession(hash) : null;
+  const profile = hash ? await store.readSession(hash) : null;
+  return profile ? { id: profile.id, login: profile.login, ...(profile.name ? { name: profile.name } : {}), avatarUrl: profile.avatarUrl, ...(hash && openStarAuthorization(profile.starAuthorization, hash, profile.id) ? { starsConnected: true } : {}) } : null;
 }
 
 export function profileActor(profile: GitHubProfile): string {
@@ -65,11 +68,16 @@ export function beginGitHubSignIn(req: Request): Response {
   const state = randomBytes(32).toString("hex");
   const verifier = randomBytes(32).toString("base64url");
   const participation = participationDestination(new URL(req.url).searchParams.get("returnTo"));
+  const eventReturn = new URL(req.url).searchParams.get("returnTo");
+  const events = eventReturn && /^\/events(?:\/[a-z0-9-]{1,130})?$/.test(eventReturn) ? eventReturn : null;
+  const forum = forumDestination(new URL(req.url).searchParams.get("returnTo"));
   const portfolio = new URL(req.url).searchParams.get("returnTo") === "/portfolio";
-  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio })).toString("base64url");
+  const repositories = new URL(req.url).searchParams.get("returnTo") === "/repositories";
+  const stars = !admin && new URL(req.url).searchParams.get("stars") === "1";
+  const payload = Buffer.from(JSON.stringify({ state, verifier, expiresAt: Date.now() + 600_000, admin, participation, portfolio, repositories, stars, events, forum })).toString("base64url");
   const signature = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
   const destination = new URL("https://github.com/login/oauth/authorize");
-  destination.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirectUri, state, scope: "", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
+  destination.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirectUri, state, scope: stars ? "public_repo" : "", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
   return new Response(null, { status: 302, headers: { location: destination.toString(), "cache-control": "no-store", "set-cookie": cookie(req, STATE_COOKIE, `${payload}.${signature}`, 600) } });
 }
 
@@ -93,22 +101,25 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
     const state = url.searchParams.get("state");
     const code = url.searchParams.get("code");
     const saved = cookieValue(req, STATE_COOKIE);
-    if (!saved || saved.length > 1024 || !state || !/^[a-f0-9]{64}$/.test(state)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
+    if (!saved || saved.length > 4096 || !state || !/^[a-f0-9]{64}$/.test(state)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
     const [payload, signature, extra] = saved.split(".");
     const expected = createHmac("sha256", config.clientSecret).update(payload).digest("base64url");
     if (extra || signature?.length !== expected.length || !timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
-    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown; portfolio?: unknown };
+    const savedState = JSON.parse(Buffer.from(payload, "base64url").toString()) as { state?: unknown; verifier?: unknown; expiresAt?: unknown; admin?: unknown; participation?: unknown; portfolio?: unknown; repositories?: unknown; stars?: unknown; events?: unknown; forum?: unknown };
     if (typeof savedState.state !== "string" || savedState.state.length !== state.length || !timingSafeEqual(Buffer.from(savedState.state), Buffer.from(state)) || typeof savedState.expiresAt !== "number" || savedState.expiresAt <= Date.now() || typeof savedState.verifier !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(savedState.verifier)) throw new HttpError(400, "github_state", "Sign-in expired. Try again.");
     if (savedState.admin === true) returnTo = "/admin";
     else if (savedState.participation === true) returnTo = "/participation";
     else if (participationDestination(savedState.participation)) returnTo = participationDestination(savedState.participation)!;
+    else if (typeof savedState.events === "string" && /^\/events(?:\/[a-z0-9-]{1,130})?$/.test(savedState.events)) returnTo = savedState.events;
+    else if (forumDestination(savedState.forum)) returnTo = forumDestination(savedState.forum)!;
     else if (savedState.portfolio === true) returnTo = "/portfolio";
+    else if (savedState.repositories === true) returnTo = "/repositories";
     if (url.searchParams.has("error") || !code || code.length > 256) throw new HttpError(400, "github_denied", "GitHub sign-in was cancelled. Try again when you're ready.");
     const token = await githubJson("https://github.com/login/oauth/access_token", { method: "POST", headers: { accept: "application/json", "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: config.clientId, client_secret: config.clientSecret, code, redirect_uri: config.redirectUri, code_verifier: savedState.verifier }) });
     if (typeof token.access_token !== "string" || token.token_type !== "bearer") throw new HttpError(502, "github_exchange", "GitHub sign-in couldn't finish. Try again.");
     const user = await githubJson("https://api.github.com/user", { headers: { authorization: `Bearer ${token.access_token}`, accept: "application/vnd.github+json", "x-github-api-version": "2026-03-10", "user-agent": "OpenCircle" } });
     if (!Number.isSafeInteger(user.id) || Number(user.id) <= 0 || typeof user.login !== "string" || !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(user.login) || user.type !== "User") throw new HttpError(502, "github_profile", "GitHub didn't return a personal profile. Try again.");
-    const profile: GitHubProfile = { id: Number(user.id), login: user.login, avatarUrl: `https://avatars.githubusercontent.com/u/${user.id}?s=80` };
+    const profile: GitHubProfile = { id: Number(user.id), login: user.login, ...(typeof user.name === "string" && user.name.trim() ? { name: user.name.trim() } : {}), avatarUrl: `https://avatars.githubusercontent.com/u/${user.id}?s=80` };
     if (savedState.admin === true) {
       const adminCookie = await createAdminSession(req, store, profile);
       const headers = new Headers({ location: returnTo, "cache-control": "no-store" });
@@ -117,7 +128,11 @@ export async function finishGitHubSignIn(req: Request, store: CommunityStore): P
       return new Response(null, { status: 302, headers });
     }
     const session = randomBytes(32).toString("hex");
-    await store.createSession(createHash("sha256").update(session).digest("hex"), profile, Date.now() + SESSION_SECONDS * 1000);
+    const hash = createHash("sha256").update(session).digest("hex");
+    const scopes = typeof token.scope === "string" ? token.scope.split(/[ ,]+/) : [];
+    if (savedState.stars === true && !scopes.some((scope) => scope === "public_repo" || scope === "repo"))
+      throw new HttpError(403, "github_stars_permission", "GitHub did not grant permission to star repositories. Try connecting again.");
+    await store.createSession(hash, { ...profile, ...(savedState.stars === true ? { starAuthorization: sealStarAuthorization(token.access_token, hash, profile.id) } : {}) }, Date.now() + SESSION_SECONDS * 1000);
     const previous = sessionHash(req);
     if (previous) await store.removeSession(previous);
     const headers = new Headers({ location: returnTo, "cache-control": "no-store" });

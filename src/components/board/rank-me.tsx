@@ -137,8 +137,8 @@ export function RankMe({ board, me, onLocate, onJoined, onRules }: Props) {
             </TooltipContent>
           </Tooltip>
         </div>
-        <div className="flex w-full shrink-0 items-center gap-2 min-[420px]:w-auto">
-          <MetalButton type="submit" wrapperClassName="min-w-0 flex-1 min-[420px]:flex-none" className="h-12 w-full min-[420px]:w-auto" innerClassName="px-4 sm:px-5">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">
+          <MetalButton type="submit" className="h-12" innerClassName="px-4 sm:px-5">
             <CupStarIcon size={16} aria-hidden />
             Rank me
           </MetalButton>
@@ -354,7 +354,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         <label htmlFor={ids.spotlight} className="block px-3 text-sm text-foreground">Spotlight repository</label>
         <p id={ids.spotlightHint} className="px-3 text-xs leading-relaxed text-t3">We automatically pick your most-starred public, original repo with at least 5 stars. You can choose another.</p>
         {projects === null ? (
-          <TextureButton type="button" variant="secondary" className="min-h-11 w-full" loading={preview.isPending} disabled={busy} onClick={(event) => void submit(event, true)}>
+          <TextureButton type="button" variant="secondary" className="min-h-11" loading={preview.isPending} disabled={busy} onClick={(event) => void submit(event, true)}>
             {preview.isPending ? "Loading eligible repos…" : "Choose a spotlight repo"}
           </TextureButton>
         ) : projects.length > 0 ? (
@@ -389,7 +389,7 @@ function RegisterForm({ login, board, onJoined }: { login: string; board?: Board
         </div>
       )}
 
-      <MetalButton type="submit" loading={register.isPending} disabled={busy} wrapperClassName="w-full" className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
+      <MetalButton type="submit" loading={register.isPending} disabled={busy} className="min-h-11" innerClassName="whitespace-normal px-3 text-center">
         {register.isPending ? "Checking membership and ranking…" : needsJoin ? "Check again" : "Join the board"}
       </MetalButton>
     </form>

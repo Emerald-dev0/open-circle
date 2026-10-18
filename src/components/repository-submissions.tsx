@@ -45,7 +45,7 @@ export function RepositorySubmissions({ repositories, login, busy, submit, contr
             <p className="text-xs leading-relaxed text-t3">The repo must be public, active and have a recognised open-source licence. Approved submissions enter the daily queue, with one follow-up after 48 hours if help is still needed.</p>
             <label className="flex items-start gap-3 text-sm text-t2"><input name="permission" type="checkbox" required className="mt-1 size-4 shrink-0 accent-foreground" />I maintain this repo or have permission to submit it.</label>
             <label className="flex items-start gap-3 text-sm text-t2"><input name="tagOwner" type="checkbox" className="mt-1 size-4 shrink-0 accent-foreground" />The bot may tag me when sharing my repo in our group.</label>
-            <MetalButton type="submit" loading={busy} disabled={busy} className="h-11 w-full" innerClassName="px-5">Submit repo for approval</MetalButton>
+            <MetalButton type="submit" loading={busy} disabled={busy} className="min-h-11" innerClassName="px-5">Submit repo for approval</MetalButton>
           </fieldset>
         </form>
       </details>

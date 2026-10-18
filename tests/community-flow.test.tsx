@@ -75,8 +75,13 @@ describe("Community interface through real API handlers", () => {
     const page = await renderPage("/repositories");
     const upvote = await screen.findByRole("button", { name: "Upvote Octocat/open-kit" });
     await waitFor(() => expect((upvote as HTMLButtonElement).disabled).toBe(false));
+    const unselectedIcon = upvote.querySelector("svg")!.innerHTML;
     await user.click(upvote);
-    await screen.findByRole("button", { name: "Remove upvote from Octocat/open-kit" });
+    const selected = await screen.findByRole("button", { name: "Remove upvote from Octocat/open-kit" });
+    await waitFor(() => expect(selected.getAttribute("aria-busy")).toBeNull());
+    const selectedIcon = selected.querySelector("svg")!.innerHTML;
+    expect(selectedIcon).not.toBe(unselectedIcon);
+    expect(screen.getByLabelText("1 upvotes for Octocat/open-kit").classList.contains("text-up")).toBe(true);
     expect((await community.readVotes("not-this-visitor")).counts["repo:R_open-kit"]).toBe(1);
 
     await user.click(screen.getByRole("tab", { name: /^Tools/ }));
@@ -109,8 +114,12 @@ describe("Community interface through real API handlers", () => {
     await renderPage("/repositories");
     const remove = await screen.findByRole("button", { name: "Remove upvote from Octocat/open-kit" });
     await waitFor(() => expect((remove as HTMLButtonElement).disabled).toBe(false));
+    expect(remove.querySelector("svg")!.innerHTML).toBe(selectedIcon);
     await user.click(remove);
-    await screen.findByRole("button", { name: "Upvote Octocat/open-kit" });
+    const cleared = await screen.findByRole("button", { name: "Upvote Octocat/open-kit" });
+    await waitFor(() => expect(cleared.getAttribute("aria-busy")).toBeNull());
+    expect(cleared.querySelector("svg")!.innerHTML).toBe(unselectedIcon);
+    expect(screen.getByLabelText("0 upvotes for Octocat/open-kit").classList.contains("text-up")).toBe(false);
     expect((await community.readVotes("not-this-visitor")).counts["repo:R_open-kit"]).toBeUndefined();
     expect((await board.getBoard())?.repositories[0].stars).toBe(10);
   });
@@ -185,6 +194,7 @@ describe("Community interface through real API handlers", () => {
     vi.spyOn(community, "setVote").mockRejectedValueOnce(new HttpError(503, "storage_unavailable", "Votes cannot be saved right now."));
     await user.click(upvote);
     expect((await screen.findByRole("alert")).textContent).toBe("Votes cannot be saved right now.");
+    expect(upvote.getAttribute("aria-pressed")).toBe("false");
     expect((await community.readVotes("anyone")).counts).toEqual({});
     await waitFor(() => expect((upvote as HTMLButtonElement).disabled).toBe(false));
     await user.click(upvote);

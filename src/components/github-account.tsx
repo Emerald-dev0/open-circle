@@ -9,6 +9,7 @@ import { GitHubIcon } from "@/components/brand-icons";
 import { MetalButton } from "@/components/metal-button";
 import { AccountSkeleton } from "@/components/site-skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { REPOSITORY_STAR_KEY } from "@/hooks/use-repository-stars";
 import { TOOL_VOTE_KEY, useCommunity, useGitHubSignOut } from "@/hooks/use-community";
 
 // Shown expanded once, the first time a signed-in member sees it.
@@ -38,8 +39,10 @@ function PortfolioItem({ onSelect }: { onSelect: () => void }) {
 export function GitHubAccount() {
   const community = useCommunity();
   const signOut = useGitHubSignOut();
+  const starring = useIsMutating({ mutationKey: REPOSITORY_STAR_KEY }) > 0;
   const voting = useIsMutating({ mutationKey: TOOL_VOTE_KEY }) > 0;
   const profile = community.data?.profile;
+  const forumReturn = typeof window !== "undefined" && window.location.pathname.startsWith("/community") ? `?${new URLSearchParams({ returnTo: `${window.location.pathname}${window.location.search}` })}` : "";
   const signInError = new URLSearchParams(window.location.search).has("signin");
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -77,7 +80,7 @@ export function GitHubAccount() {
         <TooltipTrigger asChild>
           {available ? (
             <MetalButton asChild variant="icon" size="icon" className="size-10" innerClassName="p-0">
-              <a href="/api/auth-start" aria-label="Sign in to vote"><GitHubIcon className="size-[18px]" /></a>
+              <a href={`/api/auth-start${forumReturn}`} aria-label="Sign in to vote"><GitHubIcon className="size-[18px]" /></a>
             </MetalButton>
           ) : (
             <span className="inline-flex" tabIndex={0}>
@@ -125,7 +128,7 @@ export function GitHubAccount() {
               role="menuitem"
               aria-label="Sign out of GitHub"
               className={ITEM}
-              disabled={signOut.isPending || voting}
+              disabled={signOut.isPending || voting || starring}
               onClick={() => signOut.mutate(undefined, { onSuccess: close })}
             >
               <Logout2Icon className="size-4" aria-hidden="true" />Log out

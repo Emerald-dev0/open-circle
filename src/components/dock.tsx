@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { MetalText } from "@/components/metal-text";
 import { motion, useSpring, useTransform } from "motion/react";
-import { CupStarIcon, UserIdIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
+import { ChatRoundDotsIcon, CupStarIcon, UserIdIcon, UsersGroupRoundedIcon } from "@solar-icons/react/bold-duotone";
 import { WhatsAppIcon } from "@/components/brand-icons";
 import { toast } from "sonner";
 import { BRAND_NAME, DEFAULT_INVITE_NOTE, DEFAULT_INVITE_URL } from "@shared/brand";
@@ -101,11 +101,11 @@ export function Dock({
     >
       {/* The name sits in its own pill, butted up against the icon dock. */}
       <div className="flex max-w-full items-center gap-1">
-        <LiquidGlass radius={9999} className="flex items-center p-1.5">
+        <LiquidGlass radius={9999} className="hidden items-center p-1.5 min-[400px]:flex">
           <button
             type="button"
             onClick={rank}
-            className="flex h-11 items-center self-center rounded-full px-2 sm:px-4"
+            className="flex h-11 items-center self-center rounded-full px-1 sm:px-4"
             aria-label={`${BRAND_NAME}, back to top`}
           >
             <MetalText font={BRAND_FONT} color={resolvedTheme === "dark" ? "#F4F7FB" : "#252E3D"} theme={resolvedTheme}>{BRAND_NAME}</MetalText>
@@ -113,10 +113,13 @@ export function Dock({
         </LiquidGlass>
         <LiquidGlass
           radius={9999}
-          className="flex items-center gap-1 overflow-visible p-1.5"
+          className="flex items-center gap-0 overflow-visible p-1 sm:gap-1 sm:p-1.5"
         >
           <DockIcon label="Rank me" onClick={rank} active={onBoard}>
             <CupStarIcon size="100%" aria-hidden />
+          </DockIcon>
+          <DockIcon label="Community" onClick={() => go("/community")} active={pathname.startsWith("/community") || pathname.startsWith("/events")}>
+            <ChatRoundDotsIcon size="100%" aria-hidden />
           </DockIcon>
           <DockIcon label="Group participation" onClick={() => go("/participation")} active={pathname === "/participation"}>
             <UsersGroupRoundedIcon size="100%" aria-hidden />

@@ -1,3 +1,6 @@
+import { ApiError } from "@/lib/api";
+import { useRepositoryStars } from "@/hooks/use-repository-stars";
+import { RepositoryStarButton } from "./repository-star-button";
 import { isRateLimited } from "@/lib/query-policy";
 import { useEffect, useMemo, useState } from "react";
 import { useErrorToast } from "@/hooks/use-error-toast";
@@ -76,6 +79,12 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
 
   const pagination = usePagination(visible, 20, JSON.stringify([search, language, sort]));
 
+  const stars = useRepositoryStars(pagination.items.map((repo) => repo.id), community.data?.profile?.id, community.data?.profile?.starsConnected);
+  const starError = stars.status.error;
+  const reconnect = starError instanceof ApiError && starError.code === "github_stars_permission";
+  const mutationReconnect = stars.mutation.error instanceof ApiError && ["github_stars_permission", "github_required"].includes(stars.mutation.error.code);
+  const starStatuses = new Map(stars.status.data?.repositories.map((repo) => [repo.id, repo]));
+
   function toggleSaved(id: string) {
     const next = new Set(saved);
     if (next.has(id)) next.delete(id);
@@ -98,6 +107,8 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   useErrorToast(community.error ? true : null, "Community upvotes could not load.", { id: "upvotes-load", retry: () => community.refetch() });
+  useErrorToast(starError, "GitHub stars could not load.", { id: "github-stars-load", retry: () => stars.status.refetch() });
+  useErrorToast(stars.mutation.error, "Your GitHub star could not update. Try again.");
   useErrorToast(vote.error, "Your upvote could not be saved. Try again.");
 
   return (
@@ -177,6 +188,15 @@ export function RepositoryExplorer({ repositories }: { repositories: PublicRepos
             pendingTarget={vote.isPending ? vote.variables?.target ?? null : null}
             onVote={(repo, active) => vote.mutate({ target: `repo:${repo.id}`, active })}
             onSave={toggleSaved}
+            renderStar={(repo) => <RepositoryStarButton
+              repo={repo}
+              status={starStatuses.get(repo.id)}
+              connected={Boolean(stars.status.data?.connected) && !reconnect && !mutationReconnect}
+              available={community.data?.signInAvailable === true}
+              disabled={stars.busy || (community.data?.profile?.starsConnected === true && stars.status.isPending) || (Boolean(starError) && !reconnect)}
+              pending={stars.mutation.isPending && stars.mutation.variables?.repositoryId === repo.id}
+              onStar={(active) => stars.mutation.mutate({ repositoryId: repo.id, active })}
+            />}
           />
           <Pagination {...pagination} label="Spotlight" onPageChange={pagination.changePage} />
           </>

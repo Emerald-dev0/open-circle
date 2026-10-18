@@ -1,3 +1,10 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import * as events from "../api/events.js";
+import * as eventRegistrations from "../api/event-registrations.js";
+import * as eventUploads from "../api/event-uploads.js";
+import * as eventMedia from "../api/event-media.js";
+import * as eventCover from "../api/event-cover.js";
 import * as botSettings from "../api/bot-settings.js";
 /**
  * Standalone Node server for hosts that aren't Vercel (e.g. Pxxl): serves the
@@ -16,8 +23,12 @@ import * as adminSession from "../api/admin-session.js";
 import * as auth from "../api/auth.js";
 import * as authStart from "../api/auth-start.js";
 import * as authCallback from "../api/auth-callback.js";
+import * as forumLegacy from "../api/forum-legacy.js";
+import * as forum from "../api/forum.js";
+import * as forumAdmin from "../api/forum-admin.js";
 import * as community from "../api/community.js";
 import * as tools from "../api/tools.js";
+import * as repositoryStars from "../api/repository-stars.js";
 import * as vote from "../api/vote.js";
 import * as board from "../api/board.js";
 import * as preview from "../api/preview.js";
@@ -35,9 +46,18 @@ import { readBody } from "./vite-dev-api.js";
 import { handle, HttpError, json } from "./http.js";
 import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
 import { readPublicPortfolio } from "./portfolio.js";
+import { eventSeoDocument } from "./event-seo.js";
+import { communitySeoDocument } from "./forum-seo.js";
+import * as forumPreview from "../api/forum-preview.js";
+import * as forumImage from "../api/forum-image.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
+  events: events as Record<string, Handler>,
+  "event-registrations": eventRegistrations as Record<string, Handler>,
+  "event-uploads": eventUploads as Record<string, Handler>,
+  "event-media": eventMedia as Record<string, Handler>,
+  "event-cover": eventCover as Record<string, Handler>,
   analytics: analytics as Record<string, Handler>,
   admin: admin as Record<string, Handler>,
   "bot-settings": botSettings as Record<string, Handler>,
@@ -45,9 +65,15 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   auth: auth as Record<string, Handler>,
   "auth-start": authStart as Record<string, Handler>,
   "auth-callback": authCallback as Record<string, Handler>,
+  "forum-legacy": forumLegacy as Record<string, Handler>,
+  forum: forum as Record<string, Handler>,
+  "forum-preview": forumPreview as Record<string, Handler>,
+  "forum-image": forumImage as Record<string, Handler>,
+  "forum-admin": forumAdmin as Record<string, Handler>,
   community: community as Record<string, Handler>,
   tools: tools as Record<string, Handler>,
   vote: vote as Record<string, Handler>,
+  "repository-stars": repositoryStars as Record<string, Handler>,
   board: board as Record<string, Handler>,
   preview: preview as Record<string, Handler>,
   register: register as Record<string, Handler>,
@@ -65,6 +91,7 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".json": "application/json",
@@ -88,7 +115,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       const route = api ? routes[api[1]] : undefined;
       const handler = route?.[req.method ?? "GET"];
       if (!handler) {
-        const response = json({ error: { code: route ? "method_not_allowed" : "not_found", message: route ? "That method is not supported." : "That endpoint does not exist." } }, route ? 405 : 404, route ? { allow: Object.keys(route).filter((method) => /^(GET|POST|PATCH|DELETE)$/.test(method)).join(", ") } : {});
+        const response = json({ error: { code: route ? "method_not_allowed" : "not_found", message: route ? "That method is not supported." : "That endpoint does not exist." } }, route ? 405 : 404, route ? { allow: Object.keys(route).filter((method) => /^(GET|HEAD|POST|PATCH|DELETE)$/.test(method)).join(", ") } : {});
         response.headers.forEach((value, key) => res.setHeader(key, value));
         res.writeHead(response.status).end(await response.text());
         return;
@@ -107,7 +134,8 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
           const body = method === "GET" || method === "HEAD" ? undefined : await readBody(req, maxBytes);
           return handler(new Request(url, { method, headers, body: body ? new Uint8Array(body) : undefined }));
         });
-        const responseBody = await encodePublicJson(response, req.headers["accept-encoding"] ?? "");
+        const streaming = url.pathname === "/api/event-media" && response.ok && response.body;
+        const responseBody = streaming ? undefined : await encodePublicJson(response, req.headers["accept-encoding"] ?? "");
         res.statusCode = response.status;
         response.headers.forEach((value, key) => {
           // Vercel-only CDN directive; meaningless here.
@@ -116,7 +144,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         const cookies = response.headers.getSetCookie();
         if (cookies.length) res.setHeader("set-cookie", cookies);
         if (response.status === 413) res.setHeader("connection", "close");
-        res.end(responseBody);
+        if (streaming) { await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), res).catch(() => res.destroy()); } else res.end(responseBody);
       } catch (err) {
         console.error(err);
         if (!res.headersSent) res.writeHead(500, { "content-type": "application/json" });
@@ -156,7 +184,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
         }
         return;
       }
-      if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/portfolio") {
+      if (pathname === "/admin" || pathname.startsWith("/admin/") || pathname === "/portfolio" || pathname === "/community" || pathname.startsWith("/community/")) {
         res.setHeader("x-robots-tag", "noindex, nofollow");
         res.setHeader("cache-control", "no-store");
         res.setHeader("x-frame-options", "DENY");
@@ -169,7 +197,13 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       }
       const raw = readFileSync(INDEX, "utf8");
       const origin = originFromHtml(raw, process.env.SITE_URL || DEFAULT_SITE_URL);
-      const document = seoDocument(pathname, origin);
+      let document = seoDocument(pathname, origin);
+      try { document = await communitySeoDocument(pathname, origin) ?? await eventSeoDocument(pathname, origin) ?? document; }
+      catch (error) {
+        console.error(error);
+        document = { ...document, status: 503 };
+      }
+      if (pathname.startsWith("/events/")) res.setHeader("cache-control", "no-store");
       if (!document.index) res.setHeader("x-robots-tag", "noindex, nofollow");
       res.writeHead(document.status).end(applySeo(raw.replaceAll("%SITE_URL%", origin), document));
       return;

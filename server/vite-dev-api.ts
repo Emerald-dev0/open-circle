@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { existsSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
@@ -63,8 +65,8 @@ export function devApi(): Plugin {
           const handler = mod[method] as
             | ((r: Request) => Promise<Response>)
             | undefined;
-          if (typeof handler !== "function" || !["GET", "POST", "PATCH", "DELETE"].includes(method)) {
-            const response = json({ error: { code: "method_not_allowed", message: "That method is not supported." } }, 405, { allow: Object.keys(mod).filter((key) => /^(GET|POST|PATCH|DELETE)$/.test(key)).join(", ") });
+          if (typeof handler !== "function" || !["GET", "HEAD", "POST", "PATCH", "DELETE"].includes(method)) {
+            const response = json({ error: { code: "method_not_allowed", message: "That method is not supported." } }, 405, { allow: Object.keys(mod).filter((key) => /^(GET|HEAD|POST|PATCH|DELETE)$/.test(key)).join(", ") });
             response.headers.forEach((value, key) => res.setHeader(key, value));
             res.statusCode = response.status;
             return res.end(await response.text());
@@ -106,7 +108,8 @@ export function devApi(): Plugin {
           const cookies = response.headers.getSetCookie();
           if (cookies.length) res.setHeader("set-cookie", cookies);
           if (response.status === 413) res.setHeader("connection", "close");
-          res.end(Buffer.from(await response.arrayBuffer()));
+          if (url.pathname === "/api/event-media" && response.ok && response.body) await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), res).catch(() => res.destroy());
+          else res.end(Buffer.from(await response.arrayBuffer()));
         } catch (err) {
           server.ssrFixStacktrace(err as Error);
           next(err);

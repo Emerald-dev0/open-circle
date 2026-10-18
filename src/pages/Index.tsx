@@ -1,5 +1,4 @@
 import * as React from "react";
-import GitHubButton from "react-github-btn";
 import { MetalText } from "@/components/metal-text";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +7,7 @@ import { FolderWithFilesIcon, RefreshIcon, UsersGroupRoundedIcon } from "@solar-
 import { GitPullRequestIcon } from "@solar-icons/react/linear";
 import type { PublicMember, PublicRepository } from "@shared/types";
 import { SPOTLIGHT_MIN_STARS } from "@shared/spotlight";
+import { parseRankingPeriod, RANKING_PERIODS, type RankingPeriod } from "@shared/coordination";
 import { Pagination } from "@/components/pagination";
 import { PAGE_SIZE, usePagination } from "@/hooks/use-pagination";
 import { HowItWorks } from "@/components/board/how-it-works";
@@ -20,6 +20,7 @@ import { RankTable } from "@/components/board/rank-table";
 import { RepositoryExplorer } from "@/components/board/repository-explorer";
 import { ToolsDirectory } from "@/components/board/tools-directory";
 import { GitHubAccount } from "@/components/github-account";
+import { GitHubCommunityLinks } from "@/components/github-community-links";
 import { ThemeSelect } from "@/components/theme-select";
 import { useTheme } from "@/hooks/use-theme";
 import { SiteFooter } from "@/components/site-footer";
@@ -31,14 +32,15 @@ import { useBoard } from "@/hooks/use-board";
 import { useCommunity } from "@/hooks/use-community";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { pageFor } from "@shared/seo";
-import { formatCount, formatFull, githubUrl, timeAgo } from "@/lib/format";
+import { formatCount, formatFull, githubUrl, rankingPeriodLabels, timeAgo } from "@/lib/format";
 import { readMe } from "@/lib/identity";
 import { cn } from "@/lib/utils";
 
-function toEntry(m: PublicMember): LeaderboardEntry {
+function toEntry(m: PublicMember, period: RankingPeriod): LeaderboardEntry {
   const id = m.login.toLowerCase();
   return {
     id,
+    period,
     name: m.nickname,
     points: m.score,
     handle: m.login,
@@ -46,6 +48,7 @@ function toEntry(m: PublicMember): LeaderboardEntry {
     activity: m.activity,
     upvotes: m.upvotes,
     helpfulContributions: m.helpfulContributions ?? 0,
+    starHelps: m.starHelps ?? 0,
     helpedMembers: m.helpedMembers ?? 0,
     currentStreak: m.currentStreak ?? 0,
     href: githubUrl(m.login),
@@ -125,6 +128,15 @@ const Index = () => {
     useMatch("/tools") !== null ||
     new URLSearchParams(location.search).get("tab") === "tools";
   const activeTab = toolsOpen ? "tools" : repositoriesOpen ? "repositories" : "developers";
+  const period = parseRankingPeriod(new URLSearchParams(location.search).get("period"));
+  const periodSearch = period === "all" ? "" : `?period=${period}`;
+  const navigationTarget = useRef(location.pathname + location.search);
+  useEffect(() => { navigationTarget.current = location.pathname + location.search; }, [location.pathname, location.search]);
+  const selectPage = (target: string) => {
+    if (navigationTarget.current === target) return;
+    navigationTarget.current = target;
+    navigate(target);
+  };
   const { data: board, isPending, isError, refetch, isRefetching } = useBoard();
   const { data: community } = useCommunity();
   const [me, setMe] = useState<string | null>(readMe);
@@ -133,9 +145,11 @@ const Index = () => {
   const [now, setNow] = useState(Date.now);
   const flashTimer = useRef<number | undefined>(undefined);
 
-  const members = useMemo(() => board?.members ?? [], [board]);
+  const members = useMemo(() => (period === "all" ? board?.members : board?.periods?.[period]) ?? [], [board, period]);
+  const periodUnavailable = Boolean(board && period !== "all" && !board.periods?.[period]);
+  const registeredMember = board?.members.find((member) => member.login.toLowerCase() === me);
   const currentMember = members.find((member) => member.login.toLowerCase() === me);
-  const podium = useMemo(() => members.slice(0, 3).map(toEntry), [members]);
+  const podium = useMemo(() => members.slice(0, 3).map((member) => toEntry(member, period)), [members, period]);
   const rest = useMemo(() => members.slice(3), [members]);
   const [sortBy, setSortBy] = useState<"rank" | "streak">("rank");
   const rankedRest = useMemo(
@@ -144,7 +158,7 @@ const Index = () => {
       : rest,
     [rest, sortBy],
   );
-  const pagination = usePagination(rankedRest, PAGE_SIZE, sortBy);
+  const pagination = usePagination(rankedRest, PAGE_SIZE, JSON.stringify([period, sortBy]));
   const setMemberPage = pagination.setPage;
   const repositories = useMemo(() => (board?.repositories ?? []).filter((repo) => repo.stars >= SPOTLIGHT_MIN_STARS), [board]);
   const repoPodium = useMemo(() => repositories.slice(0, 3).map(repoEntry), [repositories]);
@@ -154,8 +168,8 @@ const Index = () => {
   const setHowOpen = (open: boolean) =>
     navigate(
       open
-        ? `/how-it-works${activeTab !== "developers" ? `?tab=${activeTab}` : ""}`
-        : activeTab === "developers" ? "/" : `/${activeTab}`,
+        ? `/how-it-works${activeTab !== "developers" || period !== "all" ? `?${new URLSearchParams({ ...(activeTab !== "developers" ? { tab: activeTab } : {}), ...(period !== "all" ? { period } : {}) })}` : ""}`
+        : `${activeTab === "developers" ? "/" : `/${activeTab}`}${periodSearch}`,
       { replace: !open },
     );
 
@@ -189,8 +203,8 @@ const Index = () => {
   useEffect(() => {
     if (location.pathname !== "/") return;
     const tab = new URLSearchParams(location.search).get("tab");
-    if (tab === "repositories" || tab === "tools") navigate(`/${tab}`, { replace: true });
-  }, [location.pathname, location.search, navigate]);
+    if (tab === "repositories" || tab === "tools") navigate(`/${tab}${periodSearch}`, { replace: true });
+  }, [location.pathname, location.search, navigate, periodSearch]);
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 10_000);
@@ -202,29 +216,9 @@ const Index = () => {
       <div className="app-backdrop" aria-hidden />
 
       <div className="relative z-10">
-        <header className="relative z-20 flex flex-wrap items-center justify-between gap-3 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(1rem+env(safe-area-inset-top))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
-          <div className="flex min-h-10 min-w-0 max-w-full flex-wrap items-center gap-2">
-            <GitHubButton
-              href="https://github.com/opencirclehq/open-circle"
-              data-color-scheme={resolvedTheme}
-              data-icon="octicon-star"
-              data-size="large"
-              data-show-count="true"
-              aria-label="Star OpenCircle on GitHub"
-            >
-              Star
-            </GitHubButton>
-            <GitHubButton
-              href="https://github.com/opencirclehq"
-              data-color-scheme={resolvedTheme}
-              data-size="large"
-              data-show-count="true"
-              aria-label="Follow @opencirclehq on GitHub"
-            >
-              Follow @opencirclehq
-            </GitHubButton>
-          </div>
-          <div className="ml-auto flex min-w-0 max-w-full items-center gap-2"><ThemeSelect /><GitHubAccount /></div>
+        <header className="relative z-20 flex items-center justify-between gap-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[calc(1rem+env(safe-area-inset-top))] sm:gap-3 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
+          <GitHubCommunityLinks />
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2"><GitHubAccount /><ThemeSelect /></div>
         </header>
 
         <main className="page-container pb-6">
@@ -241,9 +235,9 @@ const Index = () => {
               id="pitch"
               className="text-gradient mt-3 max-w-full text-balance text-[30px] font-[350] leading-[1.05] tracking-[-0.035em] min-[400px]:text-[34px] sm:mt-4 sm:text-[64px] sm:leading-[1.02] sm:tracking-[-0.04em]"
             >
-              {currentMember ? "You're on the board." : "Paste your username."}
+              {registeredMember ? "You're on the board." : "Paste your username."}
               <br />
-              {currentMember ? `Ranked #${formatFull(currentMember.rank)}.` : "Take your place."}
+              {registeredMember ? currentMember ? `Ranked #${formatFull(currentMember.rank)}.` : "Rank is updating." : "Take your place."}
             </h1>
             {page && <p className="mx-auto mt-3 max-w-md text-balance text-sm leading-relaxed text-t3 sm:mt-4">{page.summary}</p>}
 
@@ -270,12 +264,13 @@ const Index = () => {
               {activeTab === "tools" ? "Developer tools" : activeTab === "repositories" ? "Repository spotlight" : "Developer leaderboard"}
             </h2>
             <Tabs
+              className="grid grid-cols-1 items-start gap-x-3 sm:grid-cols-[1fr_auto]"
               value={activeTab}
               onValueChange={(value) => {
-                navigate(value === "developers" ? "/" : `/${value}`);
+                selectPage(`${value === "developers" ? "/" : `/${value}`}${periodSearch}`);
               }}
             >
-              <div className="mb-5 flex flex-col items-center gap-2 sm:mb-8 sm:gap-3">
+              <div className={`mb-5 flex justify-center sm:mb-8 ${activeTab === "developers" ? "sm:justify-start" : "sm:col-span-2"}`}>
                 <TabsList aria-label="Leaderboard type" className="grid h-auto w-full grid-cols-[1fr_1.15fr_0.7fr] min-[480px]:inline-flex min-[480px]:w-auto">
                   <TabsTrigger value="developers" className="min-h-14 min-w-0 flex-col gap-0.5 px-2 text-xs min-[480px]:min-h-11 min-[480px]:flex-row min-[480px]:gap-0 sm:px-3 sm:text-sm">
                     {activeTab === "developers" && <TabPill />}
@@ -296,7 +291,7 @@ const Index = () => {
               </div>
 
               {isError && !board && !toolsOpen ? (
-                <div className="surface-quiet flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
+                <div className="surface-quiet col-span-full flex flex-col items-center gap-3 rounded-2xl px-4 py-8 text-center">
                   <p className="text-sm text-t2">Couldn't load the board.</p>
                   <TextureButton
                     variant="minimal"
@@ -310,16 +305,27 @@ const Index = () => {
                   </TextureButton>
                 </div>
               ) : (
-                <TabsContent value="developers" asChild>
-                <TabPanel>
-                  {board?.helpersDelayed && <p role="status" className="mb-4 text-center text-xs text-t3">Helper scores are waiting for the bot. Last confirmed points are preserved.</p>}
-                  {isPending ? <BoardSkeleton /> : <LeaderboardPodium
+                <TabsContent value="developers" className="contents" asChild>
+                  <Tabs value={period} onValueChange={(value) => {
+                    const search = new URLSearchParams(location.search);
+                    if (value === "all") search.delete("period"); else search.set("period", value);
+                    const query = search.toString();
+                    selectPage(`${location.pathname}${query ? `?${query}` : ""}`);
+                  }}>
+                  <div className="mb-5 flex justify-center sm:mb-8 sm:justify-end">
+                    <TabsList aria-label="Ranking period">
+                      {RANKING_PERIODS.map((value) => <TabsTrigger key={value} value={value} className="min-h-11 px-3 text-xs data-[state=active]:bg-foreground/[0.1] sm:px-4 sm:text-xs">{rankingPeriodLabels[value]}</TabsTrigger>)}
+                    </TabsList>
+                  </div>
+                  <TabsContent value={period} className="col-span-full mt-0" asChild>
+                  <TabPanel>
+                  {periodUnavailable ? <p role="status" className="surface-quiet rounded-2xl px-4 py-8 text-center text-sm text-t3">This period is waiting for help history. Try again shortly.</p> : isPending ? <BoardSkeleton /> : <LeaderboardPodium
                     entries={podium}
                     currentUserId={me}
                     flashId={flashId}
                   />}
 
-                  {!isPending && members.length === 0 && (
+                  {!isPending && !periodUnavailable && members.length === 0 && (
                     <EmptyState
                       icon={<UsersGroupRoundedIcon size={22} aria-hidden />}
                       title="Nobody's on the board yet"
@@ -350,15 +356,18 @@ const Index = () => {
                       meId={me}
                       flashId={flashId}
                       achievementCounts={board?.achievementCounts}
-                      memberCount={members.length}
+                      memberCount={board?.members.length ?? 0}
+                      period={period}
                     />
                     <Pagination {...pagination} label="Developers" onPageChange={pagination.changePage} />
                   </div>}
-                </TabPanel>
+                  </TabPanel>
+                  </TabsContent>
+                  </Tabs>
                 </TabsContent>
               )}
               <TabsContent value="repositories" asChild>
-                <TabPanel>
+                <TabPanel className="col-span-full">
                 {isPending ? (
                   <BoardSkeleton repositories />
                 ) : repositories.length > 0 ? (
@@ -379,7 +388,7 @@ const Index = () => {
                 )}
                 </TabPanel>
               </TabsContent>
-              <TabsContent value="tools">
+              <TabsContent value="tools" className="col-span-full">
                 <ToolsDirectory />
               </TabsContent>
             </Tabs>

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { adminAction, authorize } from "../server/admin";
-import { previewProfile, readBoard, rebuildBoard, register } from "../server/board";
+import { previewProfile, readBoard, readProgression, rebuildBoard, register } from "../server/board";
 import { decodeMember, encodeMember } from "../server/store";
 import { handle, json } from "../server/http";
 import type { Board } from "../shared/types";
@@ -209,7 +209,7 @@ describe("Member and repository board updates", () => {
       await Promise.all(work);
       expect((await store.getBoard())?.members[0]).toMatchObject({ activity: 9, score: 20, githubScore: 68 });
     }
-    expect(fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string).variables.f0_0))
+    expect(fetchMock.mock.calls.filter((call) => String(call[0]) === "https://api.github.com/graphql").map((call) => JSON.parse(call[1].body as string).variables.f0_0))
       .toEqual(["2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z"]);
   });
 
@@ -292,7 +292,8 @@ describe("Member and repository board updates", () => {
     expect(delayed?.members).toEqual(initial.members);
     expect(delayed?.repositories).toEqual(initial.repositories);
     await readBoard(store, (promise) => { work.push(promise); });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map((call) => String(call[0])).sort()).toEqual(["https://api.github.com/graphql", "https://api.github.com/repos/opencirclehq/open-circle"].sort());
   });
 
   it("refreshes developer scores and repository standings from the same GitHub snapshot", async () => {
@@ -388,5 +389,50 @@ describe("Developer progression", () => {
 
     expect((await store.getMember("octocat"))?.activityDays).toEqual(["2026-10-12", "2026-10-13", "2026-10-14"]);
     expect((await store.getBoard())?.members[0]).toMatchObject({ currentStreak: 3, longestStreak: 3 });
+  });
+
+  it("does not award a milestone from an activity total that predates the member", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ createdAt: Date.parse("2026-09-01T00:00:00Z"), activitySince: 0, activity: 300 }));
+
+    const board = await rebuildBoard(store);
+
+    expect(board.members[0].achievements).not.toContain("prolific_contributor");
+    expect(board.members[0]).toMatchObject({ activity: 0 });
+  });
+
+  it("excludes hidden members from rarity counts", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    const store = new TestStore();
+    await store.createMember(memberRecord({ login: "visible", displayLogin: "Visible", nickname: "Vis", whatsapp: "+2348000000001", achievements: { first_contribution: 1 } }));
+    await store.createMember(memberRecord({ login: "ghost", displayLogin: "Ghost", nickname: "Gho", whatsapp: "+2348000000002", hidden: true, achievements: { first_contribution: 2, streak_7: 2 } }));
+
+    const board = await rebuildBoard(store);
+
+    expect(board.achievementCounts).toMatchObject({ first_contribution: 1, streak_7: 0 });
+    const progression = await readProgression(store, "visible");
+    expect(progression).toMatchObject({ total: 1, counts: { first_contribution: 1, streak_7: 0 } });
+  });
+
+  it("keeps an award made while a rebuild was in flight", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-14T12:00:00Z"));
+    class StaleStore extends TestStore {
+      private snapshot: Awaited<ReturnType<TestStore["listMembers"]>> = [];
+      async snapshotNow() { this.snapshot = await super.listMembers(); }
+      override async listMembers() { return structuredClone(this.snapshot); }
+    }
+    const store = new StaleStore();
+    await store.createMember(memberRecord({ activityDays: week }));
+    await store.snapshotNow();
+    await store.mergeAchievements("octocat", { portfolio_author: 123 });
+
+    await rebuildBoard(store);
+
+    expect((await store.getMember("octocat"))?.achievements?.portfolio_author).toBe(123);
+    expect((await store.getMember("octocat"))?.achievements).toMatchObject({ first_contribution: expect.any(Number), portfolio_author: 123 });
   });
 });

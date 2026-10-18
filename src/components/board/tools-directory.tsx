@@ -195,7 +195,7 @@ export function ToolsDirectory() {
                     />
                   </div>
                   <div className="flex items-end sm:justify-end">
-                    <MetalButton wrapperClassName="w-full sm:w-auto" className="h-11 w-full" type="submit" loading={submit.isPending} disabled={submit.isPending || !community.data || unavailable}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
+                    <MetalButton className="min-h-11" type="submit" loading={submit.isPending} disabled={submit.isPending || !community.data || unavailable}>{submit.isPending ? "Sending…" : "Share tool"}</MetalButton>
                   </div>
                 </fieldset>
               </form>

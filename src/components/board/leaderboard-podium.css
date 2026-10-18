@@ -1,0 +1,74 @@
+.podium-slot {
+  --podium-top: 218 12% 79%;
+  --podium-mid: 218 10% 65%;
+  --podium-bottom: 218 9% 49%;
+  --podium-ring: 218 13% 55%;
+}
+
+.podium-slot[data-medal="gold"] {
+  --podium-top: 45 64% 78%;
+  --podium-mid: 43 48% 61%;
+  --podium-bottom: 40 36% 41%;
+  --podium-ring: 44 55% 65%;
+}
+
+.podium-slot[data-medal="silver"] {
+  --podium-top: 218 14% 91%;
+  --podium-mid: 218 9% 74%;
+  --podium-bottom: 218 7% 51%;
+  --podium-ring: 218 13% 77%;
+}
+
+.podium-slot[data-medal="bronze"] {
+  --podium-top: 26 57% 77%;
+  --podium-mid: 24 43% 59%;
+  --podium-bottom: 22 34% 39%;
+  --podium-ring: 25 47% 64%;
+}
+
+.podium-bar {
+  background:
+    linear-gradient(125deg, transparent 15%, hsl(0 0% 100% / 0.14) 37%, transparent 57%),
+    repeating-linear-gradient(115deg, hsl(0 0% 100% / 0.035) 0 1px, hsl(0 0% 0% / 0.025) 1px 2px, transparent 2px 4px),
+    linear-gradient(180deg, hsl(var(--podium-top)) 0%, hsl(var(--podium-mid)) 45%, hsl(var(--podium-bottom)) 100%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.6), inset 1px 0 0 hsl(0 0% 100% / 0.18), inset -1px 0 0 hsl(0 0% 0% / 0.1);
+}
+
+.podium-slot[data-medal="empty"] .podium-bar {
+  background: linear-gradient(180deg, hsl(var(--podium-top)), hsl(var(--podium-bottom)));
+}
+
+.podium-avatar {
+  border-color: hsl(var(--podium-ring));
+}
+
+.podium-avatar[data-current-user="true"] {
+  outline: 2px solid hsl(var(--alva-accent));
+  outline-offset: 3px;
+}
+
+.podium-crown {
+  color: hsl(var(--podium-ring));
+}
+
+.podium-rank {
+  color: hsl(220 30% 13% / 0.85);
+}
+
+.light .podium-slot[data-medal="gold"] {
+  --podium-ring: 40 57% 38%;
+}
+
+.light .podium-slot[data-medal="silver"] {
+  --podium-ring: 218 11% 45%;
+}
+
+.light .podium-slot[data-medal="bronze"] {
+  --podium-ring: 23 48% 40%;
+}
+
+.light .podium-slot[data-medal="empty"] {
+  --podium-top: 218 12% 89%;
+  --podium-bottom: 218 10% 74%;
+  --podium-ring: 218 13% 55%;
+}

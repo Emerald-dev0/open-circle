@@ -43,6 +43,7 @@ describe("search documents", () => {
     expect(sitemap).toContain("<lastmod>2026-10-15</lastmod>");
     expect(robotsTxt(origin).split("\n").filter((line) => line.startsWith("Disallow:"))).toEqual(["Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/"]);
     expect(robotsTxt(origin)).toContain("Allow: /");
+    expect(robotsTxt(origin)).toContain("Allow: /api/forum-image");
     expect(robotsTxt(origin)).toContain(`Sitemap: ${origin}/sitemap.xml`);
   });
 

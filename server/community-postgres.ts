@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from "pg";
-import type { CommunityTool, GitHubProfile, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
+import type { CommunityTool, ToolVoteResult, VoteResult, VoteValue } from "../shared/community.js";
 import { CURATED_TOOLS } from "../shared/tools.js";
-import type { CommunityStore } from "./community-contract.js";
+import type { CommunityStore, GitHubSession } from "./community-contract.js";
 import { HttpError } from "./http.js";
 import { toolCatalog, type StoredTool } from "./tool-catalog.js";
 
@@ -144,13 +144,13 @@ export class PostgresCommunityStore implements CommunityStore {
     });
   }
 
-  async createSession(hash: string, profile: GitHubProfile, expiresAt: number): Promise<void> {
+  async createSession(hash: string, profile: GitHubSession, expiresAt: number): Promise<void> {
     await this.pool.query("DELETE FROM opencircle_github_sessions WHERE expires_at <= NOW()");
     await this.pool.query("INSERT INTO opencircle_github_sessions (token_hash, profile, expires_at) VALUES ($1, $2::jsonb, $3)", [hash, JSON.stringify(profile), new Date(expiresAt)]);
   }
 
-  async readSession(hash: string): Promise<GitHubProfile | null> {
-    const { rows } = await this.pool.query<{ profile: GitHubProfile }>("SELECT profile FROM opencircle_github_sessions WHERE token_hash = $1 AND expires_at > NOW()", [hash]);
+  async readSession(hash: string): Promise<GitHubSession | null> {
+    const { rows } = await this.pool.query<{ profile: GitHubSession }>("SELECT profile FROM opencircle_github_sessions WHERE token_hash = $1 AND expires_at > NOW()", [hash]);
     return rows[0]?.profile ?? null;
   }
 

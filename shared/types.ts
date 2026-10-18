@@ -1,3 +1,5 @@
+import type { RankingPeriod } from "./coordination.js";
+
 export interface Weights {
   stars: number;
   followers: number;
@@ -32,6 +34,14 @@ export interface GithubStats {
   /** UTC days with at least one public contribution, oldest first. */
   activityDays?: string[];
   projects?: GithubRepository[];
+  starredRepositories?: GithubStar[];
+  starHistoryVersion?: number;
+}
+
+export interface GithubStar {
+  repositoryId: string;
+  ownerLogin: string;
+  starredAt: number;
 }
 
 export interface GithubRepository {
@@ -67,6 +77,7 @@ export interface PublicMember {
   rank: number;
   helperPoints?: number;
   helpfulContributions?: number;
+  starHelps?: number;
   helpedMembers?: number;
   githubScore?: number;
   /** Places gained (+) or lost (−) on the last move, if it happened in the last 24h. */
@@ -93,6 +104,10 @@ export interface Board {
   helpersCheckedAt?: number;
   helpersUpdatedAt?: number;
   helpersDelayed?: boolean;
+  helperHistoryReady?: boolean;
+  periods?: Record<Exclude<RankingPeriod, "all">, PublicMember[]>;
+  communityRepositoryCheckedAt?: number;
+  communityRepositoryDelayed?: boolean;
   members: PublicMember[];
   repositories: PublicRepository[];
   /** How many members have earned each achievement id, for rarity hints. */

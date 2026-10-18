@@ -53,6 +53,20 @@ it("grants the portfolio achievement to a board member on publish", async () => 
   expect((await board.getMember("alice"))?.achievements).toMatchObject({ portfolio_author: expect.any(Number) });
 });
 
+it("keeps a successful publish when recording the achievement fails, and recovers on the next read", async () => {
+  await board.createMember(memberRecord({ login: "alice", displayLogin: "Alice", activityDays: ["2026-10-14"] }));
+  const failing = vi.spyOn(board, "mergeAchievements").mockRejectedValueOnce(new Error("storage hiccup"));
+
+  const publish = await POST(req({ action: "publish", content: content(), version: 0 }));
+  expect(publish.status).toBe(200);
+  expect(await publish.json()).toMatchObject({ version: 1, publishedAt: expect.any(Number) });
+  expect((await board.getMember("alice"))?.achievements?.portfolio_author).toBeUndefined();
+
+  failing.mockRestore();
+  expect((await GET(req())).status).toBe(200);
+  expect((await board.getMember("alice"))?.achievements).toMatchObject({ portfolio_author: expect.any(Number) });
+});
+
 it("accepts long README drafts, isolates live data and rejects lost updates", async () => {
   const draft = { ...content(), readme: "Useful writing. ".repeat(700), contacts: [{ kind: "whatsapp", value: "+2348031234567", visible: false }] };
   expect((await POST(req({ action: "save", content: draft, version: 0, ownerId: 999 }))).status).toBe(200);

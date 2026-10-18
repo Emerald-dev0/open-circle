@@ -13,6 +13,8 @@ import type { CommunityState, CommunityTool, ToolInput, ToolVoteInput, ToolVoteR
 import type { LinkChallenge, ParticipationAction, ParticipationState } from "@shared/coordination";
 import type { AdminAnalytics, AnalyticsDays } from "@shared/analytics";
 
+import type { RepositoryStar, RepositoryStarInput, RepositoryStars } from "@shared/repository-stars";
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -37,7 +39,7 @@ export function retryAt(headers: Headers, status: number, now = Date.now()): num
   return status === 429 ? now + 60_000 : undefined;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   init?.signal?.throwIfAborted();
   const reading = !init?.method || init.method === "GET";
   const cooldown = reading ? readCooldowns.get(path) : undefined;
@@ -69,6 +71,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   botSettings: (signal?: AbortSignal) => request<BotSettingsState>("/api/bot-settings", { signal, cache: "no-store" }),
   saveBotSettings: (input: BotSettingsInput) => request<BotSettingsState>("/api/bot-settings", { method: "POST", headers: { "x-opencircle-admin": "1" }, body: JSON.stringify(input) }),
+  repositoryStars: (ids: string[], signal?: AbortSignal) => request<RepositoryStars>(`/api/repository-stars?${new URLSearchParams(ids.map((id) => ["id", id]))}`, { signal, cache: "no-store" }),
+  repositoryStar: (input: RepositoryStarInput) => request<RepositoryStar>("/api/repository-stars", { method: "POST", body: JSON.stringify(input) }),
   adminAnalytics: (days: AnalyticsDays, signal?: AbortSignal) => request<AdminAnalytics>(`/api/analytics?days=${days}`, { signal, cache: "no-store" }),
   participation: (signal?: AbortSignal) => request<ParticipationState>("/api/participation", { signal }),
   linkWhatsapp: (phone: string) => request<LinkChallenge>("/api/participation", { method: "POST", body: JSON.stringify({ action: "link", phone }) }),

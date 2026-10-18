@@ -1,9 +1,10 @@
 import { StarIcon } from "@solar-icons/react/bold-duotone";
 import { MetalBadge } from "metal-fx";
 import { motion } from "motion/react";
+import type { RankingPeriod } from "@shared/coordination";
 import type { PublicMember } from "@shared/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { diceBearAvatarUrl, formatCount, formatFull, githubUrl } from "@/lib/format";
+import { diceBearAvatarUrl, formatCount, formatFull, formatHelpDetail, githubUrl, rankingPeriodLabels } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Movement } from "./movement";
 import { MemberProgressionDialog } from "./member-progression-dialog";
@@ -25,6 +26,7 @@ function Row({
   flash,
   counts,
   total,
+  period,
 }: {
   member: PublicMember;
   index: number;
@@ -32,9 +34,12 @@ function Row({
   flash: boolean;
   counts?: Record<string, number>;
   total?: number;
+  period: RankingPeriod;
 }) {
   const { resolvedTheme } = useTheme();
   const id = member.login.toLowerCase();
+  const helps = (member.helpfulContributions ?? 0) + (member.starHelps ?? 0);
+  const helpDetail = formatHelpDetail(member, period);
   return (
     <motion.div
       layout="position"
@@ -79,7 +84,7 @@ function Row({
               )}
             </span>
             <span className="block truncate text-xs text-t4 group-hover:text-t3 md:hidden">@{member.login}</span>
-            <span className="block truncate text-[11px] text-t3 tabular md:hidden">{formatCount(member.helpfulContributions ?? 0)} confirmed helps · {formatCount(member.helpedMembers ?? 0)} members</span>
+            <span className="block truncate text-[11px] text-t3 tabular md:hidden" title={helpDetail}>{formatCount(helps)} helps · {formatCount(member.starHelps ?? 0)} stars given</span>
           </span>
         </a>
         <ProgressionBadges member={member} counts={counts} total={total} className="shrink-0" />
@@ -99,7 +104,7 @@ function Row({
       </div>
 
       <div role="cell" className="text-right md:text-left">
-        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.helperPoints ?? 0)} from confirmed help · ${formatFull(member.helpedMembers ?? 0)} members helped in 28 days`}>
+        <span className="block text-sm font-medium tabular text-foreground" title={`${formatFull(member.score)} points · ${formatFull(member.helperPoints ?? 0)} from help · ${helpDetail}`}>
           <span className="sr-only">{formatFull(member.score)} points</span>
           <span className="md:hidden" aria-hidden="true">{formatCount(member.score)}</span>
           <span className="hidden md:inline" aria-hidden="true">{formatFull(member.score)}</span>
@@ -113,9 +118,9 @@ function Row({
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.stars)}</div>
       <div role="cell" className="hidden text-sm tabular text-t2 md:block">{formatCount(member.followers)}</div>
       <div role="cell" className="hidden text-sm tabular text-t3 md:block">{formatCount(member.repos)}</div>
-      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title={`${formatFull(member.activity)} GitHub contributions since joining · ${formatFull(member.upvotes)} repo upvotes`}>
-        {formatCount(member.helpfulContributions ?? 0)} helps
-        <span className="block text-[11px] text-t3">{formatCount(member.helpedMembers ?? 0)} members</span>
+      <div role="cell" className="hidden text-sm tabular text-t2 md:block" title={helpDetail}>
+        {formatCount(helps)} helps
+        <span className="block text-[11px] text-t3">{formatCount(member.starHelps ?? 0)} stars given</span>
       </div>
       <div role="cell" className="hidden text-sm md:block">
         <Movement delta={member.delta} isNew={member.isNew} />
@@ -131,6 +136,7 @@ export function RankTable({
   total = members.length,
   achievementCounts,
   memberCount,
+  period = "all",
 }: {
   /** Members ranked 4 and below, in rank order. */
   members: PublicMember[];
@@ -139,6 +145,7 @@ export function RankTable({
   total?: number;
   achievementCounts?: Record<string, number>;
   memberCount?: number;
+  period?: RankingPeriod;
 }) {
   if (members.length === 0) {
     return (
@@ -160,14 +167,14 @@ export function RankTable({
             <span role="columnheader" className="hidden md:block">Stars</span>
             <span role="columnheader" className="hidden md:block">Followers</span>
             <span role="columnheader" className="hidden md:block">Repos</span>
-            <span role="columnheader" className="hidden md:block">Help · 28 days</span>
+            <span role="columnheader" className="hidden md:block">Help · {rankingPeriodLabels[period]}</span>
             <span role="columnheader" className="hidden md:block">Move</span>
           </div>
         </div>
         <div role="rowgroup" className="space-y-1">
           {members.map((m, i) => {
             const id = m.login.toLowerCase();
-            return <Row key={id} member={m} index={i} isMe={id === meId} flash={id === flashId} counts={achievementCounts} total={memberCount} />;
+            return <Row key={id} member={m} period={period} index={i} isMe={id === meId} flash={id === flashId} counts={achievementCounts} total={memberCount} />;
           })}
         </div>
       </div>
