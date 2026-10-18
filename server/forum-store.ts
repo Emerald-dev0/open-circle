@@ -2,13 +2,15 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Pool, PoolClient } from "pg";
-import type { ForumAggregate, ForumFilter, ForumThread } from "../shared/forum.js";
+import type { ForumAggregate, ForumContent, ForumFilter, ForumThread } from "../shared/forum.js";
 import { FORUM_PAGE_SIZE } from "../shared/forum.js";
 import { HttpError } from "./http.js";
 import { createPostgresPool } from "./postgres.js";
 
 export interface ForumListing { threads: { thread: ForumThread; commentCount: number }[]; total: number }
+export type PublishedForumThread = Pick<ForumThread, "id" | "kind" | "author"> & { content: ForumContent };
 export interface ForumStore {
+  readPublished(id: string): Promise<PublishedForumThread | null>;
   list(filter: ForumFilter, viewerId: number, admin: boolean): Promise<ForumListing>;
   transact<T>(id: string, write: boolean, run: (data: ForumAggregate) => Promise<T> | T): Promise<T>;
 }
@@ -30,6 +32,11 @@ export class LocalForumStore implements ForumStore {
   private tail: Promise<unknown> = Promise.resolve();
   constructor(private readonly file: string | null = path.resolve(".data/forum.json")) {
     this.records = file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : {};
+  }
+  async readPublished(id: string): Promise<PublishedForumThread | null> {
+    await this.tail;
+    const thread = this.records[id]?.thread;
+    return thread?.published && !thread.hidden ? structuredClone({ id: thread.id, kind: thread.kind, author: thread.author, content: thread.published }) : null;
   }
   async list(filter: ForumFilter, viewerId: number, admin: boolean) {
     await this.tail;
@@ -73,6 +80,12 @@ async function inTransaction<T>(pool: Pool, write: boolean, run: (client: PoolCl
 }
 export class PostgresForumStore implements ForumStore {
   constructor(private readonly pool: Pool) {}
+  async readPublished(id: string): Promise<PublishedForumThread | null> {
+    try {
+      const result = await this.pool.query<PublishedForumThread>("SELECT id, document->>'kind' AS kind, document->'author' AS author, document->'published' AS content FROM opencircle_forum_threads WHERE id=$1 AND document->'published' <> 'null'::jsonb AND NOT (document->>'hidden')::boolean", [id]);
+      return result.rows[0] ?? null;
+    } catch (error) { storageError(error); }
+  }
   async list(f: ForumFilter, viewerId: number, admin: boolean): Promise<ForumListing> {
     return inTransaction(this.pool, false, async (client) => {
       const values: unknown[] = [];

@@ -46,6 +46,9 @@ import { handle, HttpError, json } from "./http.js";
 import { portfolioHtml, publicPortfolioSlug } from "./portfolio-html.js";
 import { readPublicPortfolio } from "./portfolio.js";
 import { eventSeoDocument } from "./event-seo.js";
+import { communitySeoDocument } from "./forum-seo.js";
+import * as forumPreview from "../api/forum-preview.js";
+import * as forumImage from "../api/forum-image.js";
 
 type Handler = (req: Request) => Promise<Response>;
 const routes: Record<string, Record<string, Handler | undefined>> = {
@@ -63,6 +66,8 @@ const routes: Record<string, Record<string, Handler | undefined>> = {
   "auth-callback": authCallback as Record<string, Handler>,
   "forum-legacy": forumLegacy as Record<string, Handler>,
   forum: forum as Record<string, Handler>,
+  "forum-preview": forumPreview as Record<string, Handler>,
+  "forum-image": forumImage as Record<string, Handler>,
   "forum-admin": forumAdmin as Record<string, Handler>,
   community: community as Record<string, Handler>,
   tools: tools as Record<string, Handler>,
@@ -84,6 +89,7 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml; charset=utf-8",
   ".json": "application/json",
@@ -190,7 +196,7 @@ export function createAppServer(distDirectory = path.resolve(process.cwd(), "dis
       const raw = readFileSync(INDEX, "utf8");
       const origin = originFromHtml(raw, process.env.SITE_URL || DEFAULT_SITE_URL);
       let document = seoDocument(pathname, origin);
-      try { document = await eventSeoDocument(pathname, origin) ?? document; }
+      try { document = await communitySeoDocument(pathname, origin) ?? await eventSeoDocument(pathname, origin) ?? document; }
       catch (error) {
         console.error(error);
         document = { ...document, status: 503 };

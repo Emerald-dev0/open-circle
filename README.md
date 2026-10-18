@@ -183,6 +183,8 @@ Verified group members use `/community` for admin discussions, single-choice pol
 
 Community requires PostgreSQL in production, including installations that use Redis for other features. Apply the additive `006_forum.sql` migration through `pnpm db:migrate` before releasing the code. Development without a remote store uses `.data/forum.json`; this file store supports one development process and is not a production adapter. Failed saves are reported and never fall back to browser storage.
 
+Shared discussion and question links show the published title, a short excerpt and a generated preview image. Drafts, hidden posts, pending revisions and comments stay out of previews. Reading and replying still require verified membership. Preview images use the bundled Aspekta fonts under `public/fonts/` and need no external image service.
+
 Member access reuses GitHub sessions and the coordination service's verified link and current tracking flag. If membership checks are paused, stale or unavailable, Community blocks access until they recover. Admin moderation uses the separate admin session. Poll votes use numeric GitHub IDs and a PostgreSQL unique key; thread locks serialize voting, closure and moderation. Only aggregate choices and the viewer's own selection are returned.
 
 Existing Help records remain in **Community → Questions → Earlier help requests**, with their original access, answer confirmations and scores. Participation's Help destination links there, while received-answer confirmation stays under Participation → Feedback. New website help requests must use the moderated Questions form. No records are imported into the new feed, and forum posts, comments and votes do not send WhatsApp messages or earn ranking points.

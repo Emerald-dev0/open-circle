@@ -13,6 +13,21 @@ export const command = (patch: Omit<ForumCommand, "requestId">): ForumCommand =>
 export const poll = { question: "What should our next lesson cover?", options: [{ id: "option_1", label: "Git" }, { id: "option_2", label: "Testing" }], closesAt: null, closed: false };
 
 export function forumContract(create: () => ForumStore) {
+  it("reads only the published thread for link previews and excludes unpublished or hidden content", async () => {
+    const store = create();
+    const draft = await commandForum(store, admin, command({ action: "create", kind: "discussion", content }));
+    expect(await store.readPublished(draft.id)).toBeNull();
+    const pending = await commandForum(store, alice, command({ action: "create", kind: "question", content }));
+    expect(await store.readPublished(pending.id)).toBeNull();
+    const approved = await commandForum(store, admin, command({ action: "review", id: pending.id, version: pending.version, decision: "approve", reason: "Private approval note" }));
+    await commandForum(store, alice, command({ action: "edit", id: approved.id, version: approved.version, content: { ...content, title: "Private proposed title" } }));
+    const published = await store.readPublished(approved.id);
+    expect(published).toEqual({ id: approved.id, kind: "question", author: alice.profile, content });
+    expect(JSON.stringify(published)).not.toContain("Private");
+    const current = await readForum(store, admin, approved.id);
+    await commandForum(store, admin, command({ action: "moderate", id: current.id, version: current.version, operation: "hide", reason: "Hide preview" }));
+    expect(await store.readPublished(approved.id)).toBeNull();
+  });
   it("persists likes by GitHub account, serializes concurrent changes and keeps liker identities private", async () => {
     const store = create();
     const post = await commandForum(store, admin, command({ action: "create", kind: "discussion", content, publish: true, poll }));

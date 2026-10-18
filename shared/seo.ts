@@ -111,7 +111,7 @@ export type SeoDocument = SeoPage & {
   status: 200 | 404 | 503;
   robots: string;
   url: string;
-  image?: { url: string; alt: string; contentType: string };
+  image?: { url: string; alt: string; contentType: string; width?: number; height?: number };
 };
 
 export function siteOrigin(value = DEFAULT_SITE_URL) {
@@ -131,7 +131,7 @@ export function seoDocument(pathname: string, originInput = DEFAULT_SITE_URL): S
   const origin = siteOrigin(originInput);
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname || "/";
   const page = byPath.get(path.startsWith("/community/") ? "/community" : path) ?? (/^\/events\/[a-z0-9-]+$/.test(path) ? { ...byPath.get("/events")!, path } : NOT_FOUND);
-  const canonicalPath = page.path || (path.startsWith("/") ? path : "/");
+  const canonicalPath = path.startsWith("/community/") ? path : page.path || (path.startsWith("/") ? path : "/");
   return {
     ...page,
     path: canonicalPath,
@@ -185,7 +185,7 @@ export function structuredData(originInput = DEFAULT_SITE_URL) {
 
 export function robotsTxt(originInput = DEFAULT_SITE_URL) {
   const origin = siteOrigin(originInput);
-  return ["User-agent: *", "Allow: /", "Allow: /api/event-cover", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
+  return ["User-agent: *", "Allow: /", "Allow: /api/event-cover", "Allow: /api/forum-image", "Disallow: /admin", "Disallow: /portfolio", "Disallow: /api/", "", `Sitemap: ${origin}/sitemap.xml`, ""].join("\n");
 }
 
 export function sitemapXml(originInput = DEFAULT_SITE_URL, lastmod = new Date().toISOString().slice(0, 10)) {
@@ -277,7 +277,10 @@ export function applySeo(html: string, document: SeoDocument) {
     next = replaceMeta(next, "property", "og:image:alt", document.image.alt);
     next = replaceMeta(next, "name", "twitter:image", document.image.url);
     next = replaceMeta(next, "name", "twitter:image:alt", document.image.alt);
-    next = next.replace(/<meta\b(?=[^>]*\bproperty=["']og:image:(?:width|height)["'])[^>]*>\s*/gi, "");
+    for (const dimension of ["width", "height"] as const) {
+      if (document.image[dimension]) next = replaceMeta(next, "property", `og:image:${dimension}`, String(document.image[dimension]));
+      else next = next.replace(new RegExp(`<meta\\b(?=[^>]*\\bproperty=["']og:image:${dimension}["'])[^>]*>\\s*`, "gi"), "");
+    }
   }
   return replaceCanonical(next, document.url);
 }
